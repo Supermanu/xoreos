@@ -66,6 +66,11 @@ Creature::Associate::Associate(AssociateType t, Creature *a) : type(t), associat
 Creature::BodyPart::BodyPart() : id(Aurora::kFieldIDInvalid) {
 }
 
+Creature::Creature(): Object(kObjectTypeCreature) {
+	init();
+}
+
+
 Creature::Creature(const Aurora::GFFStruct &creature) : Object(kObjectTypeCreature) {
 	init();
 
@@ -189,6 +194,16 @@ const Common::UString &Creature::getLastName() const {
 uint32 Creature::getGender() const {
 	return _gender;
 }
+
+void Creature::setGender(Uint32 gender) {
+	_gender = gender;
+}
+
+void Creature::setRace(uint32 race) {
+	_race = race;
+}
+
+
 
 bool Creature::isFemale() const {
 	// Male and female are hardcoded.  Other genders (none, both, other)

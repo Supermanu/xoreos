@@ -51,6 +51,8 @@ class Item;
 
 class Creature : public Object {
 public:
+	/** Creature without property. */
+	Creature();
 	/** Load from a creature instance. */
 	Creature(const Aurora::GFFStruct &creature);
 	/** Load from a character file. */
@@ -157,6 +159,13 @@ public:
 	bool isCommandable() const;
 	/** Set whether this creature commandable (has a modifyable action queue). */
 	void setCommandable(bool commandable);
+	
+	//Setting characteristics
+	/** Set gender */
+	void setGender(Uint32 gender);
+	
+	/** Set race */
+	void setRace(uint32 race);
 
 	// Positioning
 
