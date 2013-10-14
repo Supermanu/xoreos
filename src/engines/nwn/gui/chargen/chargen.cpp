@@ -33,18 +33,22 @@
 
 #include "engines/nwn/gui/chargen/chargen.h"
 
+
 namespace Engines {
 
 namespace NWN {
 
 CharGenMenu::CharGenMenu(Module &module) : _module(&module) {
 	load("cg_main");
+	
+	_charSex	= new CharSex(*_module,*_character);
+	_charRace	= new CharRace(*_module,*_character);
 
-	// TODO: "TitleLabel" misplaced!
+	// Move to half the parent widget
+	//getWidget("TitleLabel"     , true)->movePosition(371,0,0);
+	getWidget("TitleLabel"     , true)->setHorCentered();
 
 	// TODO: Character trait buttons
-	getWidget("GenderButton"   , true)->setDisabled(true);
-	getWidget("RaceButton"     , true)->setDisabled(true);
 	getWidget("PortraitButton" , true)->setDisabled(true);
 	getWidget("ClassButton"    , true)->setDisabled(true);
 	getWidget("AlignButton"    , true)->setDisabled(true);
@@ -52,19 +56,50 @@ CharGenMenu::CharGenMenu(Module &module) : _module(&module) {
 	getWidget("PackagesButton" , true)->setDisabled(true);
 	getWidget("CustomizeButton", true)->setDisabled(true);
 
-	// TODO: Reset
-	getWidget("ResetButton", true)->setDisabled(true);
-
 	// TODO: Play
 	getWidget("PlayButton" , true)->setDisabled(true);
+	
+	_character = new Creature();
 }
 
 CharGenMenu::~CharGenMenu() {
+	delete _character;
+	delete _charSex;
+	delete _charRace;
 }
+
+void CharGenMenu::reset() {
+	delete _character;
+	_character = new Creature();
+	delete _charSex;
+	_charSex = new CharSex(*_module,*_character);
+	delete _charRace;
+	_charRace = new CharRace(*_module,*_character);
+	
+	
+	
+}
+
 
 void CharGenMenu::callbackActive(Widget &widget) {
 	if (widget.getTag() == "CancelButton") {
+		reset();
 		_returnCode = 1;
+		return;
+	}
+	
+	if (widget.getTag() == "GenderButton") {
+		sub(*_charSex);
+		return;
+	}
+	
+	if (widget.getTag() == "RaceButton") {
+		sub(*_charRace);
+		return;
+	}
+	
+	if (widget.getTag() == "ResetButton") {
+		reset();
 		return;
 	}
 
