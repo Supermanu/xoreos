@@ -261,6 +261,34 @@ enum Alignment {
 	kAlignmentEvil    = 5
 };
 
+enum Race {
+	kRaceDwarf		= 0,
+	kRaceElf		= 1,
+	kRaceGnome		= 2,
+	kRaceHalfling		= 3,
+	kRaceHalfElf		= 4,
+	kRaceHalfOrc		= 5,
+	kRaceHuman		= 6,
+	kRaceAberration 	= 7,
+	kRaceAnimal		= 8,
+	kRaceBeast		= 9,
+	kRaceConstruct		= 10,
+	kRaceDragon		= 11,
+	kRaceHumanoidGloblinoid	= 12,
+	kRaceHumanoidMonstrous	= 13,
+	kRaceHumanoidOrc	= 14,
+	kRaceHumanoidReptilian	= 15,
+	kRaceElemental		= 16,
+	kRaceFey		= 17,
+	kRaceGiant		= 18,
+	kRaceMagicalBeast	= 19,
+	kRaceOutsider		= 20,
+	kRaceShapechanger	= 23,
+	kRaceUndead		= 24,
+	kRaceVermin		= 25
+};
+
+
 static const uint32 kActionInvalid     = 0xFFFF;
 static const uint32 kObjectTypeInvalid = 0x7FFF;
 
