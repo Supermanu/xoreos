@@ -29,6 +29,7 @@
 
 #include "engines/aurora/widget.h"
 #include "engines/aurora/gui.h"
+#include <lua/llex.h>
 
 namespace Engines {
 
@@ -128,6 +129,14 @@ void Widget::setPosition(float x, float y, float z) {
 void Widget::movePosition(float x, float y, float z) {
 	setPosition(_x + x, _y + y, _z + z);
 }
+
+void Widget::setHorCentered() {
+	if (_parent == 0)
+		return;
+
+	movePosition(_parent->getWidth()/2,0,0);
+}
+
 
 void Widget::getPosition(float &x, float &y, float &z) const {
 	x = _x;

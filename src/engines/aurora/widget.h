@@ -66,6 +66,9 @@ public:
 
 	/** Move the widget, relative to its current position. */
 	virtual void movePosition(float x, float y, float z);
+	
+	/** Set the widget horizontally centered from is parent. */
+	virtual void setHorCentered();
 
 	/** Get the widget's position. */
 	virtual void getPosition(float &x, float &y, float &z) const;
