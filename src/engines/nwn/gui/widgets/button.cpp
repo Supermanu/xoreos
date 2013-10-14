@@ -32,6 +32,7 @@
 #include "engines/aurora/util.h"
 
 #include "engines/nwn/gui/widgets/button.h"
+#include <lua/llex.h>
 
 namespace Engines {
 
@@ -39,7 +40,7 @@ namespace NWN {
 
 WidgetButton::WidgetButton(::Engines::GUI &gui, const Common::UString &tag,
                            const Common::UString &model, const Common::UString &sound) :
-	ModelWidget(gui, tag, model) {
+	ModelWidget(gui, tag, model), _stayPressed(false), _pressed(false) {
 
 	_model->setClickable(true);
 	_model->setState("up");
@@ -56,6 +57,9 @@ void WidgetButton::enter() {
 	if (isDisabled())
 		return;
 
+	if (_stayPressed) 
+		return;
+
 	_model->setState("hilite");
 }
 
@@ -63,6 +67,8 @@ void WidgetButton::leave() {
 	ModelWidget::leave();
 
 	if (isDisabled())
+		return;
+	if (_stayPressed)
 		return;
 
 	_model->setState("up");
@@ -84,7 +90,12 @@ void WidgetButton::mouseDown(uint8 state, float x, float y) {
 	if (state != SDL_BUTTON_LMASK)
 		return;
 
+	///TODO Add an animation when pressed: the text should move a little to the bottom.
+	if (_stayPressed) {
+		return;
+	}
 	_model->setState("down");
+
 	playSound(_sound, Sound::kSoundTypeSFX);
 }
 
@@ -92,9 +103,47 @@ void WidgetButton::mouseUp(uint8 state, float x, float y) {
 	if (isDisabled())
 		return;
 
-	_model->setState("hilite");
-	setActive(true);
+	if (!_stayPressed) {
+		_model->setState("hilite");
+		setActive(true);
+		return;
+	} else {
+		playSound(_sound, Sound::kSoundTypeSFX);
+		_pressed = ! _pressed;
+
+		if (_pressed) {
+			setPressed(true);
+		}
+	}
+
 }
+
+void WidgetButton::setStayPressed(bool stay) {
+	_stayPressed = stay;
+}
+
+void WidgetButton::setPressed(bool pressed) {
+	if (!_stayPressed)
+		return;
+
+
+	if (pressed) {
+		_model->setState("down");
+		_pressed = true;
+		setActive(true);
+	} else {
+		_model->setState("up");
+		_pressed = false;
+		setActive(false);
+	}
+}
+
+bool WidgetButton::isPressed() {
+	return _pressed;
+}
+
+
+
 
 } // End of namespace NWN
 
