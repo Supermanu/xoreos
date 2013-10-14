@@ -21,45 +21,51 @@
  *
  * The Infinity, Aurora, Odyssey, Eclipse and Lycium engines, Copyright (c) BioWare corp.
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
+ *
  */
 
-/** @file engines/nwn/gui/chargen/chargen.h
- *  The NWN character generator.
+/** @file engines/nwn/gui/chargen/charrace.h
+ *  The NWN race selection for the character generator.
  */
 
-#ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-#define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#ifndef ENGINES_NWN_GUI_CHARGEN_CHARRACE_H
+#define ENGINES_NWN_GUI_CHARGEN_CHARRACE_H
+
+#include <map>
 
 #include "engines/nwn/gui/gui.h"
+#include "engines/nwn/gui/widgets/button.h"
 
-#include "engines/nwn/gui/chargen/charsex.h"
-#include "engines/nwn/gui/chargen/charrace.h"
+#include "engines/nwn/creature.h"
 
 namespace Engines {
 
 namespace NWN {
-
+  
+typedef std::map<Common::UString, std::pair<WidgetButton *, uint32> > raceButtonAssoc;
+  
 class Module;
-
-/** The NWN character generator. */
-class CharGenMenu : public GUI {
+  
+class CharRace : public GUI {
 public:
-	CharGenMenu(Module &module);
-	~CharGenMenu();
-	void reset();
+	CharRace(Module &module, Creature &character);
+	~CharRace();
+	
+	void changeRaceTo(Common::UString race);
+	void changeRaceTo(uint32 race);
 
 protected:
 	void callbackActive(Widget &widget);
 
 private:
 	Module *_module;
-	Creature * _character;
-	CharSex * _charSex;
-	CharRace * _charRace;
+	Creature *_character;
+	uint32 _race;
+	raceButtonAssoc * _raceWidgets;
 };
 
 } // End of namespace NWN
 
 } // End of namespace Engines
 
-#endif // ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#endif // ENGINES_NWN_GUI_CHARGEN_CHARRACE_H

@@ -23,43 +23,45 @@
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
  */
 
-/** @file engines/nwn/gui/chargen/chargen.h
- *  The NWN character generator.
+/** @file engines/nwn/gui/chargen/charsex.h
+ *  The NWN gender selection for the character generator.
  */
 
-#ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-#define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#ifndef ENGINES_NWN_GUI_CHARGEN_CHARSEX_H
+#define ENGINES_NWN_GUI_CHARGEN_CHARSEX_H
+
+#include <map>
 
 #include "engines/nwn/gui/gui.h"
+#include "engines/nwn/gui/widgets/button.h"
 
-#include "engines/nwn/gui/chargen/charsex.h"
-#include "engines/nwn/gui/chargen/charrace.h"
+#include "engines/nwn/creature.h"
 
 namespace Engines {
 
 namespace NWN {
-
+  
 class Module;
-
-/** The NWN character generator. */
-class CharGenMenu : public GUI {
+  
+class CharSex : public GUI {
 public:
-	CharGenMenu(Module &module);
-	~CharGenMenu();
-	void reset();
+	CharSex(Module &module, Creature &character);
+	~CharSex();
+	void swapGender();
+
 
 protected:
 	void callbackActive(Widget &widget);
 
 private:
 	Module *_module;
-	Creature * _character;
-	CharSex * _charSex;
-	CharRace * _charRace;
+	Creature *_character;
+	uint32 _gender;
+	std::map<Common::UString,WidgetButton*> * _genderWidgets;
 };
 
 } // End of namespace NWN
 
 } // End of namespace Engines
 
-#endif // ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#endif // ENGINES_NWN_GUI_CHARGEN_CHARSEX_H
