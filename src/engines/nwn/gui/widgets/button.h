@@ -51,12 +51,17 @@ public:
 	void leave();
 
 	void setDisabled(bool disabled);
+	void setStayPressed(bool stay = true);
+	void setPressed(bool pressed = true);
+	bool isPressed();
 
 	void mouseDown(uint8 state, float x, float y);
 	void mouseUp  (uint8 state, float x, float y);
 
 private:
 	Common::UString _sound;
+	bool _stayPressed;
+	bool _pressed;
 };
 
 } // End of namespace NWN
