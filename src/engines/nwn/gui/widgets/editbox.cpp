@@ -78,8 +78,6 @@ void WidgetEditBox::setTitle(Common::UString title) {
 	_title->set(title);
 }
 
-
-
 void WidgetEditBox::show() {
 	Engines::NWN::ModelWidget::show();
 	_title->show();
@@ -97,11 +95,6 @@ void WidgetEditBox::hide() {
 		(*it)->hide();
 	}
 }
-
-
-
-
-
 
 } // End of namespace NWN
 
