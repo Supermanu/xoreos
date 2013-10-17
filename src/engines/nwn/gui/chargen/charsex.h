@@ -34,6 +34,7 @@
 
 #include "engines/nwn/gui/gui.h"
 #include "engines/nwn/gui/widgets/button.h"
+#include "engines/nwn/gui/widgets/editbox.h"
 
 #include "engines/nwn/creature.h"
 
@@ -58,6 +59,8 @@ private:
 	Creature *_character;
 	uint32 _gender;
 	std::map<Common::UString,WidgetButton*> * _genderWidgets;
+	WidgetEditBox * _helpBox;
+	std::vector<Common::UString> _helpTexts;
 };
 
 } // End of namespace NWN

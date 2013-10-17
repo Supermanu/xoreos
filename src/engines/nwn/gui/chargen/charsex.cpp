@@ -25,6 +25,9 @@
 
 #include "engines/nwn/gui/chargen/charsex.h"
 
+#include "engines/nwn/gui/widgets/label.h"
+#include "aurora/talkman.h"
+
 
 
 namespace Engines {
@@ -37,21 +40,34 @@ CharSex::CharSex(Module &module, Creature &character) : _module(&module), _chara
 
 	getWidget("Title"		, true)->setHorCentered();
 
+	_helpTexts.push_back(TalkMan.getString(199));
+	_helpTexts.push_back(TalkMan.getString(200));
+	_helpTexts.push_back(TalkMan.getString(447));
+	
+	_helpBox = (WidgetEditBox *) getWidget("HelpBox", true);
+	
+	_helpBox->setTitle(TalkMan.getString(203));
+	_helpBox->setMainText(_helpTexts[2]);
+	
 	_genderWidgets = new  std::map<Common::UString, WidgetButton *>;
 	_genderWidgets->insert(std::pair<Common::UString, WidgetButton *>("MaleButton", ((WidgetButton *) getWidget("MaleButton"	, true))));
 	_genderWidgets->insert(std::pair<Common::UString, WidgetButton *>("FemaleButton", ((WidgetButton *) getWidget("FemaleButton"	, true))));
-
 
 	_genderWidgets->at("MaleButton")->setStayPressed();
 	_genderWidgets->at("FemaleButton")->setStayPressed();
 	_gender = _character->getGender();
 	if (_gender == Aurora::kGenderFemale) {
 		_genderWidgets->at("FemaleButton")->setPressed();
+		_helpBox->setMainText(_helpTexts[1]);
+	} else if (_gender == Aurora::kGenderMale){
+		_genderWidgets->at("MaleButton")->setPressed();
+		_gender = Aurora::kGenderMale;
+		_helpBox->setMainText(_helpTexts[0]);
 	} else {
 		_genderWidgets->at("MaleButton")->setPressed();
 		_gender = Aurora::kGenderMale;
 	}
-	
+
 
 }
 
@@ -61,6 +77,7 @@ CharSex::~CharSex() {
 
 void CharSex::callbackActive(Widget &widget) {
 	if (widget.getTag() == "CancelButton") {
+		_helpBox->setMainText(_helpTexts[2]);
 		if (_gender != _character->getGender())
 			swapGender();
 		_returnCode = 1;
@@ -68,12 +85,14 @@ void CharSex::callbackActive(Widget &widget) {
 	}
 
 	if (widget.getTag() == "OkButton") {
+		_helpBox->setMainText(_helpTexts[2]);
 		_character->setGender(_gender);
 		_returnCode = 1;
 		return;
 	}
 
 	if (widget.getTag() == "FemaleButton") {
+		_helpBox->setMainText(_helpTexts[1]);
 		if (_gender == Aurora::kGenderFemale) {
 			return;
 		}
@@ -82,6 +101,7 @@ void CharSex::callbackActive(Widget &widget) {
 	}
 
 	if (widget.getTag() == "MaleButton") {
+		_helpBox->setMainText(_helpTexts[0]);
 		if (_gender == Aurora::kGenderMale)
 			return;
 
@@ -95,7 +115,7 @@ void CharSex::swapGender() {
 		_gender = Aurora::kGenderFemale;
 		_genderWidgets->at("MaleButton")->setPressed(false);
 		_genderWidgets->at("FemaleButton")->setPressed(true);
-	} else if (_gender == Aurora::kGenderFemale) {
+	} else {
 		_gender = Aurora::kGenderMale;
 		_genderWidgets->at("MaleButton")->setPressed(true);
 		_genderWidgets->at("FemaleButton")->setPressed(false);
