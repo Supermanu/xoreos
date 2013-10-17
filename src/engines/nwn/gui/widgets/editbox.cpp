@@ -27,7 +27,10 @@
  *  A NWN editbox widget.
  */
 
+#include "graphics/aurora/text.h"
+
 #include "engines/nwn/gui/widgets/editbox.h"
+
 
 namespace Engines {
 
@@ -37,10 +40,68 @@ WidgetEditBox::WidgetEditBox(::Engines::GUI &gui, const Common::UString &tag,
                              const Common::UString &model, const Common::UString &font) :
 	ModelWidget(gui, tag, model) {
 
+	float pX,pY,pZ;
+	this->getPosition(pX,pY,pZ);
+	
+	_fontHandle = FontMan.get(font);
+	
+	_title = new Graphics::Aurora::Text(_fontHandle,"");
+	_title->setPosition(15,192,pZ-100);
+
+	///TODO Add scrollbar
 }
 
 WidgetEditBox::~WidgetEditBox() {
 }
+
+void WidgetEditBox::setMainText(Common::UString mainText) {
+      if (!_mainText.empty()) {
+		for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it) {
+			(*it)->hide();
+			delete (*it);
+		}
+		_mainText.clear();
+      }
+
+      std::vector<Common::UString> lines;
+      _fontHandle.getFont().split(mainText, lines, getWidth() - 30);
+      for (std::vector<Common::UString>::iterator it = lines.begin(); it != lines.end(); ++it) {
+		Graphics::Aurora::Text * text = new Graphics::Aurora::Text(_fontHandle, *it);
+		text->setPosition(15, 105 - (it - lines.begin()) *  text->getHeight(), -100);
+		_mainText.push_back(text);
+		if (this->isVisible())
+			text->show();
+      }
+}
+
+void WidgetEditBox::setTitle(Common::UString title) {
+	_title->set(title);
+}
+
+
+
+void WidgetEditBox::show() {
+	Engines::NWN::ModelWidget::show();
+	_title->show();
+
+	for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it) {
+		(*it)->show();
+	}
+}
+
+void WidgetEditBox::hide() {
+	Engines::NWN::ModelWidget::hide();
+	_title->hide();
+
+	for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it) {
+		(*it)->hide();
+	}
+}
+
+
+
+
+
 
 } // End of namespace NWN
 
