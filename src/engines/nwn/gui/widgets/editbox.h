@@ -30,15 +30,17 @@
 #ifndef ENGINES_NWN_GUI_WIDGETS_EDITBOX_H
 #define ENGINES_NWN_GUI_WIDGETS_EDITBOX_H
 
+#include "graphics/font.h"
+
 #include "engines/nwn/gui/widgets/modelwidget.h"
+
+#include <graphics/aurora/fontman.h>
 
 namespace Common {
 	class UString;
 }
 
 namespace Engines {
-
-class GUI;
 
 namespace NWN {
 
@@ -48,6 +50,18 @@ public:
 	WidgetEditBox(::Engines::GUI &gui, const Common::UString &tag,
 	              const Common::UString &model, const Common::UString &font);
 	~WidgetEditBox();
+
+	void show();
+	void hide();
+
+	void setTitle(Common::UString title);
+	void setMainText(Common::UString mainText);
+
+private:
+	Graphics::Aurora::FontHandle _fontHandle;
+	Graphics::Aurora::Text *_title;
+	std::vector<Graphics::Aurora::Text *> _mainText;
+
 };
 
 } // End of namespace NWN
