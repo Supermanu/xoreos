@@ -41,6 +41,8 @@ namespace NWN {
 CharGenMenu::CharGenMenu(Module &module) : _module(&module) {
 	load("cg_main");
 	
+	_character = new Creature();
+	
 	_charSex	= new CharSex(*_module,*_character);
 	_charRace	= new CharRace(*_module,*_character);
 
@@ -58,8 +60,7 @@ CharGenMenu::CharGenMenu(Module &module) : _module(&module) {
 
 	// TODO: Play
 	getWidget("PlayButton" , true)->setDisabled(true);
-	
-	_character = new Creature();
+
 }
 
 CharGenMenu::~CharGenMenu() {
@@ -71,13 +72,8 @@ CharGenMenu::~CharGenMenu() {
 void CharGenMenu::reset() {
 	delete _character;
 	_character = new Creature();
-	delete _charSex;
-	_charSex = new CharSex(*_module,*_character);
-	delete _charRace;
-	_charRace = new CharRace(*_module,*_character);
-	
-	
-	
+	_charSex->reset();
+	_charRace->reset();
 }
 
 
