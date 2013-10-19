@@ -26,6 +26,8 @@
 
 #include "engines/nwn/gui/chargen/charrace.h"
 
+#include "aurora/talkman.h"
+
 namespace Engines {
 
 namespace NWN {
@@ -34,29 +36,28 @@ namespace NWN {
 CharRace::CharRace(Module &module, Creature &character) : _module(&module), _character(&character) {
 	load("cg_race");
 
-	getWidget("Title"	, true)->setHorCentered();
+	getWidget("Title"		, true)->setHorCentered();
+	getWidget("SubRaceButton"	, true)->setDisabled(true);
 
-	_raceWidgets = new raceButtonAssoc;
+	initVectors();
 
-	_raceWidgets->insert(std::pair<Common::UString, std::pair<WidgetButton *, uint32> >("HumanButton", std::make_pair(((WidgetButton *) getWidget("HumanButton", true)), NWN::kRaceHuman)));
-	_raceWidgets->insert(std::pair<Common::UString, std::pair<WidgetButton *, uint32> >("DwarfButton", std::make_pair(((WidgetButton *) getWidget("DwarfButton", true)), NWN::kRaceDwarf)));
-	_raceWidgets->insert(std::pair<Common::UString, std::pair<WidgetButton *, uint32> >("ElfButton", std::make_pair(((WidgetButton *) getWidget("ElfButton", true)), NWN::kRaceElf)));
-	_raceWidgets->insert(std::pair<Common::UString, std::pair<WidgetButton *, uint32> >("HalflingButton", std::make_pair(((WidgetButton *) getWidget("HalflingButton", true)), NWN::kRaceHalfling)));
-	_raceWidgets->insert(std::pair<Common::UString, std::pair<WidgetButton *, uint32> >("GnomeButton", std::make_pair(((WidgetButton *) getWidget("GnomeButton", true)), NWN::kRaceGnome)));
-	_raceWidgets->insert(std::pair<Common::UString, std::pair<WidgetButton *, uint32> >("HalfElfButton", std::make_pair(((WidgetButton *) getWidget("HalfElfButton", true)), NWN::kRaceHalfElf)));
-	_raceWidgets->insert(std::pair<Common::UString, std::pair<WidgetButton *, uint32> >("HalfOrcButton", std::make_pair(((WidgetButton *) getWidget("HalfOrcButton", true)), NWN::kRaceHalfOrc)));
+	_helpBox = (WidgetEditBox *) getWidget("HelpBox", true);
 
-	for (raceButtonAssoc::iterator it = _raceWidgets->begin(); it != _raceWidgets->end(); ++it) {
-		it->second.first->setStayPressed();
+	for (std::vector<WidgetButton *>::iterator it = _widgetList.begin(); it != _widgetList.end(); ++it) 
+		(*it)->setStayPressed();
+	
+	if (_character->getRace() == kRaceInvalid) {
+		changeRaceTo(kRaceHuman);
+	} else {
+		changeRaceTo(_character->getRace());
 	}
-
-	changeRaceTo(NWN::kRaceHuman);
-
-
+	_helpBox->setTitle(_helpTexts[15]);
+	_helpBox->setMainText(_helpTexts[7]);
+	_race = kRaceInvalid;
 }
 
 CharRace::~CharRace() {
-	delete _raceWidgets;
+	delete _helpBox;
 }
 
 void CharRace::callbackActive(Widget &widget) {
@@ -67,50 +68,92 @@ void CharRace::callbackActive(Widget &widget) {
 	}
 
 	if (widget.getTag() == "OkButton") {
+		if (_race == kRaceInvalid)
+			_race = kRaceHuman;
+
 		_character->setRace(_race);
 		_returnCode = 1;
 		return;
 	}
 	
 	if (widget.getTag() == "RecommendButton") {
-		changeRaceTo("HumanButton");
+		changeRaceTo(kRaceHuman);
 		return;
 	}
 
-	for (raceButtonAssoc::iterator it = _raceWidgets->begin(); it != _raceWidgets->end(); ++it) {
-		if (widget.getTag() == it->first) {
-			changeRaceTo(it->first);
-			return;
-		}
+	for (Uint8 it = 0; it < 7; ++it) {
+		if (widget.getTag() == _buttonList.at(it))
+			changeRaceTo(_raceList[it]);
 	}
-
 }
 
-void CharRace::changeRaceTo(Common::UString race) {
-	if (_race == _raceWidgets->at(race).second)
+void CharRace::changeRaceTo(Uint32 race) {
+	if (_race == race)
 		return;
-
-	_raceWidgets->at(race).first->setPressed();
-	for (raceButtonAssoc::iterator it = _raceWidgets->begin(); it != _raceWidgets->end(); ++it) {
-		if (it->first == race)
-			continue;
-
-		it->second.first->setPressed(false);
+ 
+	if (_race == kRaceInvalid) {
+		_widgetList[0]->setPressed(false);
 	}
-	_race = _raceWidgets->at(race).second;
-}
 
-void CharRace::changeRaceTo(uint32 race) {
-	  if (_race == race) {
-			return;
-	  }
-  
-	for (raceButtonAssoc::iterator it = _raceWidgets->begin(); it != _raceWidgets->end(); ++it) {
-		if (it->second.second == race) {
-			changeRaceTo(it->first);
-			return;
+	for (Uint8 it = 0; it < 7; ++it) {
+		if (_raceList[it] == _race) {
+			_widgetList[it]->setPressed(false);
+		} else if (_raceList[it] == race) {
+			_widgetList[it]->setPressed();
+			_helpBox->setMainText(_helpTexts[it]);
+			_helpBox->setTitle(_helpTexts[it+8]);
 		}
 	}
+	_race = race;
+}
+
+void CharRace::initVectors() {
+	_buttonList.push_back("HumanButton");
+	_buttonList.push_back("DwarfButton");
+	_buttonList.push_back("ElfButton");
+	_buttonList.push_back("HalflingButton");
+	_buttonList.push_back("GnomeButton");
+	_buttonList.push_back("HalfElfButton");
+	_buttonList.push_back("HalfOrcButton");
+
+	_raceList.push_back(kRaceHuman);
+	_raceList.push_back(kRaceDwarf);
+	_raceList.push_back(kRaceElf);
+	_raceList.push_back(kRaceHalfling);
+	_raceList.push_back(kRaceGnome);
+	_raceList.push_back(kRaceHalfElf);
+	_raceList.push_back(kRaceHalfOrc);
+	
+	//Add main text
+	_helpTexts.push_back(TalkMan.getString(257));
+	_helpTexts.push_back(TalkMan.getString(251));
+	_helpTexts.push_back(TalkMan.getString(252));
+	_helpTexts.push_back(TalkMan.getString(254));
+	_helpTexts.push_back(TalkMan.getString(253));
+	_helpTexts.push_back(TalkMan.getString(255));
+	_helpTexts.push_back(TalkMan.getString(256));
+	_helpTexts.push_back(TalkMan.getString(485));
+
+	//Add titles
+	_helpTexts.push_back(TalkMan.getString(35));
+	_helpTexts.push_back(TalkMan.getString(23));
+	_helpTexts.push_back(TalkMan.getString(25));
+	_helpTexts.push_back(TalkMan.getString(29));
+	_helpTexts.push_back(TalkMan.getString(27));
+	_helpTexts.push_back(TalkMan.getString(31));
+	_helpTexts.push_back(TalkMan.getString(33));
+	_helpTexts.push_back(TalkMan.getString(481));
+	
+	for (Uint8 it = 0; it < 7; ++it) {
+		_widgetList.push_back((WidgetButton *) getWidget(_buttonList[it], true));
+	}
+}
+
+void CharRace::reset() {
+	changeRaceTo(kRaceHuman);
+	_helpBox->setTitle(_helpTexts[15]);
+	_helpBox->setMainText(_helpTexts[7]);
+	_race = kRaceInvalid;
 }
 
 

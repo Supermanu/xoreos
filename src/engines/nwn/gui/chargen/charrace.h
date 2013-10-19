@@ -31,18 +31,15 @@
 #ifndef ENGINES_NWN_GUI_CHARGEN_CHARRACE_H
 #define ENGINES_NWN_GUI_CHARGEN_CHARRACE_H
 
-#include <map>
-
 #include "engines/nwn/gui/gui.h"
 #include "engines/nwn/gui/widgets/button.h"
+#include "engines/nwn/gui/widgets/editbox.h"
 
 #include "engines/nwn/creature.h"
 
 namespace Engines {
 
 namespace NWN {
-  
-typedef std::map<Common::UString, std::pair<WidgetButton *, uint32> > raceButtonAssoc;
   
 class Module;
   
@@ -51,8 +48,9 @@ public:
 	CharRace(Module &module, Creature &character);
 	~CharRace();
 	
-	void changeRaceTo(Common::UString race);
-	void changeRaceTo(uint32 race);
+	void changeRaceTo(Uint32 race);
+	void initVectors();
+	void reset();
 
 protected:
 	void callbackActive(Widget &widget);
@@ -61,7 +59,11 @@ private:
 	Module *_module;
 	Creature *_character;
 	uint32 _race;
-	raceButtonAssoc * _raceWidgets;
+	std::vector<WidgetButton *> _widgetList;
+	std::vector<Common::UString> _buttonList;
+	std::vector<Uint32> _raceList;
+	std::vector<Common::UString> _helpTexts;
+	WidgetEditBox * _helpBox;
 };
 
 } // End of namespace NWN
