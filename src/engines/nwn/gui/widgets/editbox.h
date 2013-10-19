@@ -34,7 +34,7 @@
 
 #include "engines/nwn/gui/widgets/modelwidget.h"
 
-#include <graphics/aurora/fontman.h>
+#include "graphics/aurora/fontman.h"
 
 namespace Common {
 	class UString;
@@ -43,6 +43,9 @@ namespace Common {
 namespace Engines {
 
 namespace NWN {
+  
+class WidgetButton;
+class WidgetScrollbar;
 
 /** A NWN editbox widget. */
 class WidgetEditBox : public ModelWidget {
@@ -56,11 +59,27 @@ public:
 
 	void setTitle(Common::UString title);
 	void setMainText(Common::UString mainText);
+	void subActive(Widget &widget);
+	void mouseDown(uint8 state, float x, float y);
 
 private:
+	void createScrollbar();
+	void scrollUp(uint n);
+	void scrollDown(uint n);
+	void getProperties();
+	void updateScrollbarLength();
+	void updateScrollbarPosition();
+	
 	Graphics::Aurora::FontHandle _fontHandle;
 	Graphics::Aurora::Text *_title;
 	std::vector<Graphics::Aurora::Text *> _mainText;
+	WidgetButton    *_up;
+	WidgetButton    *_down;
+	WidgetScrollbar *_scrollbar;
+	bool _hasScrollbar;
+	// There is 18 lines to show
+	Uint8 _firstLineToShow;
+	bool _stillPressed;
 
 };
 
