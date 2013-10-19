@@ -49,7 +49,7 @@ public:
 	CharSex(Module &module, Creature &character);
 	~CharSex();
 	void swapGender();
-
+	void reset();
 
 protected:
 	void callbackActive(Widget &widget);
