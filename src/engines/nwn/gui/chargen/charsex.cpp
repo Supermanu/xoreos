@@ -25,7 +25,6 @@
 
 #include "engines/nwn/gui/chargen/charsex.h"
 
-#include "engines/nwn/gui/widgets/label.h"
 #include "aurora/talkman.h"
 
 
@@ -67,12 +66,11 @@ CharSex::CharSex(Module &module, Creature &character) : _module(&module), _chara
 		_genderWidgets->at("MaleButton")->setPressed();
 		_gender = Aurora::kGenderMale;
 	}
-
-
 }
 
 CharSex::~CharSex() {
 	delete _genderWidgets;
+	delete _helpBox;
 }
 
 void CharSex::callbackActive(Widget &widget) {
@@ -120,6 +118,11 @@ void CharSex::swapGender() {
 		_genderWidgets->at("MaleButton")->setPressed(true);
 		_genderWidgets->at("FemaleButton")->setPressed(false);
 	}
+}
+
+void CharSex::reset() {
+	_genderWidgets->at("MaleButton")->setPressed();
+	_gender = Aurora::kGenderMale;
 }
 
 
