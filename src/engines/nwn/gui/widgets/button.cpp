@@ -32,7 +32,6 @@
 #include "engines/aurora/util.h"
 
 #include "engines/nwn/gui/widgets/button.h"
-#include <lua/llex.h>
 
 namespace Engines {
 
@@ -75,6 +74,7 @@ void WidgetButton::leave() {
 }
 
 void WidgetButton::setDisabled(bool disabled) {
+	///TODO When the button is disabled then unabled the text stay grey.
 	NWNWidget::setDisabled(disabled);
 
 	if (isDisabled())
