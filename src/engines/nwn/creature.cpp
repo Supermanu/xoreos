@@ -99,8 +99,9 @@ Creature::~Creature() {
 void Creature::init() {
 	_lastChangedGUIDisplay = 0;
 
-	_gender = kGenderNone;
-	_race   = kRaceInvalid;
+	_gender 	= kGenderNone;
+	_race   	= kRaceInvalid;
+	_portrait 	= "gui_po_nwnlogo_";
 
 	_isPC = false;
 	_isDM = false;
@@ -203,7 +204,9 @@ void Creature::setRace(uint32 race) {
 	_race = race;
 }
 
-
+void Creature::setPortrait(Common::UString portrait) {
+	_portrait = portrait;
+}
 
 bool Creature::isFemale() const {
 	// Male and female are hardcoded.  Other genders (none, both, other)
