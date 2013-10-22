@@ -69,9 +69,9 @@ protected:
 	virtual bool deactivate();
 
 	void signalGroupMemberActive();
+	uint _itemNumber;
 
 private:
-	uint _itemNumber;
 	bool _state;
 
 	friend class WidgetListBox;
@@ -118,6 +118,11 @@ public:
 		kModeStatic     = 0,
 		kModeSelectable
 	};
+	
+	enum ViewStyle {
+		kViewStyleOneColumn	= 0,
+		kViewStyleColumns
+	};
 
 	WidgetListBox(::Engines::GUI &gui, const Common::UString &tag,
 	              const Common::UString &model);
@@ -125,6 +130,8 @@ public:
 
 	Mode getMode() const;
 	void setMode(Mode mode);
+	void setViewStyle(ViewStyle viewStyle);
+	ViewStyle getViewStyle() const;
 
 	void show();
 	void hide();
@@ -146,6 +153,8 @@ public:
 	void select(uint item);
 	uint getSelected() const;
 
+	WidgetListItem * getItem(uint item) const;
+
 	bool wasDblClicked();
 
 	void mouseDown(uint8 state, float x, float y);
@@ -154,6 +163,7 @@ public:
 
 private:
 	Mode _mode;
+	ViewStyle _viewStyle;
 
 	float _contentX;
 	float _contentY;
@@ -190,6 +200,8 @@ private:
 	void updateVisible();
 
 	void itemDblClicked();
+
+	uint _itemsByRow;
 
 	friend class WidgetListItem;
 };
