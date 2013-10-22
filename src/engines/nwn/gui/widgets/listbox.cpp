@@ -132,7 +132,7 @@ void WidgetListItem::signalGroupMemberActive() {
 
 
 WidgetListItemTextLine::WidgetListItemTextLine(::Engines::GUI &gui,
-    const Common::UString &font, const Common::UString &text, float spacing) :
+        const Common::UString &font, const Common::UString &text, float spacing) :
 	WidgetListItem(gui),
 	_uR(1.0), _uG(1.0), _uB(1.0), _uA(1.0),
 	_sR(1.0), _sG(1.0), _sB(0.0), _sA(1.0), _spacing(spacing) {
@@ -224,9 +224,9 @@ bool WidgetListItemTextLine::deactivate() {
 WidgetListBox::WidgetListBox(::Engines::GUI &gui, const Common::UString &tag,
                              const Common::UString &model) :
 	ModelWidget(gui, tag, model),
-	_mode(kModeStatic), _contentX(0.0), _contentY(0.0), _contentZ(0.0),
+	_mode(kModeStatic), _viewStyle(kViewStyleOneColumn), _contentX(0.0), _contentY(0.0), _contentZ(0.0),
 	_hasScrollbar(false), _up(0), _down(0), _scrollbar(0), _dblClicked(false),
-	_startItem(0), _selectedItem(0xFFFFFFFF), _locked(false) {
+	_startItem(0), _selectedItem(0xFFFFFFFF), _locked(false), _itemsByRow(1) {
 
 	_model->setClickable(true);
 
@@ -288,7 +288,7 @@ void WidgetListBox::createScrollbar() {
 
 	// Create the scrollbar
 	_scrollbar =
-		new WidgetScrollbar(*_gui, getTag() + "#Bar", Scrollbar::kTypeVertical, scrollRange);
+	    new WidgetScrollbar(*_gui, getTag() + "#Bar", Scrollbar::kTypeVertical, scrollRange);
 
 	// Center the bar within the scrollbar area
 	float scrollX = maxX + (_up->getWidth() - _scrollbar->getWidth()) / 2;
@@ -305,6 +305,14 @@ WidgetListBox::Mode WidgetListBox::getMode() const {
 
 void WidgetListBox::setMode(Mode mode) {
 	_mode = mode;
+}
+
+WidgetListBox::ViewStyle WidgetListBox::getViewStyle() const {
+	return _viewStyle;
+}
+
+void WidgetListBox::setViewStyle(WidgetListBox::ViewStyle viewStyle) {
+	_viewStyle = viewStyle;
 }
 
 void WidgetListBox::show() {
@@ -410,7 +418,8 @@ void WidgetListBox::add(WidgetListItem *item) {
 
 	item->_itemNumber = _items.size();
 
-	item->setTag(Common::UString::sprintf("%s#Item%d", getTag().c_str(), (int)_items.size()));
+	if (item->getTag().empty())
+		item->setTag(Common::UString::sprintf("%s#Item%d", getTag().c_str(), (int)_items.size()));
 
 	for (std::vector<WidgetListItem *>::iterator i = _items.begin(); i != _items.end(); ++i) {
 		(*i)->addGroupMember(*item);
@@ -431,7 +440,14 @@ void WidgetListBox::unlock() {
 		return;
 	}
 
-	uint count = MIN<uint>(_contentHeight / _items.front()->getHeight(), _items.size());
+	uint vCount = MIN<uint>(_contentHeight / _items.front()->getHeight(), _items.size());
+	_itemsByRow = MIN<uint>(_contentWidth / _items.front()->getWidth(), _items.size());
+	uint count = 0;
+	if (_viewStyle == kViewStyleColumns) {
+		count = _itemsByRow * vCount;
+	} else {
+		count = vCount;
+	}
 	if ((count == 0) || (count == _visibleItems.size())) {
 		GfxMan.unlockFrame();
 		return;
@@ -443,16 +459,41 @@ void WidgetListBox::unlock() {
 
 	uint start = _startItem + _visibleItems.size();
 
-	float itemHeight = _items.front()->getHeight();
-	while (_visibleItems.size() < count) {
-		WidgetListItem *item = _items[start++];
+	if (_viewStyle == kViewStyleOneColumn) {
+		float itemHeight = _items.front()->getHeight();
+		while (_visibleItems.size() < count) {
+			WidgetListItem *item = _items[start++];
 
-		float itemY = _contentY - (_visibleItems.size() + 1) * itemHeight;
-		item->setPosition(_contentX, itemY, _contentZ - 5.0);
+			float itemY = _contentY - (_visibleItems.size() + 1) * itemHeight;
+			item->setPosition(_contentX, itemY, _contentZ - 5.0);
 
-		_visibleItems.push_back(item);
-		if (isVisible())
-			_visibleItems.back()->show();
+			_visibleItems.push_back(item);
+			if (isVisible())
+				_visibleItems.back()->show();
+		}
+	} else {
+		float itemHeight = _items.front()->getHeight();
+		float itemWidth = _items.front()->getWidth();
+		uint row = 0;
+		uint column = 0;
+		while (_visibleItems.size() < count) {
+			WidgetListItem *item = _items[start++];
+
+			float itemY = _contentY - (row + 1) * itemHeight;
+			float itemX = _contentX + (column * itemWidth);
+
+			item->setPosition(itemX, itemY, _contentZ - 5.0);
+
+			_visibleItems.push_back(item);
+			if (isVisible())
+				_visibleItems.back()->show();
+
+			++column;
+			if (column == _itemsByRow) {
+				++row;
+				column = 0;
+			}
+		}
 	}
 
 	updateScrollbarLength();
@@ -507,18 +548,43 @@ void WidgetListBox::updateVisible() {
 	for (uint i = 0; i < _visibleItems.size(); i++)
 		_visibleItems[i]->hide();
 
-	float itemHeight = _items.front()->getHeight();
-	float itemY      = _contentY;
-	for (uint i = 0; i < _visibleItems.size(); i++) {
-		WidgetListItem *item = _items[_startItem + i];
+	if (_viewStyle == kViewStyleOneColumn) {
+		float itemHeight = _items.front()->getHeight();
+		float itemY      = _contentY;
 
-		itemY -= itemHeight;
+		for (uint i = 0; i < _visibleItems.size(); i++) {
+			WidgetListItem *item = _items[_startItem + i];
 
-		item->setPosition(_contentX, itemY, _contentZ - 5.0);
-		_visibleItems[i] = item;
+			itemY -= itemHeight;
 
-		if (isVisible())
-			_visibleItems[i]->show();
+			item->setPosition(_contentX, itemY, _contentZ - 5.0);
+			_visibleItems[i] = item;
+
+			if (isVisible())
+				_visibleItems[i]->show();
+		}
+	} else {
+		float itemHeight 	= _items.front()->getHeight();
+		float itemWidth		= _items.front()->getWidth();
+		float itemY		= _contentY - itemHeight;
+		uint column = 0;
+		for (uint i = 0; i < _visibleItems.size(); i++) {
+			WidgetListItem *item = _items[_startItem + i];
+
+			if (column == _itemsByRow) {
+				itemY -= itemHeight;
+				column = 0;
+			}
+
+			item->setPosition(_contentX + column * itemWidth, itemY, _contentZ - 5.0);
+
+			_visibleItems[i] = item;
+
+			if (isVisible())
+				_visibleItems[i]->show();
+
+			++column;
+		}
 	}
 
 	GfxMan.unlockFrame();
@@ -537,7 +603,11 @@ void WidgetListBox::scrollUp(uint n) {
 	if (_startItem == 0)
 		return;
 
-	_startItem -= MIN<uint>(n, _startItem);
+	if (_viewStyle == kViewStyleOneColumn) {
+		_startItem -= MIN<uint>(n, _startItem);
+	} else {
+		_startItem -= MIN<uint>(n * _itemsByRow, _startItem);
+	}
 
 	updateVisible();
 	updateScrollbarPosition();
@@ -550,7 +620,11 @@ void WidgetListBox::scrollDown(uint n) {
 	if (_startItem + _visibleItems.size() >= _items.size())
 		return;
 
-	_startItem += MIN<uint>(n, _items.size() - _visibleItems.size() - _startItem);
+	if (_viewStyle == kViewStyleOneColumn) {
+		_startItem += MIN<uint>(n, _items.size() - _visibleItems.size() - _startItem);
+	} else {
+		_startItem += MIN<uint>(n * _itemsByRow, _items.size() - _visibleItems.size() - _startItem);
+	}
 
 	updateVisible();
 	updateScrollbarPosition();
@@ -566,6 +640,10 @@ void WidgetListBox::select(uint item) {
 
 uint WidgetListBox::getSelected() const {
 	return _selectedItem;
+}
+
+WidgetListItem *WidgetListBox::getItem(uint item) const {
+	return _items.at(item);
 }
 
 bool WidgetListBox::wasDblClicked() {
