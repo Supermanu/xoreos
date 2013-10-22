@@ -27,6 +27,7 @@
  *  A NWN editbox widget.
  */
 
+#include "graphics/graphics.h"
 #include "graphics/aurora/text.h"
 #include "graphics/aurora/modelnode.h"
 #include "graphics/aurora/model.h"
@@ -47,11 +48,11 @@ WidgetEditBox::WidgetEditBox(::Engines::GUI &gui, const Common::UString &tag,
 	_fontHandle = FontMan.get(font);
 	
 	_title = new Graphics::Aurora::Text(_fontHandle,"");
-	_title->setPosition(15,192,-110);
+	_title->setPosition(15,192,-90);
 
 	getProperties();
 	createScrollbar();
-	///TODO Add an area to scroll
+	_model->setClickable(true);
 }
 
 WidgetEditBox::~WidgetEditBox() {
@@ -86,6 +87,7 @@ void WidgetEditBox::setTitle(Common::UString title) {
 }
 
 void WidgetEditBox::show() {
+	GfxMan.lockFrame();
 	ModelWidget::show();
 
 	_title->show();
@@ -106,6 +108,7 @@ void WidgetEditBox::show() {
 		(*it)->show();
 	}
 	setActive(true);
+	GfxMan.unlockFrame();
 }
 
 void WidgetEditBox::hide() {
@@ -247,9 +250,11 @@ void WidgetEditBox::mouseDown(uint8 state, float x, float y) {
 		return;
 
 	if (state == SDL_BUTTON_WHEELUP) {
+		scrollUp(1);
 		return;
 	}
 	if (state == SDL_BUTTON_WHEELDOWN) {
+		scrollDown(1);
 		return;
 	}
 }
