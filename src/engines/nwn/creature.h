@@ -163,9 +163,12 @@ public:
 	//Setting characteristics
 	/** Set gender */
 	void setGender(Uint32 gender);
-	
+
 	/** Set race */
 	void setRace(uint32 race);
+
+	/** Set the portrait. */
+	void setPortrait(Common::UString portrait);
 
 	// Positioning
 
