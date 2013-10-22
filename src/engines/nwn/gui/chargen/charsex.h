@@ -51,10 +51,8 @@ public:
 	void swapGender();
 	void reset();
 
-protected:
-	void callbackActive(Widget &widget);
-
 private:
+	void callbackActive(Widget &widget);
 	Module *_module;
 	Creature *_character;
 	uint32 _gender;

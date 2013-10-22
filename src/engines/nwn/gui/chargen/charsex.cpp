@@ -43,7 +43,8 @@ CharSex::CharSex(Module &module, Creature &character) : _module(&module), _chara
 	_helpTexts.push_back(TalkMan.getString(200));
 	_helpTexts.push_back(TalkMan.getString(447));
 	
-	_helpBox = (WidgetEditBox *) getWidget("HelpBox", true);
+	_helpBox = getEditBox("HelpBox", true);
+	addWidget(_helpBox);
 	
 	_helpBox->setTitle(TalkMan.getString(203));
 	_helpBox->setMainText(_helpTexts[2]);
@@ -66,6 +67,8 @@ CharSex::CharSex(Module &module, Creature &character) : _module(&module), _chara
 		_genderWidgets->at("MaleButton")->setPressed();
 		_gender = Aurora::kGenderMale;
 	}
+	
+	
 }
 
 CharSex::~CharSex() {
