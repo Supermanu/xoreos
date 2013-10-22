@@ -68,10 +68,16 @@ public:
 
 	/** Set the current position of the portrait. */
 	void setPosition(float x, float y, float z);
+	
+	/** Set a border. */
+	void setBorder(float border, float bR = 1.0, float bG = 1.0, float bB = 1.0, float bA = 1.0);
 
 	/** Get the current position of the portrait. */
 	void getPosition(float &x, float &y, float &z) const;
 
+	/** Get the portrait name. */
+	Common::UString getPortrait() const;
+	
 	/** Is the point within the portrait? */
 	bool isIn(float x, float y) const;
 
@@ -101,6 +107,7 @@ private:
 
 	void setSize();
 	void createBorder();
+	Common::UString _portrait;
 };
 
 /** A NWN portrait widget. */
@@ -113,11 +120,15 @@ public:
 
 	void show();
 	void hide();
+	
+	void mouseDown(uint8 state, float x, float y);
 
 	void setPosition(float x, float y, float z);
 
 	void setPortrait(const Common::UString &name);
+	void setBorder(float border, float bR = 1.0, float bG = 1.0, float bB = 1.0, float bA = 1.0);
 
+	Common::UString getPortrait() const;
 	float getWidth () const;
 	float getHeight() const;
 
