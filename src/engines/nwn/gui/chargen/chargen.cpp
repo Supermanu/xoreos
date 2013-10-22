@@ -43,15 +43,15 @@ CharGenMenu::CharGenMenu(Module &module) : _module(&module) {
 	
 	_character = new Creature();
 	
-	_charSex	= new CharSex(*_module,*_character);
-	_charRace	= new CharRace(*_module,*_character);
+	_charSex	= new CharSex(*_module, *_character);
+	_charRace	= new CharRace(*_module, *_character);
+	_charPortrait	= new CharPortrait(*_module, *_character);
 
 	// Move to half the parent widget
 	//getWidget("TitleLabel"     , true)->movePosition(371,0,0);
 	getWidget("TitleLabel"     , true)->setHorCentered();
 
 	// TODO: Character trait buttons
-	getWidget("PortraitButton" , true)->setDisabled(true);
 	getWidget("ClassButton"    , true)->setDisabled(true);
 	getWidget("AlignButton"    , true)->setDisabled(true);
 	getWidget("AbilitiesButton", true)->setDisabled(true);
@@ -67,6 +67,7 @@ CharGenMenu::~CharGenMenu() {
 	delete _character;
 	delete _charSex;
 	delete _charRace;
+	delete _charPortrait;
 }
 
 void CharGenMenu::reset() {
@@ -74,6 +75,7 @@ void CharGenMenu::reset() {
 	_character = new Creature();
 	_charSex->reset();
 	_charRace->reset();
+	_charPortrait->reset();
 }
 
 
@@ -93,11 +95,17 @@ void CharGenMenu::callbackActive(Widget &widget) {
 		sub(*_charRace);
 		return;
 	}
+
+	if (widget.getTag() == "PortraitButton") {
+		sub(*_charPortrait);
+		return;
+	}
 	
 	if (widget.getTag() == "ResetButton") {
 		reset();
 		return;
 	}
+
 
 }
 

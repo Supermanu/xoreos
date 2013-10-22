@@ -34,6 +34,7 @@
 
 #include "engines/nwn/gui/chargen/charsex.h"
 #include "engines/nwn/gui/chargen/charrace.h"
+#include "engines/nwn/gui/chargen/charportrait.h"
 
 namespace Engines {
 
@@ -56,6 +57,7 @@ private:
 	Creature * _character;
 	CharSex * _charSex;
 	CharRace * _charRace;
+	CharPortrait * _charPortrait;
 };
 
 } // End of namespace NWN
