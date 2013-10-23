@@ -476,6 +476,10 @@ void WidgetListBox::unlock() {
 		float itemWidth = _items.front()->getWidth();
 		uint row = 0;
 		uint column = 0;
+		// If we reach the last row, compute the items that remains.
+		if (_items.size() - _startItem <= _visibleItems.size() )
+			count -= _items.size() % _itemsByRow;
+
 		while (_visibleItems.size() < count) {
 			WidgetListItem *item = _items[start++];
 
@@ -524,8 +528,13 @@ void WidgetListBox::updateScrollbarLength() {
 
 	if (_visibleItems.empty())
 		_scrollbar->setLength(1.0);
-	else
-		_scrollbar->setLength(((float) _visibleItems.size()) / _items.size());
+	else {
+		if (_viewStyle == kViewStyleOneColumn)
+			_scrollbar->setLength(((float) _visibleItems.size()) / _items.size());
+		else
+			_scrollbar->setLength(((float) _visibleItems.size()) / (_items.size() + (_items.size() % _itemsByRow)));
+	}
+
 }
 
 void WidgetListBox::updateScrollbarPosition() {
@@ -568,7 +577,11 @@ void WidgetListBox::updateVisible() {
 		float itemWidth		= _items.front()->getWidth();
 		float itemY		= _contentY - itemHeight;
 		uint column = 0;
-		for (uint i = 0; i < _visibleItems.size(); i++) {
+		int count = 0;
+		if (_items.size() - _startItem <= _visibleItems.size() )
+			count = _items.size() % _itemsByRow;
+
+		for (uint i = 0; i < (_visibleItems.size() - count); i++) {
 			WidgetListItem *item = _items[_startItem + i];
 
 			if (column == _itemsByRow) {
@@ -623,7 +636,7 @@ void WidgetListBox::scrollDown(uint n) {
 	if (_viewStyle == kViewStyleOneColumn) {
 		_startItem += MIN<uint>(n, _items.size() - _visibleItems.size() - _startItem);
 	} else {
-		_startItem += MIN<uint>(n * _itemsByRow, _items.size() - _visibleItems.size() - _startItem);
+		_startItem += MIN<uint>(n * _itemsByRow, (_items.size() + _items.size() % _itemsByRow) - _visibleItems.size() - _startItem);
 	}
 
 	updateVisible();
@@ -670,10 +683,17 @@ void WidgetListBox::subActive(Widget &widget) {
 		if (max <= 0)
 			return;
 
-		uint startItem = _scrollbar->getState() * max;
+		if (_viewStyle == kViewStyleColumns)
+			max = (max + (_items.size() % _itemsByRow))/ _itemsByRow;
+
+		uint startItem = _scrollbar->getState() * (max) ;
+
 		if (startItem == _startItem)
 			return;
 
+		if (_viewStyle == kViewStyleColumns) {
+			startItem *= _itemsByRow;
+		}
 		_startItem = startItem;
 		updateVisible();
 		return;
