@@ -65,13 +65,13 @@ public:
 	/** Return the contents of a cell as a float. */
 	float getFloat(const Common::UString &column) const;
 
-	TwoDARow(TwoDAFile &parent);
-	~TwoDARow();
-
 private:
 	TwoDAFile *_parent; ///< The parent 2DA.
 
 	std::vector<Common::UString> _data;
+
+	TwoDARow(TwoDAFile &parent);
+	~TwoDARow();
 
 	const Common::UString &getCell(uint32 n) const;
 
