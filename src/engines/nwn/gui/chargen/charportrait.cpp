@@ -151,7 +151,7 @@ void CharPortrait::setMainPortrait(Common::UString portrait) {
 void CharPortrait::initPortraitList() {
 	const Aurora::TwoDAFile &twoda = TwoDAReg.get("portraits");
 	for (unsigned int it = 1; it < 140; ++it) {
-		const Aurora::TwoDARow row = twoda.getRow(it);
+		const Aurora::TwoDARow &row = twoda.getRow(it);
 		if (row.getInt("Race") == kRaceDwarf) {
 			if (row.getInt("Sex") == Aurora::kGenderMale) {
 				_dwarfMalePortraits.push_back("po_" + row.getString("BaseResRef"));
@@ -229,7 +229,7 @@ void CharPortrait::buildPortraitList() {
 		}
 		for (Uint32 it = 0; it < 7; ++it) {
 			//The portraits for human and halfelf are the same.
-			if (it == kRaceHalfElf || it == _character->getRace())
+			if (it == kRaceHalfElf || it == _character->getRace() || ((_character->getRace() ==  kRaceHalfElf) && (it == kRaceHuman)) )
 				continue;
 
 			for (std::vector<Common::UString>::iterator subIt = _portraitsMale.at(it).begin(); subIt != _portraitsMale.at(it).end(); ++subIt) {
