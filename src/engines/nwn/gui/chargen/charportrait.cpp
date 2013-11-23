@@ -59,7 +59,6 @@ void WidgetListItemPortrait::hide() {
 
 void WidgetListItemPortrait::mouseDown(uint8 state, float x, float y) {
 	_owner->mouseDown(state, x, y);
-	WidgetListItem::mouseDown(state, x, y);
 }
 
 bool WidgetListItemPortrait::activate() {
