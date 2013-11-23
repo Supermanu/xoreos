@@ -37,6 +37,7 @@ CharRace::CharRace(Module &module, Creature &character) : _module(&module), _cha
 	load("cg_race");
 
 	getWidget("Title"		, true)->setHorCentered();
+	//TODO Implement subrace.
 	getWidget("SubRaceButton"	, true)->setDisabled(true);
 
 	initVectors();
