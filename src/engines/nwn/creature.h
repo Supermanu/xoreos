@@ -99,14 +99,6 @@ public:
 	void getClass(uint32 position, uint32 &classID, uint16 &level) const;
 	/** Get the creature's level for this class. */
 	uint16 getClassLevel(uint32 classID) const;
-	/** Get the last added class. */
-	Uint32 getLastClass() const;	
-	/** Add a level to the class. */
-	bool addLevel(Uint32 className);
-	/** Remove the last level. */
-	void removeLastLevel();
-	/** Get the total level of the creature */
-	Uint16 getLevel() const;
 
 	/** Return the creature's class as needed in conversations, e.g. "Barbarian". */
 	const Common::UString &getConvClass() const;
@@ -131,16 +123,8 @@ public:
 	/** Get the creature's deity. */
 	const Common::UString &getDeity() const;
 
-	/** Get the creature's goodness */
 	uint8 getGoodEvil() const;
-	/** Set the creature's goodness */
-	/** @param point Must be between 0 and 100. 0 is the most evil value and 100 the most good. */
-	void setGoodEvil(uint8 point);
-	/** Get the creature's alignment on the Law-Chaos axis */
 	uint8 getLawChaos() const;
-	/** Set the creature's alignment on the Law-Chaos axis */
-	/** @param point Must be between 0 and 100. 0 is the most chaotic value and 100 the most lawful value. */
-	void setLawChaos(uint8 point);
 
 	bool isPC() const; ///< Is the creature a player character?
 	bool isDM() const; ///< Is the creature a dungeon master?
@@ -182,12 +166,6 @@ public:
 
 	/** Set race */
 	void setRace(uint32 race);
-
-	/** Set appearance */
-	void setAppearance(uint32 appearance);
-
-	/** Set phenotype */
-	void setPhenotype(uint32 phenotype);
 
 	/** Set the portrait. */
 	void setPortrait(Common::UString portrait);
@@ -248,7 +226,6 @@ private:
 	struct Class {
 		uint32 classID; ///< Index into classes.2da.
 		uint16 level;   ///< Levels of that class.
-		Class(uint32 className = kClassInvalid, uint16 levelClass = 0) : classID(className), level(levelClass) {}
 	};
 
 	/** An assocatiate. */
@@ -297,8 +274,6 @@ private:
 	std::vector<Class>  _classes; ///< The creature's classes.
 	std::vector<int8>   _skills;  ///< The creature's skills.
 	std::vector<uint32> _feats;   ///< The creature's feats.
-
-	std::vector<Class>::iterator _lastClass; ///< The class from the last level.
 
 	uint8 _hitDice; ///< The creature's hit dice.
 

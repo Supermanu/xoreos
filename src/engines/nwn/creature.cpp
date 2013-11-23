@@ -204,14 +204,6 @@ void Creature::setRace(uint32 race) {
 	_race = race;
 }
 
-void Creature::setAppearance(uint32 appearance) {
-	_appearanceID = appearance;
-}
-
-void Creature::setPhenotype(uint32 phenotype) {
-	_phenotype = phenotype;
-}
-
 void Creature::setPortrait(Common::UString portrait) {
 	_portrait = portrait;
 }
@@ -839,42 +831,12 @@ void Creature::getClass(uint32 position, uint32 &classID, uint16 &level) const {
 	level   = _classes[position].level;
 }
 
-Uint16 Creature::getLevel() const {
-	Uint16 level = 0;
-	for (std::vector<Class>::const_iterator it = _classes.begin(); it != _classes.end(); ++it)
-		level += (*it).level;
-
-	return level;
-}
-
 uint16 Creature::getClassLevel(uint32 classID) const {
 	for (std::vector<Class>::const_iterator c = _classes.begin(); c != _classes.end(); ++c)
 		if (c->classID == classID)
 			return c->level;
 
 	return 0;
-}
-
-Uint32 Creature::getLastClass() const {
-	return _lastClass->classID;
-}
-
-bool Creature::addLevel(Uint32 className) {
-	///TODO Check if we have reach the level limit
-	for (std::vector<Class>::iterator it = _classes.begin(); it != _classes.end(); ++it) {
-		if ((*it).classID == className) {
-			(*it).level++;
-			_lastClass = it;
-			return true;
-		}
-	}
-	_classes.push_back(Class(className,1));
-	_lastClass = _classes.end() - 1;
-	return true;
-}
-
-void Creature::removeLastLevel() {
-	_lastClass->level--;
 }
 
 const Common::UString &Creature::getConvClass() const {
@@ -906,16 +868,8 @@ uint8 Creature::getGoodEvil() const {
 	return _goodEvil;
 }
 
-void Creature::setGoodEvil(uint8 point) {
-	_goodEvil = point;
-}
-
 uint8 Creature::getLawChaos() const {
 	return _lawChaos;
-}
-
-void Creature::setLawChaos(uint8 point) {
-	_lawChaos = point;
 }
 
 Common::UString Creature::getClassString() const {
