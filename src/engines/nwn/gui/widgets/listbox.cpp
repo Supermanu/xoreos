@@ -39,6 +39,9 @@
 #include "graphics/aurora/text.h"
 #include "graphics/aurora/fontman.h"
 
+#include "engines/aurora/util.h"
+#include "engines/aurora/model.h"
+
 #include "engines/nwn/gui/widgets/button.h"
 #include "engines/nwn/gui/widgets/scrollbar.h"
 #include "engines/nwn/gui/widgets/listbox.h"
@@ -217,6 +220,91 @@ bool WidgetListItemTextLine::deactivate() {
 
 	_text->setColor(_uR, _uG, _uB, _uA);
 
+	return true;
+}
+
+WidgetListItemButton::WidgetListItemButton(::Engines::GUI &gui, const Common::UString &model, const Common::UString &font, const Common::UString &text, const Common::UString &icon): WidgetListItem(gui), _available(true) {
+	_button = loadModelGUI(model);
+	_button->setClickable(true);
+	_text = new Graphics::Aurora::Text(FontMan.get(font), text);
+	if (icon == "")
+		_icon = 0;
+	else {
+		_icon = new PortraitWidget(gui, _tag + "#icon", icon, Portrait::kSizeIcon);
+		addChild(*_icon);
+	}
+}
+
+WidgetListItemButton::~WidgetListItemButton() {
+	delete _button;
+	delete _text;
+}
+
+void WidgetListItemButton::mouseUp(uint8 state, float x, float y) {
+	WidgetListItem::mouseUp(state, x, y);
+}
+
+void WidgetListItemButton::show() {
+	Engines::Widget::show();
+	_button->show();
+	_text->show();
+}
+void WidgetListItemButton::hide() {
+	Engines::NWN::NWNWidget::hide();
+	_button->hide();
+	_text->hide();
+}
+
+float WidgetListItemButton::getWidth() const {
+	return _button->getWidth();
+}
+
+float WidgetListItemButton::getHeight() const {
+	return _button->getHeight();
+}
+
+void WidgetListItemButton::setPosition(float x, float y, float z) {
+	NWNWidget::setPosition(x, y, z);
+	getPosition(x, y ,z);
+
+	z -= 5;
+	_button->setPosition(x, y, z);
+	z -= 5;
+	_text->setPosition(x + 40, y + 10, z);
+	if (_icon == 0)
+		return;
+
+	_icon->setPosition(x + 5 , y + 4, z - 5);
+}
+
+void WidgetListItemButton::setDisabled(bool disable) {
+	if (_available != disable)
+		return;
+
+	if (disable)
+		_text->setColor(0.5, 0.5, 0.5, 1.0);
+	else
+		_text->unsetColor();
+}
+
+void WidgetListItemButton::setTag(const Common::UString &tag) {
+	Engines::Widget::setTag(tag);
+	_button->setTag(tag);
+}
+
+bool WidgetListItemButton::activate() {
+	if (!WidgetListItem::activate())
+		return false;
+
+	_button->setState("down");
+	return true;
+}
+
+bool WidgetListItemButton::deactivate() {
+	if(!WidgetListItem::deactivate())
+		return false;
+
+	_button->setState("");
 	return true;
 }
 
@@ -704,6 +792,7 @@ void WidgetListBox::subActive(Widget &widget) {
 		if (_selectedItem != listItem->_itemNumber) {
 			_selectedItem = listItem->_itemNumber;
 			setActive(true);
+			playSound("gui_button", Sound::kSoundTypeSFX);
 		}
 	}
 
@@ -739,6 +828,14 @@ void WidgetListBox::mouseDown(uint8 state, float x, float y) {
 	}
 }
 
+void WidgetListBox::setScrollBarPosition(float position) {
+	if ( position < 0.0 || position > 1.0)
+		return;
+
+	_startItem =  fabs( floor(position * ((float) _items.size()) - ((float)_visibleItems.size() / 2)));
+	updateVisible();
+	updateScrollbarPosition();
+}
 } // End of namespace NWN
 
 } // End of namespace Engines
