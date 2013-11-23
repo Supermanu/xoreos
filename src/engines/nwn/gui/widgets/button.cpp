@@ -32,6 +32,7 @@
 #include "engines/aurora/util.h"
 
 #include "engines/nwn/gui/widgets/button.h"
+#include "label.h"
 
 namespace Engines {
 
@@ -39,7 +40,7 @@ namespace NWN {
 
 WidgetButton::WidgetButton(::Engines::GUI &gui, const Common::UString &tag,
                            const Common::UString &model, const Common::UString &sound) :
-	ModelWidget(gui, tag, model), _stayPressed(false), _pressed(false) {
+	ModelWidget(gui, tag, model), _stayPressed(false), _pressed(false), _unchangedMode(false) {
 
 	_model->setClickable(true);
 	_model->setState("up");
@@ -56,7 +57,7 @@ void WidgetButton::enter() {
 	if (isDisabled())
 		return;
 
-	if (_stayPressed) 
+	if (_stayPressed || _unchangedMode) 
 		return;
 
 	_model->setState("hilite");
@@ -67,20 +68,53 @@ void WidgetButton::leave() {
 
 	if (isDisabled())
 		return;
-	if (_stayPressed)
+	if (_stayPressed || _unchangedMode)
 		return;
 
 	_model->setState("up");
 }
 
 void WidgetButton::setDisabled(bool disabled) {
-	///TODO When the button is disabled then unabled the text stay grey.
 	NWNWidget::setDisabled(disabled);
 
-	if (isDisabled())
+	if (isDisabled()) {
 		_model->setState("disabled");
-	else
+		if (hasChildren())
+			((WidgetLabel *) getChild(_tag + "#Caption"))->setColor(0.5, 0.5, 0.5, 1.0);
+	} else {
 		_model->setState("up");
+		if (hasChildren())
+			((WidgetLabel *) getChild(_tag + "#Caption"))->setColor(1.0, 1.0, 1.0, 1.0);
+	}
+}
+
+void WidgetButton::setUnchangedMode(bool unchanged) {
+	_model->setState("disabled");
+	_unchangedMode = unchanged;
+}
+
+void WidgetButton::setCaption(const Common::UString &caption) {
+	if (hasChildren())
+		((WidgetLabel *) getChild(_tag + "#Caption"))->setText(caption);
+}
+
+void WidgetButton::setCaptionPosition(float pX, float pY, float pZ) {
+	if (hasChildren())
+			((WidgetLabel *) getChild(_tag + "#Caption"))->setPosition(pX, pY, pZ);
+}
+
+void WidgetButton::moveCaptionPosition(float pX, float pY, float pZ) {
+	if (hasChildren())
+			((WidgetLabel *) getChild(_tag + "#Caption"))->movePosition(pX, pY, pZ);
+}
+
+void WidgetButton::setCaptionLeft() {
+	if (hasChildren()) {
+		float pX, pY, pZ;
+		getPosition(pX, pY, pZ);
+		
+		((WidgetLabel *) getChild(_tag + "#Caption"))->setPosition(pX + 7, pY + getHeight()/2 - ((WidgetLabel *) getChild(_tag + "#Caption"))->getHeight()/2, pZ - 5);
+	}
 }
 
 void WidgetButton::mouseDown(uint8 state, float x, float y) {
@@ -91,16 +125,21 @@ void WidgetButton::mouseDown(uint8 state, float x, float y) {
 		return;
 
 	///TODO Add an animation when pressed: the text should move a little to the bottom.
-	if (_stayPressed) {
+	if (_stayPressed) 
+		return;
+
+	if (_unchangedMode) {
+		setActive(true);
 		return;
 	}
+
 	_model->setState("down");
 
 	playSound(_sound, Sound::kSoundTypeSFX);
 }
 
 void WidgetButton::mouseUp(uint8 state, float x, float y) {
-	if (isDisabled())
+	if (isDisabled() || _unchangedMode)
 		return;
 
 	if (!_stayPressed) {
