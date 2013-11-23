@@ -59,7 +59,7 @@ WidgetEditBox::~WidgetEditBox() {
 	delete _title;
 }
 
-void WidgetEditBox::setMainText(Common::UString mainText) {
+void WidgetEditBox::setMainText(Common::UString &mainText) {
       if (!_mainText.empty()) {
 		for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it) {
 			(*it)->hide();
@@ -72,7 +72,7 @@ void WidgetEditBox::setMainText(Common::UString mainText) {
       _fontHandle.getFont().split(mainText, lines, getWidth() - 30);
       for (std::vector<Common::UString>::iterator it = lines.begin(); it != lines.end(); ++it) {
 		Graphics::Aurora::Text * text = new Graphics::Aurora::Text(_fontHandle, *it);
-		text->setPosition(15, 105 - (it - lines.begin()) *  text->getHeight(), -75);
+		text->setPosition(15, 105 - (it - lines.begin()) *  text->getHeight(), -100);
 		_mainText.push_back(text);
 		if (this->isVisible() && (it - lines.begin()) < 18)
 			text->show();
@@ -188,6 +188,9 @@ void WidgetEditBox::updateScrollbarPosition() {
 		return;
 
 	float max = _mainText.size() - 18 + 1;
+	if ( max == 1)
+		return;
+
 	_scrollbar->setState(_firstLineToShow / (max - 1));
 }
 
@@ -224,7 +227,6 @@ void WidgetEditBox::getProperties() {
 
 void WidgetEditBox::subActive(Widget &widget) {
 	///TODO Add the ability to continue to scroll when the button Up and Down is still pressed
-	std::cout << "nrusieu" << std::endl;
 	if (widget.getTag().endsWith("#Up")) {
 		scrollUp(1);
 		return;
@@ -258,7 +260,6 @@ void WidgetEditBox::mouseDown(uint8 state, float x, float y) {
 		return;
 	}
 }
-
 
 } // End of namespace NWN
 
