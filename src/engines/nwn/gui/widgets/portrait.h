@@ -53,6 +53,7 @@ public:
 		kSizeMedium    ,
 		kSizeSmall     ,
 		kSizeTiny      ,
+		kSizeIcon      ,
 		kSizeMAX
 	};
 
