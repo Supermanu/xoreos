@@ -58,7 +58,7 @@ public:
 	void hide();
 
 	void setTitle(Common::UString title);
-	void setMainText(Common::UString mainText);
+	void setMainText(Common::UString &mainText);
 	void subActive(Widget &widget);
 	void mouseDown(uint8 state, float x, float y);
 
