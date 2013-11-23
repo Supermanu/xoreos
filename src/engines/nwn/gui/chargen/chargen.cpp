@@ -43,20 +43,18 @@ CharGenMenu::CharGenMenu(Module &module) : _module(&module) {
 	
 	_character = new Creature();
 	
-	_charSex	= new CharSex(*_module, *_character);
-	_charRace	= new CharRace(*_module, *_character);
-	_charPortrait	= new CharPortrait(*_module, *_character);
+	_charSex	= new CharSex		(*_module, *_character);
+	_charRace	= new CharRace		(*_module, *_character);
+	_charPortrait	= new CharPortrait	(*_module, *_character);
+	_charClass	= new CharClass		(*_module, *_character);
+	_charAlignment 	= new CharAlignment	(*_module, *_character);
+	_charAttributes = new CharAttributes	(*_module, *_character);
+	_charPackage	= new CharPackage	(*_module, *_character);
+	_charAppearance	= new CharAppearance	(*_module, *_character);
 
 	// Move to half the parent widget
 	//getWidget("TitleLabel"     , true)->movePosition(371,0,0);
 	getWidget("TitleLabel"     , true)->setHorCentered();
-
-	// TODO: Character trait buttons
-	getWidget("ClassButton"    , true)->setDisabled(true);
-	getWidget("AlignButton"    , true)->setDisabled(true);
-	getWidget("AbilitiesButton", true)->setDisabled(true);
-	getWidget("PackagesButton" , true)->setDisabled(true);
-	getWidget("CustomizeButton", true)->setDisabled(true);
 
 	// TODO: Play
 	getWidget("PlayButton" , true)->setDisabled(true);
@@ -68,6 +66,11 @@ CharGenMenu::~CharGenMenu() {
 	delete _charSex;
 	delete _charRace;
 	delete _charPortrait;
+	delete _charClass;
+	delete _charAlignment;
+	delete _charAttributes;
+	delete _charPackage;
+	delete _charAppearance;
 }
 
 void CharGenMenu::reset() {
@@ -76,6 +79,11 @@ void CharGenMenu::reset() {
 	_charSex->reset();
 	_charRace->reset();
 	_charPortrait->reset();
+	_charClass->reset();
+	_charAlignment->reset();
+	_charAttributes->reset();
+	_charPackage->reset();
+	_charAppearance->reset();
 }
 
 
@@ -100,7 +108,32 @@ void CharGenMenu::callbackActive(Widget &widget) {
 		sub(*_charPortrait);
 		return;
 	}
-	
+
+	if (widget.getTag() == "ClassButton") {
+		sub(*_charClass);
+		return;
+	}
+
+	if (widget.getTag() == "AlignButton") {
+		sub(*_charAlignment);
+		return;
+	}
+
+	if (widget.getTag() == "AbilitiesButton") {
+		sub(*_charAttributes);
+		return;
+	}
+
+	if (widget.getTag() == "PackagesButton") {
+		sub(*_charPackage);
+		return;
+	}
+
+	if (widget.getTag() == "CustomizeButton") {
+		sub(*_charAppearance);
+		return;
+	}
+
 	if (widget.getTag() == "ResetButton") {
 		reset();
 		return;
