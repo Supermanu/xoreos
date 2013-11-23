@@ -113,6 +113,7 @@ private:
 	float _spacing;
 };
 
+/** A button widget within a NWN listbox widget with a text and an icon. */
 class WidgetListItemButton : public WidgetListItem {
 public:
 	WidgetListItemButton(::Engines::GUI &gui, const Common::UString &model, const Common::UString &font, const Common::UString &text, const Common::UString &icon = "");
@@ -141,6 +142,7 @@ private:
 
 	bool _available;
 };
+
 /** A NWN listbox widget. */
 class WidgetListBox : public ModelWidget {
 public:
