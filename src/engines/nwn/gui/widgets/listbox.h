@@ -35,8 +35,6 @@
 #include "graphics/aurora/types.h"
 
 #include "engines/nwn/gui/widgets/modelwidget.h"
-#include "engines/nwn/gui/widgets/portrait.h"
-
 
 namespace Common {
 	class UString;
@@ -112,6 +110,7 @@ private:
 	float _fontHeight;
 	float _spacing;
 };
+
 
 /** A button widget within a NWN listbox widget with a text and an icon. */
 class WidgetListItemButton : public WidgetListItem {
@@ -190,11 +189,6 @@ public:
 	bool wasDblClicked();
 
 	void mouseDown(uint8 state, float x, float y);
-
-	/** Set the scrollbar position.
-	 * @param position The value must be in the interval [0,1]. 
-	 */
-	void setScrollBarPosition(float position);
 
 	void subActive(Widget &widget);
 
