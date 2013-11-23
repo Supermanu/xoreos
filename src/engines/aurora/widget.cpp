@@ -27,6 +27,8 @@
  *  A widget in a GUI.
  */
 
+#include "common/error.h"
+
 #include "engines/aurora/widget.h"
 #include "engines/aurora/gui.h"
 
@@ -108,6 +110,18 @@ const Widget *Widget::getParent() const {
 	return _parent;
 }
 
+bool Widget::hasChildren() const {
+	return !_children.empty();
+}
+
+Widget *Widget::getChild(Common::UString tag) const {
+	for (std::list<Widget *>::const_iterator it = _children.begin(); it != _children.end(); ++it) {
+		if (tag == (*it)->getTag())
+			return (*it);
+	}
+	throw Common::Exception("The child widget \"%s\" doesn't exist", tag.c_str());
+}
+
 void Widget::setPosition(float x, float y, float z) {
 	for (std::list<Widget *>::iterator it = _children.begin(); it != _children.end(); ++it) {
 		float sX, sY, sZ;
@@ -136,6 +150,15 @@ void Widget::setHorCentered() {
 	movePosition(_parent->getWidth()/2,0,0);
 }
 
+void Widget::setVerCentered() {
+	if (_parent == 0)
+		return;
+
+	float pX, pY, pZ, gX, gY;
+	getParent()->getPosition(pX, pY, pZ);
+	getPosition(gX, gY, pZ);
+	setPosition(pX, pY +_parent->getHeight()/2 - getHeight()/2, pZ);
+}
 
 void Widget::getPosition(float &x, float &y, float &z) const {
 	x = _x;

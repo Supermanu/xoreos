@@ -61,6 +61,11 @@ public:
 	Widget *getParent();
 	const Widget *getParent() const;
 
+	/** Check if there are children. */
+	bool hasChildren() const;
+	/** Get widget's child by tag if any. */
+	Widget *getChild(Common::UString tag) const;
+
 	/** Set the widget's position. */
 	virtual void setPosition(float x, float y, float z);
 
@@ -69,6 +74,8 @@ public:
 	
 	/** Set the widget horizontally centered from is parent. */
 	virtual void setHorCentered();
+	/** Set the widget vertically centered from is parent. */
+	virtual void setVerCentered();
 
 	/** Get the widget's position. */
 	virtual void getPosition(float &x, float &y, float &z) const;
