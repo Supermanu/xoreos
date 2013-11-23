@@ -209,6 +209,8 @@ Model_NWN::~Model_NWN() {
 }
 
 void Model_NWN::loadBinary(ParserContext &ctx) {
+// 	bool test = false;
+	
 	ctx.mdl->seek(4);
 
 	uint32 sizeModelData = ctx.mdl->readUint32LE();
@@ -219,7 +221,11 @@ void Model_NWN::loadBinary(ParserContext &ctx) {
 
 	ctx.mdl->skip(8); // Function pointers
 
+
 	_name.readFixedASCII(*ctx.mdl, 64);
+// 	if (_name.c_str() == "CTL_CG_BTN_LEFT")
+// 		test = true;
+
 	debugC(4, kDebugGraphics, "Loading NWN binary model \"%s\": \"%s\"", _fileName.c_str(),
 	       _name.c_str());
 
