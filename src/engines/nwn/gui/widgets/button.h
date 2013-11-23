@@ -53,6 +53,11 @@ public:
 	void setDisabled(bool disabled);
 	void setStayPressed(bool stay = true);
 	void setPressed(bool pressed = true);
+	void setUnchangedMode(bool unchanged);
+	void setCaption(const Common::UString &caption);
+	void setCaptionPosition(float pX, float pY, float pZ);
+	void setCaptionLeft();
+	void moveCaptionPosition(float pX, float pY, float pZ);
 	bool isPressed();
 
 	void mouseDown(uint8 state, float x, float y);
@@ -62,6 +67,7 @@ private:
 	Common::UString _sound;
 	bool _stayPressed;
 	bool _pressed;
+	bool _unchangedMode;
 };
 
 } // End of namespace NWN
