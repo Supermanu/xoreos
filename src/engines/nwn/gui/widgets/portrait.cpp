@@ -37,9 +37,9 @@
 
 #include "engines/nwn/gui/widgets/portrait.h"
 
-static const char *kSuffix[] = {"h"  , "l"  , "m"  , "s"  , "t"  };
-static const float kWidth [] = {256.0, 128.0,  64.0,  32.0,  16.0};
-static const float kHeight[] = {400.0, 200.0, 100.0,  50.0,  25.0};
+static const char *kSuffix[] = {"h"  , "l"  , "m"  , "s"  , "t" , "i"  };
+static const float kWidth [] = {256.0, 128.0,  64.0,  32.0,  16.0,  32.0};
+static const float kHeight[] = {400.0, 200.0, 100.0,  50.0,  25.0,  32.0};
 
 namespace Engines {
 
@@ -253,13 +253,21 @@ void Portrait::setSize() {
 	_qPortrait.vY[3] = 0.0 + kHeight[_size];
 
 	_qPortrait.tX[0] = 0.0;
-	_qPortrait.tY[0] = 112.0 / 512.0;
+	if (_size == kSizeIcon) {
+		_qPortrait.tY[0] = 0.0;
+		_qPortrait.tY[1] = 0.0;
+	} else {
+		_qPortrait.tY[0] = 112.0 / 512.0;
+		_qPortrait.tY[1] = 112.0 / 512.0;
+	}
 	_qPortrait.tX[1] = 1.0;
-	_qPortrait.tY[1] = 112.0 / 512.0;
 	_qPortrait.tX[2] = 1.0;
 	_qPortrait.tY[2] = 1.0;
 	_qPortrait.tX[3] = 0.0;
 	_qPortrait.tY[3] = 1.0;
+	
+
+	
 }
 
 
@@ -294,8 +302,7 @@ void PortraitWidget::hide() {
 }
 
 void PortraitWidget::mouseDown(uint8 state, float x, float y) {
-	std::cout << "Widget portrait trigger" << std::endl;
-// 	_owner->mouseDown(state, x, y);
+	_owner->mouseDown(state, x, y);
 }
 
 
