@@ -35,6 +35,11 @@
 #include "engines/nwn/gui/chargen/charsex.h"
 #include "engines/nwn/gui/chargen/charrace.h"
 #include "engines/nwn/gui/chargen/charportrait.h"
+#include "engines/nwn/gui/chargen/charclass.h"
+#include "engines/nwn/gui/chargen/charalignment.h"
+#include "engines/nwn/gui/chargen/charattributes.h"
+#include "engines/nwn/gui/chargen/charpackage.h"
+#include "engines/nwn/gui/chargen/charappearance.h"
 
 namespace Engines {
 
@@ -54,10 +59,15 @@ protected:
 
 private:
 	Module *_module;
-	Creature * _character;
-	CharSex * _charSex;
-	CharRace * _charRace;
-	CharPortrait * _charPortrait;
+	Creature *_character;
+	CharSex *_charSex;
+	CharRace *_charRace;
+	CharPortrait *_charPortrait;
+	CharClass *_charClass;
+	CharAlignment *_charAlignment;
+	CharAttributes *_charAttributes;
+	CharPackage *_charPackage;
+	CharAppearance *_charAppearance;
 };
 
 } // End of namespace NWN
