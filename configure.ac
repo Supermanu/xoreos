@@ -213,6 +213,8 @@ case "$target" in
 		;;
 esac;
 
+PKG_CHECK_MODULES(OGRE, [OGRE >= 1.6])
+
 AC_SUBST(SDL_LIBS)
 AC_SUBST(SDL_CFLAGS)
 

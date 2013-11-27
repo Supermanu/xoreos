@@ -51,6 +51,7 @@
 #include "graphics/glcontainer.h"
 #include "graphics/renderable.h"
 #include "graphics/camera.h"
+#include "graphics/aurora/model.h"
 
 #include "graphics/images/decoder.h"
 #include "graphics/images/screenshot.h"
@@ -59,7 +60,14 @@ DECLARE_SINGLETON(Graphics::GraphicsManager)
 
 namespace Graphics {
 
+static Ogre::Camera *camera;
+static bool initR = false;
 PFNGLCOMPRESSEDTEXIMAGE2DPROC glCompressedTexImage2D;
+
+void GraphicsManager::testOgre() {
+	root->renderOneFrame();
+
+}
 
 GraphicsManager::GraphicsManager() : _projection(4, 4), _projectionInv(4, 4) {
 	_ready = false;
@@ -101,18 +109,18 @@ GraphicsManager::~GraphicsManager() {
 }
 
 void GraphicsManager::init() {
-	Common::enforceMainThread();
+// 	Common::enforceMainThread();
 
 	uint32 sdlInitFlags = SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK;
 
 	// TODO: Is this actually needed on any systems? It seems to make MacOS X fail to
 	//       receive any events, too.
-/*
-// Might be needed on unixoid OS, but it crashes Windows. Nice.
-#ifndef WIN32
-	sdlInitFlags |= SDL_INIT_EVENTTHREAD;
-#endif
-*/
+	/*
+	// Might be needed on unixoid OS, but it crashes Windows. Nice.
+	#ifndef WIN32
+		sdlInitFlags |= SDL_INIT_EVENTTHREAD;
+	#endif
+	*/
 
 	if (SDL_Init(sdlInitFlags) < 0)
 		throw Common::Exception("Failed to initialize SDL: %s", SDL_GetError());
@@ -120,24 +128,66 @@ void GraphicsManager::init() {
 	// Set the window title to our name
 	setWindowTitle(XOREOS_NAMEVERSION);
 
-	int  width  = ConfigMan.getInt ("width"     , 800);
-	int  height = ConfigMan.getInt ("height"    , 600);
+	int  width  = ConfigMan.getInt("width"     , 800);
+	int  height = ConfigMan.getInt("height"    , 600);
 	bool fs     = ConfigMan.getBool("fullscreen", false);
 
 	initSize(width, height, fs);
+	root = new Ogre::Root("plugins.cfg", "ogre.cfg", "ogre.log");
+	if (root->restoreConfig())
+		std::cout << "config found" << std::endl;
+
+	root->initialise(false);
+	// Load resource paths from config file
+	Ogre::ConfigFile cf;
+
+	Ogre::String mResourcesCfg;
+	mResourcesCfg = "resources.cfg";
+	cf.load(mResourcesCfg);
+
+	// Go through all sections & settings in the file
+	Ogre::ConfigFile::SectionIterator seci = cf.getSectionIterator();
+
+	Ogre::String secName, typeName, archName;
+	while (seci.hasMoreElements()) {
+		secName = seci.peekNextKey();
+		Ogre::ConfigFile::SettingsMultiMap *settings = seci.getNext();
+		Ogre::ConfigFile::SettingsMultiMap::iterator i;
+		for (i = settings->begin(); i != settings->end(); ++i) {
+			typeName = i->first;
+			archName = i->second;
+			Ogre::ResourceGroupManager::getSingleton().addResourceLocation(
+			    archName, typeName, secName);
+		}
+	}
+
+	Ogre::ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
+	Ogre::NameValuePairList misc;
+	misc["currentGLContext"] = Ogre::String("True");
+	renderWindow = root->createRenderWindow("MainRenderWindow", 800, 600, false, &misc);
+// 	renderWindow->resize(800, 600);
+
+
+
+// 	Ogre::Light *light = scene_manager->createLight("MainLight");
+// 	light->setPosition(20, 80, 50);
+
 	setupScene();
 
-	// Try to change the FSAA settings to the config value
-	if (_fsaa != ConfigMan.getInt("fsaa"))
-		if (!setFSAA(ConfigMan.getInt("fsaa")))
-			// If that fails, set the config to the current level
-			ConfigMan.setInt("fsaa", _fsaa);
 
-	// Set the gamma correction to what the config specifies
-	if (ConfigMan.hasKey("gamma"))
-		setGamma(ConfigMan.getDouble("gamma", 1.0));
+
+	// Try to change the FSAA settings to the config value
+// 	if (_fsaa != ConfigMan.getInt("fsaa"))
+// 		if (!setFSAA(ConfigMan.getInt("fsaa")))
+// 			// If that fails, set the config to the current level
+// 			ConfigMan.setInt("fsaa", _fsaa);
+//
+// 	// Set the gamma correction to what the config specifies
+// 	if (ConfigMan.hasKey("gamma"))
+// 		setGamma(ConfigMan.getDouble("gamma", 1.0));
 
 	_ready = true;
+
 }
 
 void GraphicsManager::deinit() {
@@ -246,8 +296,8 @@ bool GraphicsManager::setFSAA(int level) {
 	destroyContext();
 
 	// Set the multisample level
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
+// 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
+// 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
 
 	uint32 flags = _screen->flags;
 
@@ -260,8 +310,8 @@ bool GraphicsManager::setFSAA(int level) {
 		_fsaa = oldFSAA;
 
 		// Set the multisample level
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
+// 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
+// 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
 		_screen = SDL_SetVideoMode(0, 0, 0, flags);
 
 		// There's no reason how this could possibly fail, but ok...
@@ -277,19 +327,19 @@ bool GraphicsManager::setFSAA(int level) {
 int GraphicsManager::probeFSAA(int width, int height, int bpp, uint32 flags) {
 	// Find the max supported FSAA level
 
-	for (int i = 32; i >= 2; i >>= 1) {
-		SDL_GL_SetAttribute(SDL_GL_RED_SIZE    ,   8);
-		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE  ,   8);
-		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE   ,   8);
-		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE  ,   8);
-		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,   1);
-
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, i);
-
-		if (SDL_SetVideoMode(width, height, bpp, flags))
-			return i;
-	}
+// 	for (int i = 32; i >= 2; i >>= 1) {
+// 		SDL_GL_SetAttribute(SDL_GL_RED_SIZE    ,   8);
+// 		SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE  ,   8);
+// 		SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE   ,   8);
+// 		SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE  ,   8);
+// 		SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,   1);
+//
+// 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
+// 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, i);
+//
+// 		if (SDL_SetVideoMode(width, height, bpp, flags))
+// 			return i;
+// 	}
 
 	return 0;
 }
@@ -325,8 +375,8 @@ void GraphicsManager::checkGLExtensions() {
 	if (!_needManualDeS3TC) {
 		// Make sure we use the right glCompressedTexImage2D function
 		glCompressedTexImage2D = GLEW_GET_FUN(__glewCompressedTexImage2D) ?
-			(PFNGLCOMPRESSEDTEXIMAGE2DPROC)GLEW_GET_FUN(__glewCompressedTexImage2D) :
-			(PFNGLCOMPRESSEDTEXIMAGE2DPROC)GLEW_GET_FUN(__glewCompressedTexImage2DARB);
+		                         (PFNGLCOMPRESSEDTEXIMAGE2DPROC)GLEW_GET_FUN(__glewCompressedTexImage2D) :
+		                         (PFNGLCOMPRESSEDTEXIMAGE2DPROC)GLEW_GET_FUN(__glewCompressedTexImage2DARB);
 
 		if (!GLEW_ARB_texture_compression || !glCompressedTexImage2D) {
 			warning("Your graphics card doesn't support the compressed texture API");
@@ -369,34 +419,49 @@ void GraphicsManager::setGamma(float gamma) {
 }
 
 void GraphicsManager::setupScene() {
-	if (!_screen)
-		throw Common::Exception("No screen initialized");
+// 	if (!_screen)
+// 		throw Common::Exception("No screen initialized");
+//
+// 	glClearColor(0, 0, 0, 0);
+// 	glMatrixMode(GL_PROJECTION);
+// 	glLoadIdentity();
+// 	glViewport(0, 0, _screen->w, _screen->h);
+//
+// 	glMatrixMode(GL_MODELVIEW);
+// 	glLoadIdentity();
+//
+// 	glShadeModel(GL_SMOOTH);
+// 	glClearColor(0.0, 0.0, 0.0, 0.5);
+// 	glClearDepth(1.0);
+//
+// 	glEnable(GL_DEPTH_TEST);
+// 	glDepthFunc(GL_LEQUAL);
+// 	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+//
+// 	glEnable(GL_BLEND);
+// 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+//
+// 	glAlphaFunc(GL_GREATER, 0.1);
+// 	glEnable(GL_ALPHA_TEST);
+//
+// 	glEnable(GL_CULL_FACE);
+//
+// 	perspective(60.0, ((float) _screen->w) / ((float) _screen->h), 1.0, 1000.0);
 
-	glClearColor(0, 0, 0, 0);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glViewport(0, 0, _screen->w, _screen->h);
+	scene_manager = root->createSceneManager("OctreeSceneManager");
+	camera = scene_manager->createCamera("PlayerCamera");
+	camera->setPosition(Ogre::Vector3(0, 0, 600));
+	camera->lookAt(Ogre::Vector3(0, 0, -300));
+	camera->setNearClipDistance(5);
+	Ogre::Viewport *vp = renderWindow->addViewport(camera);
+	vp->setBackgroundColour(Ogre::ColourValue(0.1f, 0.1f, 0.1f, 0.0f));
+	scene_manager->setAmbientLight(Ogre::ColourValue(1.0f, 1.0f, 1.0f));
+	renderWindow->setVisible(true);
+	renderWindow->setAutoUpdated(true);
+}
 
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	glShadeModel(GL_SMOOTH);
-	glClearColor(0.0, 0.0, 0.0, 0.5);
-	glClearDepth(1.0);
-
-	glEnable(GL_DEPTH_TEST);
-	glDepthFunc(GL_LEQUAL);
-	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-	glAlphaFunc(GL_GREATER, 0.1);
-	glEnable(GL_ALPHA_TEST);
-
-	glEnable(GL_CULL_FACE);
-
-	perspective(60.0, ((float) _screen->w) / ((float) _screen->h), 1.0, 1000.0);
+Ogre::SceneManager *GraphicsManager::getSceneMan() {
+	return scene_manager;
 }
 
 void GraphicsManager::perspective(float fovy, float aspect, float zNear, float zFar) {
@@ -430,69 +495,69 @@ void GraphicsManager::perspective(float fovy, float aspect, float zNear, float z
 
 bool GraphicsManager::project(float x, float y, float z, float &sX, float &sY, float &sZ) {
 	// This is our projection matrix
-	Common::Matrix proj = _projection;
-
-
-	// Generate the model matrix
-
-	Common::TransformationMatrix model;
-
-	float cPos[3];
-	float cOrient[3];
-
-	CameraMan.lock();
-	memcpy(cPos   , CameraMan.getPosition   (), 3 * sizeof(float));
-	memcpy(cOrient, CameraMan.getOrientation(), 3 * sizeof(float));
-	CameraMan.unlock();
-
-	// Apply camera orientation
-	model.rotate(-cOrient[0], 1.0, 0.0, 0.0);
-	model.rotate( cOrient[1], 0.0, 1.0, 0.0);
-	model.rotate(-cOrient[2], 0.0, 0.0, 1.0);
-
-	// Apply camera position
-	model.translate(-cPos[0], -cPos[1], cPos[2]);
-
-
-	// Generate a matrix for the coordinates
-
-	Common::Matrix coords(4, 1);
-
-	coords(0, 0) = x;
-	coords(1, 0) = y;
-	coords(2, 0) = z;
-	coords(3, 0) = 1.0;
-
-
-	// Multiply them
-	Common::Matrix v(proj * model * coords);
-
-
-	// Projection divide
-
-	if (v(3, 0) == 0.0)
-		return false;
-
-	v(0, 0) /= v(3, 0);
-	v(1, 0) /= v(3, 0);
-	v(2, 0) /= v(3, 0);
-
-	// Viewport coordinates
-
-	float view[4];
-
-	view[0] = 0.0;
-	view[1] = 0.0;
-	view[2] = _screen->w;
-	view[3] = _screen->h;
-
-
-	sX = view[0] + view[2] * (v(0, 0) + 1.0) / 2.0;
-	sY = view[1] + view[3] * (v(1, 0) + 1.0) / 2.0;
-	sZ =                     (v(2, 0) + 1.0) / 2.0;
-
-	sX -= view[2] / 2.0;
-	sY -= view[3] / 2.0;
+// 	Common::Matrix proj = _projection;
+//
+//
+// 	// Generate the model matrix
+//
+// 	Common::TransformationMatrix model;
+//
+// 	float cPos[3];
+// 	float cOrient[3];
+//
+// 	CameraMan.lock();
+// 	memcpy(cPos   , CameraMan.getPosition(), 3 * sizeof(float));
+// 	memcpy(cOrient, CameraMan.getOrientation(), 3 * sizeof(float));
+// 	CameraMan.unlock();
+//
+// 	// Apply camera orientation
+// 	model.rotate(-cOrient[0], 1.0, 0.0, 0.0);
+// 	model.rotate(cOrient[1], 0.0, 1.0, 0.0);
+// 	model.rotate(-cOrient[2], 0.0, 0.0, 1.0);
+//
+// 	// Apply camera position
+// 	model.translate(-cPos[0], -cPos[1], cPos[2]);
+//
+//
+// 	// Generate a matrix for the coordinates
+//
+// 	Common::Matrix coords(4, 1);
+//
+// 	coords(0, 0) = x;
+// 	coords(1, 0) = y;
+// 	coords(2, 0) = z;
+// 	coords(3, 0) = 1.0;
+//
+//
+// 	// Multiply them
+// 	Common::Matrix v(proj * model * coords);
+//
+//
+// 	// Projection divide
+//
+// 	if (v(3, 0) == 0.0)
+// 		return false;
+//
+// 	v(0, 0) /= v(3, 0);
+// 	v(1, 0) /= v(3, 0);
+// 	v(2, 0) /= v(3, 0);
+//
+// 	// Viewport coordinates
+//
+// 	float view[4];
+//
+// 	view[0] = 0.0;
+// 	view[1] = 0.0;
+// 	view[2] = _screen->w;
+// 	view[3] = _screen->h;
+//
+//
+// 	sX = view[0] + view[2] * (v(0, 0) + 1.0) / 2.0;
+// 	sY = view[1] + view[3] * (v(1, 0) + 1.0) / 2.0;
+// 	sZ = (v(2, 0) + 1.0) / 2.0;
+//
+// 	sX -= view[2] / 2.0;
+// 	sY -= view[3] / 2.0;
 	return true;
 }
 
@@ -509,7 +574,7 @@ bool GraphicsManager::unproject(float x, float y,
 		float cOrient[3];
 
 		CameraMan.lock();
-		memcpy(cPos   , CameraMan.getPosition   (), 3 * sizeof(float));
+		memcpy(cPos   , CameraMan.getPosition(), 3 * sizeof(float));
 		memcpy(cOrient, CameraMan.getOrientation(), 3 * sizeof(float));
 		CameraMan.unlock();
 
@@ -517,9 +582,9 @@ bool GraphicsManager::unproject(float x, float y,
 		model.translate(cPos[0], cPos[1], -cPos[2]);
 
 		// Apply camera orientation
-		model.rotate( cOrient[2], 0.0, 0.0, 1.0);
+		model.rotate(cOrient[2], 0.0, 0.0, 1.0);
 		model.rotate(-cOrient[1], 0.0, 1.0, 0.0);
-		model.rotate( cOrient[0], 1.0, 0.0, 0.0);
+		model.rotate(cOrient[0], 1.0, 0.0, 0.0);
 
 
 		// Multiply with the inverse of our projection matrix
@@ -562,7 +627,7 @@ bool GraphicsManager::unproject(float x, float y,
 
 		// Unproject
 		Common::Matrix oNear(model * coordsNear);
-		Common::Matrix oFar (model * coordsFar );
+		Common::Matrix oFar(model * coordsFar);
 		if ((oNear(3, 0) == 0.0) || (oNear(3, 0) == 0.0))
 			return false;
 
@@ -592,43 +657,43 @@ bool GraphicsManager::unproject(float x, float y,
 }
 
 void GraphicsManager::lockFrame() {
-	Common::StackLock frameLock(_frameLockMutex);
-
-	_frameLock++;
+// 	Common::StackLock frameLock(_frameLockMutex);
+//
+// 	_frameLock++;
 }
 
 void GraphicsManager::unlockFrame() {
-	Common::StackLock frameLock(_frameLockMutex);
-
-	assert(_frameLock != 0);
-
-	_frameLock--;
+// 	Common::StackLock frameLock(_frameLockMutex);
+//
+// 	assert(_frameLock != 0);
+//
+// 	_frameLock--;
 }
 
 void GraphicsManager::recalculateObjectDistances() {
 	// World objects
-	QueueMan.lockQueue(kQueueVisibleWorldObject);
-
-	const std::list<Queueable *> &objects = QueueMan.getQueue(kQueueVisibleWorldObject);
-	for (std::list<Queueable *>::const_iterator o = objects.begin(); o != objects.end(); ++o)
-		static_cast<Renderable *>(*o)->calculateDistance();
-
-	QueueMan.sortQueue(kQueueVisibleWorldObject);
-	QueueMan.unlockQueue(kQueueVisibleWorldObject);
-
-	// GUI front objects
-	QueueMan.lockQueue(kQueueVisibleGUIFrontObject);
-
-	const std::list<Queueable *> &gui = QueueMan.getQueue(kQueueVisibleGUIFrontObject);
-	for (std::list<Queueable *>::const_iterator g = gui.begin(); g != gui.end(); ++g)
-		static_cast<Renderable *>(*g)->calculateDistance();
-
-	QueueMan.sortQueue(kQueueVisibleGUIFrontObject);
-	QueueMan.unlockQueue(kQueueVisibleGUIFrontObject);
+// 	QueueMan.lockQueue(kQueueVisibleWorldObject);
+//
+// 	const std::list<Queueable *> &objects = QueueMan.getQueue(kQueueVisibleWorldObject);
+// 	for (std::list<Queueable *>::const_iterator o = objects.begin(); o != objects.end(); ++o)
+// 		static_cast<Renderable *>(*o)->calculateDistance();
+//
+// 	QueueMan.sortQueue(kQueueVisibleWorldObject);
+// 	QueueMan.unlockQueue(kQueueVisibleWorldObject);
+//
+// 	// GUI front objects
+// 	QueueMan.lockQueue(kQueueVisibleGUIFrontObject);
+//
+// 	const std::list<Queueable *> &gui = QueueMan.getQueue(kQueueVisibleGUIFrontObject);
+// 	for (std::list<Queueable *>::const_iterator g = gui.begin(); g != gui.end(); ++g)
+// 		static_cast<Renderable *>(*g)->calculateDistance();
+//
+// 	QueueMan.sortQueue(kQueueVisibleGUIFrontObject);
+// 	QueueMan.unlockQueue(kQueueVisibleGUIFrontObject);
 }
 
 uint32 GraphicsManager::createRenderableID() {
-	Common::StackLock lock(_renderableIDMutex);
+// 	Common::StackLock lock(_renderableIDMutex);
 
 	return ++_renderableID;
 }
@@ -675,6 +740,7 @@ void GraphicsManager::takeScreenshot() {
 }
 
 Renderable *GraphicsManager::getGUIObjectAt(float x, float y) const {
+// 	std::cout << " getGUIObjectAt" << std::endl;
 	if (QueueMan.isQueueEmpty(kQueueVisibleGUIFrontObject))
 		return 0;
 
@@ -710,7 +776,7 @@ Renderable *GraphicsManager::getWorldObjectAt(float x, float y) const {
 	if (QueueMan.isQueueEmpty(kQueueVisibleWorldObject))
 		return 0;
 
-		// Map the screen coordinates to OpenGL world screen coordinates
+	// Map the screen coordinates to OpenGL world screen coordinates
 	y = _screen->h - y;
 
 	float x1, y1, z1, x2, y2, z2;
@@ -753,55 +819,55 @@ Renderable *GraphicsManager::getObjectAt(float x, float y) {
 }
 
 void GraphicsManager::buildNewTextures() {
-	QueueMan.lockQueue(kQueueNewTexture);
-	const std::list<Queueable *> &text = QueueMan.getQueue(kQueueNewTexture);
-	if (text.empty()) {
-		QueueMan.unlockQueue(kQueueNewTexture);
-		return;
-	}
-
-	for (std::list<Queueable *>::const_iterator t = text.begin(); t != text.end(); ++t)
-		static_cast<GLContainer *>(*t)->rebuild();
-
-	QueueMan.clearQueue(kQueueNewTexture);
-	QueueMan.unlockQueue(kQueueNewTexture);
+// 	QueueMan.lockQueue(kQueueNewTexture);
+// 	const std::list<Queueable *> &text = QueueMan.getQueue(kQueueNewTexture);
+// 	if (text.empty()) {
+// 		QueueMan.unlockQueue(kQueueNewTexture);
+// 		return;
+// 	}
+//
+// 	for (std::list<Queueable *>::const_iterator t = text.begin(); t != text.end(); ++t)
+// 		static_cast<GLContainer *>(*t)->rebuild();
+//
+// 	QueueMan.clearQueue(kQueueNewTexture);
+// 	QueueMan.unlockQueue(kQueueNewTexture);
 }
 
 void GraphicsManager::beginScene() {
 	// Switch cursor on/off
-	if (_cursorState != kCursorStateStay)
-		handleCursorSwitch();
-
-	if (_fsaa > 0)
-		glEnable(GL_MULTISAMPLE_ARB);
-
-	// Clear
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-	glEnable(GL_TEXTURE_2D);
+// 	if (_cursorState != kCursorStateStay)
+// 		handleCursorSwitch();
+//
+// 	if (_fsaa > 0)
+// 		glEnable(GL_MULTISAMPLE_ARB);
+//
+// 	// Clear
+// 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//
+// 	glEnable(GL_TEXTURE_2D);
 }
 
 bool GraphicsManager::playVideo() {
-	if (QueueMan.isQueueEmpty(kQueueVisibleVideo))
-		return false;
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glScalef(2.0 / _screen->w, 2.0 / _screen->h, 0.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	QueueMan.lockQueue(kQueueVisibleVideo);
-	const std::list<Queueable *> &videos = QueueMan.getQueue(kQueueVisibleVideo);
-
-	for (std::list<Queueable *>::const_iterator v = videos.begin(); v != videos.end(); ++v) {
-		glPushMatrix();
-		static_cast<Renderable *>(*v)->render(kRenderPassAll);
-		glPopMatrix();
-	}
-
-	QueueMan.unlockQueue(kQueueVisibleVideo);
+// 	if (QueueMan.isQueueEmpty(kQueueVisibleVideo))
+// 		return false;
+//
+// 	glMatrixMode(GL_PROJECTION);
+// 	glLoadIdentity();
+// 	glScalef(2.0 / _screen->w, 2.0 / _screen->h, 0.0);
+//
+// 	glMatrixMode(GL_MODELVIEW);
+// 	glLoadIdentity();
+//
+// 	QueueMan.lockQueue(kQueueVisibleVideo);
+// 	const std::list<Queueable *> &videos = QueueMan.getQueue(kQueueVisibleVideo);
+//
+// 	for (std::list<Queueable *>::const_iterator v = videos.begin(); v != videos.end(); ++v) {
+// 		glPushMatrix();
+// 		static_cast<Renderable *>(*v)->render(kRenderPassAll);
+// 		glPopMatrix();
+// 	}
+//
+// 	QueueMan.unlockQueue(kQueueVisibleVideo);
 	return true;
 }
 
@@ -809,103 +875,120 @@ bool GraphicsManager::renderWorld() {
 	if (QueueMan.isQueueEmpty(kQueueVisibleWorldObject))
 		return false;
 
-	float cPos[3];
-	float cOrient[3];
-
-	CameraMan.lock();
-	memcpy(cPos   , CameraMan.getPosition   (), 3 * sizeof(float));
-	memcpy(cOrient, CameraMan.getOrientation(), 3 * sizeof(float));
-	CameraMan.unlock();
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-
-	glMultMatrixf(_projection.get());
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	// Apply camera orientation
-	glRotatef(-cOrient[0], 1.0, 0.0, 0.0);
-	glRotatef( cOrient[1], 0.0, 1.0, 0.0);
-	glRotatef(-cOrient[2], 0.0, 0.0, 1.0);
-
-	// Apply camera position
-	glTranslatef(-cPos[0], -cPos[1], cPos[2]);
-
-	QueueMan.lockQueue(kQueueVisibleWorldObject);
-	const std::list<Queueable *> &objects = QueueMan.getQueue(kQueueVisibleWorldObject);
-
-	buildNewTextures();
-
-	// Get the current time
-	uint32 now = EventMan.getTimestamp();
-	if (_lastSampled == 0)
-		_lastSampled = now;
-
-	// Calc elapsed time
-	float elapsedTime = (now - _lastSampled) / 1000.0f;
-	_lastSampled = now;
-
-	// If game paused, skip the advanceTime loop below
-
-	// Advance time for animation queues
-	for (std::list<Queueable *>::const_reverse_iterator o = objects.rbegin();
-	     o != objects.rend(); ++o) {
-		static_cast<Renderable *>(*o)->advanceTime(elapsedTime);
-	}
-
-	// Draw opaque objects
-	for (std::list<Queueable *>::const_reverse_iterator o = objects.rbegin();
-	     o != objects.rend(); ++o) {
-
-		glPushMatrix();
-		static_cast<Renderable *>(*o)->render(kRenderPassOpaque);
-		glPopMatrix();
-	}
-
-	// Draw transparent objects
-	for (std::list<Queueable *>::const_reverse_iterator o = objects.rbegin();
-	     o != objects.rend(); ++o) {
-
-		glPushMatrix();
-		static_cast<Renderable *>(*o)->render(kRenderPassTransparent);
-		glPopMatrix();
-	}
-
-	QueueMan.unlockQueue(kQueueVisibleWorldObject);
+// 	float cPos[3];
+// 	float cOrient[3];
+//
+// 	CameraMan.lock();
+// 	memcpy(cPos   , CameraMan.getPosition(), 3 * sizeof(float));
+// 	memcpy(cOrient, CameraMan.getOrientation(), 3 * sizeof(float));
+// 	CameraMan.unlock();
+//
+// 	glMatrixMode(GL_PROJECTION);
+// 	glLoadIdentity();
+//
+// 	glMultMatrixf(_projection.get());
+//
+// 	glMatrixMode(GL_MODELVIEW);
+// 	glLoadIdentity();
+//
+// 	// Apply camera orientation
+// 	glRotatef(-cOrient[0], 1.0, 0.0, 0.0);
+// 	glRotatef(cOrient[1], 0.0, 1.0, 0.0);
+// 	glRotatef(-cOrient[2], 0.0, 0.0, 1.0);
+//
+// 	// Apply camera position
+// 	glTranslatef(-cPos[0], -cPos[1], cPos[2]);
+//
+// 	QueueMan.lockQueue(kQueueVisibleWorldObject);
+// 	const std::list<Queueable *> &objects = QueueMan.getQueue(kQueueVisibleWorldObject);
+//
+// 	buildNewTextures();
+//
+// 	// Get the current time
+// 	uint32 now = EventMan.getTimestamp();
+// 	if (_lastSampled == 0)
+// 		_lastSampled = now;
+//
+// 	// Calc elapsed time
+// 	float elapsedTime = (now - _lastSampled) / 1000.0f;
+// 	_lastSampled = now;
+//
+// 	// If game paused, skip the advanceTime loop below
+//
+// 	// Advance time for animation queues
+// 	for (std::list<Queueable *>::const_reverse_iterator o = objects.rbegin();
+// 	        o != objects.rend(); ++o) {
+// 		static_cast<Renderable *>(*o)->advanceTime(elapsedTime);
+// 	}
+//
+// 	// Draw opaque objects
+// 	for (std::list<Queueable *>::const_reverse_iterator o = objects.rbegin();
+// 	        o != objects.rend(); ++o) {
+//
+// 		glPushMatrix();
+// 		static_cast<Renderable *>(*o)->render(kRenderPassOpaque);
+// 		glPopMatrix();
+// 	}
+//
+// 	// Draw transparent objects
+// 	for (std::list<Queueable *>::const_reverse_iterator o = objects.rbegin();
+// 	        o != objects.rend(); ++o) {
+//
+// 		glPushMatrix();
+// 		static_cast<Renderable *>(*o)->render(kRenderPassTransparent);
+// 		glPopMatrix();
+// 	}
+//
+// 	QueueMan.unlockQueue(kQueueVisibleWorldObject);
 	return true;
 }
 
 bool GraphicsManager::renderGUIFront() {
+
+
+	
+
 	if (QueueMan.isQueueEmpty(kQueueVisibleGUIFrontObject))
 		return false;
 
-	glDisable(GL_DEPTH_TEST);
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glScalef(2.0 / _screen->w, 2.0 / _screen->h, 0.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
+// 	glDisable(GL_DEPTH_TEST);
+//
+// 	glMatrixMode(GL_PROJECTION);
+// 	glLoadIdentity();
+// 	glScalef(2.0 / _screen->w, 2.0 / _screen->h, 0.0);
+//
+// 	glMatrixMode(GL_MODELVIEW);
+// 	glLoadIdentity();
+//
 	QueueMan.lockQueue(kQueueVisibleGUIFrontObject);
 	const std::list<Queueable *> &gui = QueueMan.getQueue(kQueueVisibleGUIFrontObject);
+//
+// 	buildNewTextures();
+//
 
-	buildNewTextures();
+	if (!initR) {
+		for (std::list<Queueable *>::const_reverse_iterator g = gui.rbegin(); g != gui.rend(); ++g) {
+// 		glPushMatrix();
+			if ( static_cast<Renderable *>(*g)->getTag().contains("#"))
+				continue;
 
-	for (std::list<Queueable *>::const_reverse_iterator g = gui.rbegin();
-	     g != gui.rend(); ++g) {
-
-		glPushMatrix();
-		static_cast<Renderable *>(*g)->render(kRenderPassAll);
-		glPopMatrix();
+			Common::UString name = ((Graphics::Aurora::Model *) static_cast<Renderable *>(*g))->getName();
+			Common::UString tag = ((Graphics::Aurora::Model *) static_cast<Renderable *>(*g))->getTag();
+			std::cout << name.c_str() << std::endl;
+			name.toupper();
+			Ogre::Entity *ogreHead = scene_manager->createEntity((name + "_" + tag).c_str() , (name + ".mesh").c_str());
+			Ogre::SceneNode *headNode = scene_manager->getRootSceneNode()->createChildSceneNode(("Node_" + name+ "_" + tag).c_str());
+			headNode->attachObject(ogreHead);
+// 		glPopMatrix();
+		}
+		std::cout << "loop effectué" << std::endl;
+	initR = true;
 	}
-
+	
 	QueueMan.unlockQueue(kQueueVisibleGUIFrontObject);
-
-	glEnable(GL_DEPTH_TEST);
+	root->renderOneFrame();
+//
+// 	glEnable(GL_DEPTH_TEST);
 	return true;
 }
 
@@ -913,56 +996,56 @@ bool GraphicsManager::renderCursor() {
 	if (!_cursor)
 		return false;
 
-	buildNewTextures();
-
-	glDisable(GL_DEPTH_TEST);
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glScalef(2.0 / _screen->w, 2.0 / _screen->h, 0.0);
-	glTranslatef(- (_screen->w / 2.0), _screen->h / 2.0, 0.0);
-
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	_cursor->render();
-	glEnable(GL_DEPTH_TEST);
+// 	buildNewTextures();
+//
+// 	glDisable(GL_DEPTH_TEST);
+// 	glMatrixMode(GL_PROJECTION);
+// 	glLoadIdentity();
+// 	glScalef(2.0 / _screen->w, 2.0 / _screen->h, 0.0);
+// 	glTranslatef(- (_screen->w / 2.0), _screen->h / 2.0, 0.0);
+//
+// 	glMatrixMode(GL_MODELVIEW);
+// 	glLoadIdentity();
+//
+// 	_cursor->render();
+// 	glEnable(GL_DEPTH_TEST);
 	return true;
 }
 
 void GraphicsManager::endScene() {
-	SDL_GL_SwapBuffers();
-
-	if (_takeScreenshot) {
-		Graphics::takeScreenshot();
-		_takeScreenshot = false;
-	}
-
-	_fpsCounter->finishedFrame();
-
-	if (_fsaa > 0)
-		glDisable(GL_MULTISAMPLE_ARB);
+// 	SDL_GL_SwapBuffers();
+//
+// 	if (_takeScreenshot) {
+// 		Graphics::takeScreenshot();
+// 		_takeScreenshot = false;
+// 	}
+//
+// 	_fpsCounter->finishedFrame();
+//
+// 	if (_fsaa > 0)
+// 		glDisable(GL_MULTISAMPLE_ARB);
 }
 
 void GraphicsManager::renderScene() {
 	Common::enforceMainThread();
-
-	cleanupAbandoned();
-
-	if (_frameLock > 0)
-		return;
-
-	beginScene();
-
-	if (playVideo()) {
-		endScene();
-		return;
-	}
-
-	renderWorld();
+//
+// 	cleanupAbandoned();
+//
+// 	if (_frameLock > 0)
+// 		return;
+//
+// 	beginScene();
+//
+// 	if (playVideo()) {
+// 		endScene();
+// 		return;
+// 	}
+//
+// 	renderWorld();
 	renderGUIFront();
-	renderCursor();
-
-	endScene();
+// 	renderCursor();
+//
+// 	endScene();
 }
 
 int GraphicsManager::getScreenWidth() const {
@@ -992,23 +1075,23 @@ bool GraphicsManager::isFullScreen() const {
 }
 
 void GraphicsManager::rebuildGLContainers() {
-	QueueMan.lockQueue(kQueueGLContainer);
-
-	const std::list<Queueable *> &cont = QueueMan.getQueue(kQueueGLContainer);
-	for (std::list<Queueable *>::const_iterator c = cont.begin(); c != cont.end(); ++c)
-		static_cast<GLContainer *>(*c)->rebuild();
-
-	QueueMan.unlockQueue(kQueueGLContainer);
+// 	QueueMan.lockQueue(kQueueGLContainer);
+//
+// 	const std::list<Queueable *> &cont = QueueMan.getQueue(kQueueGLContainer);
+// 	for (std::list<Queueable *>::const_iterator c = cont.begin(); c != cont.end(); ++c)
+// 		static_cast<GLContainer *>(*c)->rebuild();
+//
+// 	QueueMan.unlockQueue(kQueueGLContainer);
 }
 
 void GraphicsManager::destroyGLContainers() {
-	QueueMan.lockQueue(kQueueGLContainer);
-
-	const std::list<Queueable *> &cont = QueueMan.getQueue(kQueueGLContainer);
-	for (std::list<Queueable *>::const_iterator c = cont.begin(); c != cont.end(); ++c)
-		static_cast<GLContainer *>(*c)->destroy();
-
-	QueueMan.unlockQueue(kQueueGLContainer);
+// 	QueueMan.lockQueue(kQueueGLContainer);
+//
+// 	const std::list<Queueable *> &cont = QueueMan.getQueue(kQueueGLContainer);
+// 	for (std::list<Queueable *>::const_iterator c = cont.begin(); c != cont.end(); ++c)
+// 		static_cast<GLContainer *>(*c)->destroy();
+//
+// 	QueueMan.unlockQueue(kQueueGLContainer);
 }
 
 void GraphicsManager::destroyContext() {
@@ -1019,47 +1102,47 @@ void GraphicsManager::destroyContext() {
 
 void GraphicsManager::rebuildContext() {
 	// Reintroduce glew to the surface
-	GLenum glewErr = glewInit();
-	if (glewErr != GLEW_OK)
-		throw Common::Exception("Failed initializing glew: %s", glewGetErrorString(glewErr));
-
-	// Reintroduce OpenGL to the surface
-	setupScene();
-
-	// And reload/rebuild all GL containers
-	rebuildGLContainers();
-
-	// Wait for everything to settle
-	RequestMan.sync();
+// 	GLenum glewErr = glewInit();
+// 	if (glewErr != GLEW_OK)
+// 		throw Common::Exception("Failed initializing glew: %s", glewGetErrorString(glewErr));
+//
+// 	// Reintroduce OpenGL to the surface
+// 	setupScene();
+//
+// 	// And reload/rebuild all GL containers
+// 	rebuildGLContainers();
+//
+// 	// Wait for everything to settle
+// 	RequestMan.sync();
 }
 
 void GraphicsManager::handleCursorSwitch() {
-	Common::StackLock lock(_cursorMutex);
-
-	if      (_cursorState == kCursorStateSwitchOn)
-		SDL_ShowCursor(SDL_ENABLE);
-	else if (_cursorState == kCursorStateSwitchOff)
-		SDL_ShowCursor(SDL_DISABLE);
-
-	_cursorState = kCursorStateStay;
+// 	Common::StackLock lock(_cursorMutex);
+//
+// 	if (_cursorState == kCursorStateSwitchOn)
+// 		SDL_ShowCursor(SDL_ENABLE);
+// 	else if (_cursorState == kCursorStateSwitchOff)
+// 		SDL_ShowCursor(SDL_DISABLE);
+//
+// 	_cursorState = kCursorStateStay;
 }
 
 void GraphicsManager::cleanupAbandoned() {
-	if (!_hasAbandoned)
-		return;
-
-	Common::StackLock lock(_abandonMutex);
-
-	if (!_abandonTextures.empty())
-		glDeleteTextures(_abandonTextures.size(), &_abandonTextures[0]);
-
-	for (std::list<ListID>::iterator l = _abandonLists.begin(); l != _abandonLists.end(); ++l)
-		glDeleteLists(*l, 1);
-
-	_abandonTextures.clear();
-	_abandonLists.clear();
-
-	_hasAbandoned = false;
+// 	if (!_hasAbandoned)
+// 		return;
+//
+// 	Common::StackLock lock(_abandonMutex);
+//
+// 	if (!_abandonTextures.empty())
+// 		glDeleteTextures(_abandonTextures.size(), &_abandonTextures[0]);
+//
+// 	for (std::list<ListID>::iterator l = _abandonLists.begin(); l != _abandonLists.end(); ++l)
+// 		glDeleteLists(*l, 1);
+//
+// 	_abandonTextures.clear();
+// 	_abandonLists.clear();
+//
+// 	_hasAbandoned = false;
 }
 
 void GraphicsManager::toggleFullScreen() {
@@ -1100,11 +1183,11 @@ void GraphicsManager::setFullScreen(bool fullScreen) {
 }
 
 void GraphicsManager::toggleMouseGrab() {
-	// Same as ScummVM's OSystem_SDL::toggleMouseGrab()
-	if (SDL_WM_GrabInput(SDL_GRAB_QUERY) == SDL_GRAB_OFF)
-		SDL_WM_GrabInput(SDL_GRAB_ON);
-	else
-		SDL_WM_GrabInput(SDL_GRAB_OFF);
+// 	// Same as ScummVM's OSystem_SDL::toggleMouseGrab()
+// 	if (SDL_WM_GrabInput(SDL_GRAB_QUERY) == SDL_GRAB_OFF)
+// 		SDL_WM_GrabInput(SDL_GRAB_ON);
+// 	else
+// 		SDL_WM_GrabInput(SDL_GRAB_OFF);
 }
 
 void GraphicsManager::setScreenSize(int width, int height) {
@@ -1140,16 +1223,26 @@ void GraphicsManager::setScreenSize(int width, int height) {
 		throw Common::Exception("Failed changing the resolution and then failed reverting.");
 
 	rebuildContext();
+	renderWindow->resize(width, height);
+	if (width == 800)
+		camera->setPosition(Ogre::Vector3(0, 0, 400));
 
+	if (width == 1024)
+		camera->setPosition(Ogre::Vector3(0, 0, 500));
+	
+	renderWindow->update();
+
+
+	
 	// Let the NotificationManager notify the Notifyables that the resolution changed
 	if ((oldWidth != _screen->w) || (oldHeight != _screen->h))
 		NotificationMan.resized(oldWidth, oldHeight, _screen->w, _screen->h);
 }
 
 void GraphicsManager::showCursor(bool show) {
-	Common::StackLock lock(_cursorMutex);
-
-	_cursorState = show ? kCursorStateSwitchOn : kCursorStateSwitchOff;
+// 	Common::StackLock lock(_cursorMutex);
+//
+// 	_cursorState = show ? kCursorStateSwitchOn : kCursorStateSwitchOff;
 }
 
 } // End of namespace Graphics

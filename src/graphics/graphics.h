@@ -33,6 +33,8 @@
 #include <vector>
 #include <list>
 
+#include "OGRE/Ogre.h"
+
 #include "graphics/types.h"
 
 #include "common/types.h"
@@ -150,6 +152,8 @@ public:
 
 	/** Render one complete frame of the scene. */
 	void renderScene();
+	void testOgre();
+	Ogre::SceneManager * getSceneMan();
 
 
 private:
@@ -204,6 +208,7 @@ private:
 
 	void initSize(int width, int height, bool fullscreen);
 	void setupScene();
+	
 
 	int probeFSAA(int width, int height, int bpp, uint32 flags);
 
@@ -234,6 +239,9 @@ private:
 	bool renderGUIFront();
 	bool renderCursor();
 	void endScene();
+	Ogre::Root *root;
+	Ogre::SceneManager *scene_manager;
+	Ogre::RenderWindow *renderWindow;
 };
 
 } // End of namespace Graphics

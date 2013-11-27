@@ -129,21 +129,21 @@ void NWNEngine::run(const Common::UString &target) {
 		return;
 
 	status("Successfully initialized the engine");
-
-	CursorMan.hideCursor();
-	CursorMan.set();
-
-	playIntroVideos();
+// 
+// 	CursorMan.hideCursor();
+// 	CursorMan.set();
+// 
+// // 	playIntroVideos();
 	if (EventMan.quitRequested())
 		return;
-
-	CursorMan.showCursor();
-
-	if (ConfigMan.getBool("showfps", false)) {
-		_fps = new Graphics::Aurora::FPS(FontMan.get(Graphics::Aurora::kSystemFontMono, 13));
-		_fps->show();
-	}
-
+// 
+// 	CursorMan.showCursor();
+// 
+// 	if (ConfigMan.getBool("showfps", false)) {
+// 		_fps = new Graphics::Aurora::FPS(FontMan.get(Graphics::Aurora::kSystemFontMono, 13));
+// 		_fps->show();
+// 	}
+// 
 	mainMenuLoop();
 
 	deinit();
@@ -414,7 +414,7 @@ void NWNEngine::mainMenuLoop() {
 	playSound("gui_prompt", Sound::kSoundTypeSFX);
 
 	// Create and fade in the legal billboard
-	Legal *legal = new Legal;
+// 	Legal *legal = new Legal;
 
 	Console console;
 	Module module(console);
@@ -426,42 +426,43 @@ void NWNEngine::mainMenuLoop() {
 		GUI *mainMenu = new MainMenu(module);
 
 		EventMan.flushEvents();
-		if (legal) {
-			// Fade in, show and fade out the legal billboard
-			legal->fadeIn();
+// 		if (legal) {
+// 			// Fade in, show and fade out the legal billboard
+// 			legal->fadeIn();
 			mainMenu->show();
-			legal->show();
+// 			legal->show();
+// 
+// 			delete legal;
+// 			legal = 0;
+// 		} else
+// 			mainMenu->show();
 
-			delete legal;
-			legal = 0;
-		} else
-			mainMenu->show();
-
+// 		GfxMan.testOgre();
 		mainMenu->run();
-		mainMenu->hide();
-
-		delete mainMenu;
+// 		mainMenu->hide();
+// 
+// 		delete mainMenu;
 
 		if (EventMan.quitRequested())
 			break;
 
 		stopMenuMusic();
 
-		module.run();
+// 		module.run();
 		if (EventMan.quitRequested())
 			break;
 
 		playMenuMusic();
-		console.hide();
-		module.clear();
+// 		console.hide();
+// 		module.clear();
 	}
 
-	_scriptFuncs->setModule(0);
-	console.setModule();
+// 	_scriptFuncs->setModule(0);
+// 	console.setModule();
 
 	stopMenuMusic();
 
-	delete legal;
+// 	delete legal;
 }
 
 void NWNEngine::getModules(std::vector<Common::UString> &modules) {

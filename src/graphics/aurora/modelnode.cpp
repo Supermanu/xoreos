@@ -480,31 +480,31 @@ void ModelNode::renderGeometry() {
 void ModelNode::render(RenderPass pass) {
 	// Apply the node's transformation
 
-	glTranslatef(_position[0], _position[1], _position[2]);
-	glRotatef(_orientation[3], _orientation[0], _orientation[1], _orientation[2]);
-
-	glRotatef(_rotation[0], 1.0, 0.0, 0.0);
-	glRotatef(_rotation[1], 0.0, 1.0, 0.0);
-	glRotatef(_rotation[2], 0.0, 0.0, 1.0);
-
-
-	// Render the node's geometry
-
-	bool shouldRender = _render && (_indexBuffer.getCount() > 0);
-	if (((pass == kRenderPassOpaque)      &&  _isTransparent) ||
-	    ((pass == kRenderPassTransparent) && !_isTransparent))
-		shouldRender = false;
-
-	if (shouldRender)
-		renderGeometry();
-
-
-	// Render the node's children
-	for (std::list<ModelNode *>::iterator c = _children.begin(); c != _children.end(); ++c) {
-		glPushMatrix();
-		(*c)->render(pass);
-		glPopMatrix();
-	}
+// 	glTranslatef(_position[0], _position[1], _position[2]);
+// 	glRotatef(_orientation[3], _orientation[0], _orientation[1], _orientation[2]);
+// 
+// 	glRotatef(_rotation[0], 1.0, 0.0, 0.0);
+// 	glRotatef(_rotation[1], 0.0, 1.0, 0.0);
+// 	glRotatef(_rotation[2], 0.0, 0.0, 1.0);
+// 
+// 
+// 	// Render the node's geometry
+// 
+// 	bool shouldRender = _render && (_indexBuffer.getCount() > 0);
+// 	if (((pass == kRenderPassOpaque)      &&  _isTransparent) ||
+// 	    ((pass == kRenderPassTransparent) && !_isTransparent))
+// 		shouldRender = false;
+// 
+// 	if (shouldRender)
+// 		renderGeometry();
+// 
+// 
+// 	// Render the node's children
+// 	for (std::list<ModelNode *>::iterator c = _children.begin(); c != _children.end(); ++c) {
+// 		glPushMatrix();
+// 		(*c)->render(pass);
+// 		glPopMatrix();
+// 	}
 }
 
 void ModelNode::interpolatePosition(float time, float &x, float &y, float &z) const {

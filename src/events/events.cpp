@@ -208,6 +208,19 @@ void EventsManager::processEvents() {
 		if (parseEventGraphics(event))
 			continue;
 
+		if (event.type == kEventKeyDown) {
+			if (event.key.keysym.sym == SDLK_LEFT) {
+				GfxMan.setWindowTitle("1024");
+				GfxMan.setScreenSize(1024,780);
+			}
+			
+			if (event.key.keysym.sym == SDLK_RIGHT) {
+				GfxMan.setWindowTitle("800");
+				GfxMan.setScreenSize(800,600);
+			}
+		}
+
+
 		if (parseITC(event))
 			continue;
 
