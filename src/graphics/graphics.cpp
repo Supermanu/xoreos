@@ -61,6 +61,7 @@ DECLARE_SINGLETON(Graphics::GraphicsManager)
 namespace Graphics {
 
 static Ogre::Camera *camera;
+static Ogre::AnimationState *mAnimation;
 static bool initR = false;
 PFNGLCOMPRESSEDTEXIMAGE2DPROC glCompressedTexImage2D;
 
@@ -133,7 +134,7 @@ void GraphicsManager::init() {
 	bool fs     = ConfigMan.getBool("fullscreen", false);
 
 	initSize(width, height, fs);
-	root = new Ogre::Root("plugins.cfg", "ogre.cfg", "ogre.log");
+	root = new Ogre::Root("plugins.cfg", "ogre.cfg");
 	if (root->restoreConfig())
 		std::cout << "config found" << std::endl;
 
@@ -981,11 +982,21 @@ bool GraphicsManager::renderGUIFront() {
 			headNode->attachObject(ogreHead);
 // 		glPopMatrix();
 		}
+		Ogre::Entity *bat = scene_manager->createEntity("bat" , "c_bat.mesh");
+		Ogre::SceneNode *batNode = scene_manager->getRootSceneNode()->createChildSceneNode("Node_bat");
+		batNode->attachObject(bat);
+		batNode->rotate(Ogre::Vector3::UNIT_X, Ogre::Degree(90));
+		batNode->rotate(Ogre::Vector3::UNIT_Y, Ogre::Degree(180));
+		batNode->setPosition(0,-50,350);
 		std::cout << "loop effectué" << std::endl;
+		mAnimation = bat->getAnimationState("ccwalkf");
+		mAnimation->setLoop(true);
+		mAnimation->setEnabled(true);
 	initR = true;
 	}
 	
 	QueueMan.unlockQueue(kQueueVisibleGUIFrontObject);
+	mAnimation->addTime(0.01);
 	root->renderOneFrame();
 //
 // 	glEnable(GL_DEPTH_TEST);
