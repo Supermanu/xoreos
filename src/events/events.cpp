@@ -211,7 +211,7 @@ void EventsManager::processEvents() {
 		if (event.type == kEventKeyDown) {
 			if (event.key.keysym.sym == SDLK_LEFT) {
 				GfxMan.setWindowTitle("1024");
-				GfxMan.setScreenSize(1024,780);
+				GfxMan.setScreenSize(1024,768);
 			}
 			
 			if (event.key.keysym.sym == SDLK_RIGHT) {

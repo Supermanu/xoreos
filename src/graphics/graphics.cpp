@@ -134,7 +134,7 @@ void GraphicsManager::init() {
 	bool fs     = ConfigMan.getBool("fullscreen", false);
 
 	initSize(width, height, fs);
-	root = new Ogre::Root("plugins.cfg", "ogre.cfg");
+	root = new Ogre::Root("plugins.cfg", "ogre.cfg", "ressources.cfg");
 	if (root->restoreConfig())
 		std::cout << "config found" << std::endl;
 
@@ -164,7 +164,19 @@ void GraphicsManager::init() {
 
 	Ogre::ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
 	Ogre::NameValuePairList misc;
+	#ifdef WINDOWS
+	SDL_SysWMinfo wmInfo;
+	SDL_VERSION(&wmInfo.version);
+	SDL_GetWMInfo(&wmInfo);
+
+	size_t winHandle = reinterpret_cast<size_t>(wmInfo.window);
+	size_t winGlContext = reinterpret_cast<size_t>(wmInfo.hglrc);
+
+	misc["externalWindowHandle"] = StringConverter::toString(winHandle);
+	misc["externalGLContext"] = StringConverter::toString(winGlContext);
+	#else
 	misc["currentGLContext"] = Ogre::String("True");
+	#endif
 	renderWindow = root->createRenderWindow("MainRenderWindow", 800, 600, false, &misc);
 // 	renderWindow->resize(800, 600);
 
@@ -947,7 +959,7 @@ bool GraphicsManager::renderWorld() {
 bool GraphicsManager::renderGUIFront() {
 
 
-	
+
 
 	if (QueueMan.isQueueEmpty(kQueueVisibleGUIFrontObject))
 		return false;
@@ -970,7 +982,7 @@ bool GraphicsManager::renderGUIFront() {
 	if (!initR) {
 		for (std::list<Queueable *>::const_reverse_iterator g = gui.rbegin(); g != gui.rend(); ++g) {
 // 		glPushMatrix();
-			if ( static_cast<Renderable *>(*g)->getTag().contains("#"))
+			if (static_cast<Renderable *>(*g)->getTag().contains("#"))
 				continue;
 
 			Common::UString name = ((Graphics::Aurora::Model *) static_cast<Renderable *>(*g))->getName();
@@ -978,7 +990,7 @@ bool GraphicsManager::renderGUIFront() {
 			std::cout << name.c_str() << std::endl;
 			name.toupper();
 			Ogre::Entity *ogreHead = scene_manager->createEntity((name + "_" + tag).c_str() , (name + ".mesh").c_str());
-			Ogre::SceneNode *headNode = scene_manager->getRootSceneNode()->createChildSceneNode(("Node_" + name+ "_" + tag).c_str());
+			Ogre::SceneNode *headNode = scene_manager->getRootSceneNode()->createChildSceneNode(("Node_" + name + "_" + tag).c_str());
 			headNode->attachObject(ogreHead);
 // 		glPopMatrix();
 		}
@@ -987,17 +999,18 @@ bool GraphicsManager::renderGUIFront() {
 		batNode->attachObject(bat);
 		batNode->rotate(Ogre::Vector3::UNIT_X, Ogre::Degree(90));
 		batNode->rotate(Ogre::Vector3::UNIT_Y, Ogre::Degree(180));
-		batNode->setPosition(0,-50,350);
+		batNode->setPosition(0, -50, 350);
 		std::cout << "loop effectué" << std::endl;
 		mAnimation = bat->getAnimationState("ccwalkf");
 		mAnimation->setLoop(true);
 		mAnimation->setEnabled(true);
-	initR = true;
+		initR = true;
 	}
-	
-	QueueMan.unlockQueue(kQueueVisibleGUIFrontObject);
-	mAnimation->addTime(0.01);
+	mAnimation->addTime(0.02);
 	root->renderOneFrame();
+	SDL_GL_SwapBuffers();
+	QueueMan.unlockQueue(kQueueVisibleGUIFrontObject);
+	
 //
 // 	glEnable(GL_DEPTH_TEST);
 	return true;
@@ -1240,11 +1253,11 @@ void GraphicsManager::setScreenSize(int width, int height) {
 
 	if (width == 1024)
 		camera->setPosition(Ogre::Vector3(0, 0, 500));
-	
+
 	renderWindow->update();
 
 
-	
+
 	// Let the NotificationManager notify the Notifyables that the resolution changed
 	if ((oldWidth != _screen->w) || (oldHeight != _screen->h))
 		NotificationMan.resized(oldWidth, oldHeight, _screen->w, _screen->h);
