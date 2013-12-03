@@ -31,6 +31,8 @@
 #include "common/error.h"
 #include "common/ustring.h"
 
+#include "events/types.h"
+
 #include "graphics/graphics.h"
 #include "graphics/font.h"
 
@@ -67,7 +69,7 @@ void WidgetListItem::mouseDown(uint8 state, float x, float y) {
 	if (isDisabled())
 		return;
 
-	if ((state == SDL_BUTTON_WHEELUP) || (state == SDL_BUTTON_WHEELDOWN)) {
+	if (state == Events::kEventMouseWheel) {
 		if (_owner)
 			_owner->mouseDown(state, x, y);
 		return;
@@ -615,15 +617,15 @@ void WidgetListBox::mouseDown(uint8 state, float x, float y) {
 	if (isDisabled())
 		return;
 
-	if (state == SDL_BUTTON_WHEELUP) {
-		scrollUp(1);
-		return;
-	}
-
-	if (state == SDL_BUTTON_WHEELDOWN) {
-		scrollDown(1);
-		return;
-	}
+// 	if (state == SDL_BUTTON_WHEELUP) {
+// 		scrollUp(1);
+// 		return;
+// 	}
+// 
+// 	if (state == SDL_BUTTON_WHEELDOWN) {
+// 		scrollDown(1);
+// 		return;
+// 	}
 
 	float wX, wY, wZ;
 	getPosition(wX, wY, wZ);

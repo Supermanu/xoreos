@@ -416,7 +416,7 @@ void Module::run() {
 	_ingameGUI->hide();
 
 	EventMan.enableUnicode(false);
-	EventMan.enableKeyRepeat(0);
+	EventMan.enableKeyRepeat(false);
 }
 
 void Module::handleEvents() {

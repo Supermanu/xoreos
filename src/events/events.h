@@ -117,7 +117,7 @@ public:
 	 *         0 disables repeating.
 	 *  @param interval Interval between repeated events in ms.
 	 */
-	void enableKeyRepeat(int delayTime = SDL_DEFAULT_REPEAT_DELAY, int interval = SDL_DEFAULT_REPEAT_INTERVAL);
+	void enableKeyRepeat(bool repeat = true);
 
 	/** Return the unicode code point of the pressed key.
 	 *
@@ -168,6 +168,7 @@ private:
 	bool _fullQueue;
 	Common::Condition _queueProcessed;
 
+	bool _repeat;
 
 	/** Initialize the available joysticks/gamepads. */
 	void initJoysticks();

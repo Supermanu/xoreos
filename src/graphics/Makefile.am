@@ -21,7 +21,11 @@ noinst_HEADERS = types.h \
                  yuv_to_rgb.h \
                  ttf.h \
                  indexbuffer.h \
-                 vertexbuffer.h
+                 vertexbuffer.h 
+
+if DARWIN
+noinst_HEADERS += OSX.h
+endif
 
 libgraphics_la_SOURCES = graphics.cpp \
                          fpscounter.cpp \
@@ -38,6 +42,10 @@ libgraphics_la_SOURCES = graphics.cpp \
                          yuv_to_rgb.cpp \
                          ttf.cpp \
                          indexbuffer.cpp \
-                         vertexbuffer.cpp
+                         vertexbuffer.cpp 
+
+if DARWIN
+noinst_HEADERS += OSX.mm
+endif
 
 libgraphics_la_LIBADD = images/libimages.la aurora/libaurora.la ../../glew/libglew.la

@@ -168,7 +168,7 @@ uint8 CursorManager::getPosition(int &x, int &y) const {
 }
 
 void CursorManager::setPosition(int x, int y) {
-	SDL_WarpMouse(x, y);
+	SDL_WarpMouseInWindow(GfxMan.getWindow(), x, y);
 }
 
 void CursorManager::toScreenCoordinates(int x, int y, float &sX, float &sY) {

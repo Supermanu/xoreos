@@ -88,6 +88,7 @@ public:
 	/** Return the system's screen height. */
 	int getSystemHeight() const;
 
+	SDL_Window* getWindow();
 	/** Are we currently in full screen mode? */
 	bool isFullScreen() const;
 
@@ -179,7 +180,7 @@ private:
 
 	float _gamma; ///< The current gamma correction value.
 
-	SDL_Surface *_screen; ///< The OpenGL hardware surface.
+	SDL_Window *_screen; ///< The OpenGL hardware surface.
 
 	FPSCounter *_fpsCounter; ///< Counts the current frames per seconds value.
 	uint32 _lastSampled; ///< Timestamp used to advance animations.

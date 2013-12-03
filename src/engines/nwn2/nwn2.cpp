@@ -197,7 +197,7 @@ void NWN2Engine::run(const Common::UString &target) {
 		EventMan.delay(10);
 	}
 
-	EventMan.enableKeyRepeat(0);
+	EventMan.enableKeyRepeat(false);
 
 	delete model;
 	delete fps;

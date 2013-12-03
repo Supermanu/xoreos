@@ -56,6 +56,11 @@
 #include "graphics/images/decoder.h"
 #include "graphics/images/screenshot.h"
 
+#include "SDL_syswm.h"
+#ifdef __APPLE__
+#include "OSX.h"
+#endif
+
 DECLARE_SINGLETON(Graphics::GraphicsManager)
 
 namespace Graphics {
@@ -110,8 +115,6 @@ GraphicsManager::~GraphicsManager() {
 }
 
 void GraphicsManager::init() {
-// 	Common::enforceMainThread();
-
 	uint32 sdlInitFlags = SDL_INIT_TIMER | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK;
 
 	// TODO: Is this actually needed on any systems? It seems to make MacOS X fail to
@@ -126,19 +129,59 @@ void GraphicsManager::init() {
 	if (SDL_Init(sdlInitFlags) < 0)
 		throw Common::Exception("Failed to initialize SDL: %s", SDL_GetError());
 
-	// Set the window title to our name
-	setWindowTitle(XOREOS_NAMEVERSION);
-
 	int  width  = ConfigMan.getInt("width"     , 800);
 	int  height = ConfigMan.getInt("height"    , 600);
 	bool fs     = ConfigMan.getBool("fullscreen", false);
 
 	initSize(width, height, fs);
+	// Set the window title to our name
+	setWindowTitle(XOREOS_NAMEVERSION);
+
+	SDL_GLContext glcontext = NULL;
+
+#ifndef __APPLE__
+	glcontext = SDL_GL_CreateContext(_screen);
+
+	if (glcontext == NULL) {
+		throw Common::Exception("SDL_GL_CreateContext failed: %s\n", SDL_GetError());
+	}
+
+#endif
+
+	SDL_SysWMinfo syswm_info;
+	SDL_VERSION(&syswm_info.version);
+
+	if (!SDL_GetWindowWMInfo(_screen, &syswm_info)) {
+		throw Common::Exception("Failed to get WMInfo: %s", SDL_GetError());
+	}
+
 	root = new Ogre::Root("plugins.cfg", "ogre.cfg", "ressources.cfg");
+
 	if (root->restoreConfig())
 		std::cout << "config found" << std::endl;
 
 	root->initialise(false);
+
+	Ogre::NameValuePairList params;
+#ifdef __WINDOWS__
+	params["externalGLControl"] = "1";
+	// only supported for Win32 on Ogre 1.8 not on other platforms
+	params["externalGLContext"] = Ogre::StringConverter::toString((unsigned long)glcontext);
+	params["externalWindowHandle"] = Ogre::StringConverter::toString((unsigned long)syswm_info.info.win.window);
+#elif __LINUX__
+	params["externalGLControl"] = "1";
+	// not documented in Ogre 1.8 mainline, supported for GLX and EGL{Win32,X11}
+	params["currentGLContext"] = "1";
+	// NOTE: externalWindowHandle is reported as deprecated (GLX Ogre 1.8)
+	params["parentWindowHandle"] = Ogre::StringConverter::toString((unsigned long)syswm_info.info.x11.window);
+#elif __APPLE__
+	params["externalGLControl"] = "1";
+	// only supported for Win32 on Ogre 1.8 not on other platforms
+	params["externalWindowHandle"] = OSX_cocoa_view(syswm_info);
+	params["macAPI"] = "cocoa";
+	params["macAPICocoaUseNSView"] = "true";
+#endif
+
 	// Load resource paths from config file
 	Ogre::ConfigFile cf;
 
@@ -150,10 +193,12 @@ void GraphicsManager::init() {
 	Ogre::ConfigFile::SectionIterator seci = cf.getSectionIterator();
 
 	Ogre::String secName, typeName, archName;
+
 	while (seci.hasMoreElements()) {
 		secName = seci.peekNextKey();
 		Ogre::ConfigFile::SettingsMultiMap *settings = seci.getNext();
 		Ogre::ConfigFile::SettingsMultiMap::iterator i;
+
 		for (i = settings->begin(); i != settings->end(); ++i) {
 			typeName = i->first;
 			archName = i->second;
@@ -163,24 +208,17 @@ void GraphicsManager::init() {
 	}
 
 	Ogre::ResourceGroupManager::getSingleton().initialiseAllResourceGroups();
-	Ogre::NameValuePairList misc;
-	#ifdef WINDOWS
-	SDL_SysWMinfo wmInfo;
-	SDL_VERSION(&wmInfo.version);
-	SDL_GetWMInfo(&wmInfo);
+	renderWindow = root->createRenderWindow("MainRenderWindow", 640, 480, false, &params);
 
-	size_t winHandle = reinterpret_cast<size_t>(wmInfo.window);
-	size_t winGlContext = reinterpret_cast<size_t>(wmInfo.hglrc);
-
-	misc["externalWindowHandle"] = StringConverter::toString(winHandle);
-	misc["externalGLContext"] = StringConverter::toString(winGlContext);
-	#else
-	misc["currentGLContext"] = Ogre::String("True");
-	#endif
-	renderWindow = root->createRenderWindow("MainRenderWindow", 800, 600, false, &misc);
+#ifdef __APPLE__
+	// I suspect triple buffering is on by default, which makes vsync pointless?
+	// except maybe for poorly implemented render loops which will then be forced to wait
+	// ogre_render_window->setVSyncEnabled( false );
+#else
+	// NOTE: SDL_GL_SWAP_CONTROL was SDL 1.2 and has been retired
+	SDL_GL_SetSwapInterval(1);
+#endif
 // 	renderWindow->resize(800, 600);
-
-
 
 // 	Ogre::Light *light = scene_manager->createLight("MainLight");
 // 	light->setPosition(20, 80, 50);
@@ -244,43 +282,27 @@ uint32 GraphicsManager::getFPS() const {
 }
 
 void GraphicsManager::initSize(int width, int height, bool fullscreen) {
-	int bpp = SDL_GetVideoInfo()->vfmt->BitsPerPixel;
-	if ((bpp != 16) && (bpp != 24) && (bpp != 32))
-		throw Common::Exception("Need 16, 24 or 32 bits per pixel");
 
-	_systemWidth  = SDL_GetVideoInfo()->current_w;
-	_systemHeight = SDL_GetVideoInfo()->current_h;
-
-	uint32 flags = SDL_OPENGL;
+	uint32 flags = SDL_WINDOW_OPENGL;
 
 	_fullScreen = fullscreen;
+
 	if (_fullScreen)
-		flags |= SDL_FULLSCREEN;
+		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 
-	// The way we try to find an optimal color mode is a bit complex:
-	// We only want 16bpp as a fallback, but otherwise prefer the native value.
-	// So, if we're currently in 24bpp or 32bpp, we try that one first, then the
-	// other one and 16bpp only as a last resort.
-	// If we're currently in 16bpp mode, we try the higher two first as well,
-	// before being okay with native 16bpp mode.
+	_screen = SDL_CreateWindow("xoreos",
+	                           SDL_WINDOWPOS_UNDEFINED,
+	                           SDL_WINDOWPOS_UNDEFINED,
+	                           640, 480, flags);
 
-	const int colorModes[] = { bpp == 16 ? 32 : bpp, bpp == 24 ? 32 : 24, 16 };
-
-	bool foundMode = false;
-	for (int i = 0; i < ARRAYSIZE(colorModes); i++) {
-		if (setupSDLGL(width, height, colorModes[i], flags)) {
-			foundMode = true;
-			break;
-		}
-	}
-
-	if (!foundMode)
-		throw Common::Exception("Failed setting the video mode: %s", SDL_GetError());
+	if (!_screen)
+		throw Common::Exception("Failed to create window: %s", SDL_GetError());
 
 	// Initialize glew, for the extension entry points
-	GLenum glewErr = glewInit();
-	if (glewErr != GLEW_OK)
-		throw Common::Exception("Failed initializing glew: %s", glewGetErrorString(glewErr));
+// 	GLenum glewErr = glewInit();
+// 
+// 	if (glewErr != GLEW_OK)
+// 		throw Common::Exception("Failed initializing glew: %s", glewGetErrorString(glewErr));
 
 	// Check if we have all needed OpenGL extensions
 	checkGLExtensions();
@@ -288,53 +310,54 @@ void GraphicsManager::initSize(int width, int height, bool fullscreen) {
 
 bool GraphicsManager::setFSAA(int level) {
 	// Force calling it from the main thread
-	if (!Common::isMainThread()) {
-		Events::MainThreadFunctor<bool> functor(boost::bind(&GraphicsManager::setFSAA, this, level));
-
-		return RequestMan.callInMainThread(functor);
-	}
-
-	if (_fsaa == level)
-		// Nothing to do
-		return true;
-
-	// Check if we have the support for that level
-	if (level > _fsaaMax)
-		return false;
-
-	// Backup the old level and set the new level
-	int oldFSAA = _fsaa;
-	_fsaa = level;
-
-	destroyContext();
-
-	// Set the multisample level
-// 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
-// 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
-
-	uint32 flags = _screen->flags;
-
-	// Now try to change the screen
-	_screen = SDL_SetVideoMode(0, 0, 0, flags);
-
-	if (!_screen) {
-		// Failed changing, back up
-
-		_fsaa = oldFSAA;
-
-		// Set the multisample level
-// 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
-// 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
-		_screen = SDL_SetVideoMode(0, 0, 0, flags);
-
-		// There's no reason how this could possibly fail, but ok...
-		if (!_screen)
-			throw Common::Exception("Failed reverting to the old FSAA settings");
-	}
-
-	rebuildContext();
-
-	return _fsaa == level;
+// 	if (!Common::isMainThread()) {
+// 		Events::MainThreadFunctor<bool> functor(boost::bind(&GraphicsManager::setFSAA, this, level));
+// 
+// 		return RequestMan.callInMainThread(functor);
+// 	}
+// 
+// 	if (_fsaa == level)
+// 		// Nothing to do
+// 		return true;
+// 
+// 	// Check if we have the support for that level
+// 	if (level > _fsaaMax)
+// 		return false;
+// 
+// 	// Backup the old level and set the new level
+// 	int oldFSAA = _fsaa;
+// 	_fsaa = level;
+// 
+// 	destroyContext();
+// 
+// 	// Set the multisample level
+// // 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
+// // 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
+// 
+// 	uint32 flags = _screen->flags;
+// 
+// 	// Now try to change the screen
+// 	_screen = SDL_SetVideoMode(0, 0, 0, flags);
+// 
+// 	if (!_screen) {
+// 		// Failed changing, back up
+// 
+// 		_fsaa = oldFSAA;
+// 
+// 		// Set the multisample level
+// // 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, (_fsaa > 0) ? 1 : 0);
+// // 		SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, _fsaa);
+// 		_screen = SDL_SetVideoMode(0, 0, 0, flags);
+// 
+// 		// There's no reason how this could possibly fail, but ok...
+// 		if (!_screen)
+// 			throw Common::Exception("Failed reverting to the old FSAA settings");
+// 	}
+// 
+// 	rebuildContext();
+// 
+// 	return _fsaa == level;
+	return false;
 }
 
 int GraphicsManager::probeFSAA(int width, int height, int bpp, uint32 flags) {
@@ -358,21 +381,21 @@ int GraphicsManager::probeFSAA(int width, int height, int bpp, uint32 flags) {
 }
 
 bool GraphicsManager::setupSDLGL(int width, int height, int bpp, uint32 flags) {
-	_fsaaMax = probeFSAA(width, height, bpp, flags);
-
-	SDL_GL_SetAttribute(SDL_GL_RED_SIZE    ,   8);
-	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE  ,   8);
-	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE   ,   8);
-	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE  ,   8);
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,   1);
-
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
-
-	_screen = SDL_SetVideoMode(width, height, bpp, flags);
-	if (!_screen)
-		return false;
-
+// 	_fsaaMax = probeFSAA(width, height, bpp, flags);
+//
+// 	SDL_GL_SetAttribute(SDL_GL_RED_SIZE    ,   8);
+// 	SDL_GL_SetAttribute(SDL_GL_GREEN_SIZE  ,   8);
+// 	SDL_GL_SetAttribute(SDL_GL_BLUE_SIZE   ,   8);
+// 	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE  ,   8);
+// 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER,   1);
+//
+// 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 0);
+// 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 0);
+//
+// 	_screen = SDL_SetVideoMode(width, height, bpp, flags);
+// 	if (!_screen)
+// 		return false;
+//
 	return true;
 }
 
@@ -388,8 +411,8 @@ void GraphicsManager::checkGLExtensions() {
 	if (!_needManualDeS3TC) {
 		// Make sure we use the right glCompressedTexImage2D function
 		glCompressedTexImage2D = GLEW_GET_FUN(__glewCompressedTexImage2D) ?
-		                         (PFNGLCOMPRESSEDTEXIMAGE2DPROC)GLEW_GET_FUN(__glewCompressedTexImage2D) :
-		                         (PFNGLCOMPRESSEDTEXIMAGE2DPROC)GLEW_GET_FUN(__glewCompressedTexImage2DARB);
+		                         (PFNGLCOMPRESSEDTEXIMAGE2DPROC) GLEW_GET_FUN(__glewCompressedTexImage2D) :
+		                         (PFNGLCOMPRESSEDTEXIMAGE2DPROC) GLEW_GET_FUN(__glewCompressedTexImage2DARB);
 
 		if (!GLEW_ARB_texture_compression || !glCompressedTexImage2D) {
 			warning("Your graphics card doesn't support the compressed texture API");
@@ -411,7 +434,7 @@ void GraphicsManager::checkGLExtensions() {
 }
 
 void GraphicsManager::setWindowTitle(const Common::UString &title) {
-	SDL_WM_SetCaption(title.c_str(), 0);
+	SDL_SetWindowTitle(_screen, title.c_str());
 }
 
 float GraphicsManager::getGamma() const {
@@ -427,8 +450,13 @@ void GraphicsManager::setGamma(float gamma) {
 	}
 
 	_gamma = gamma;
+	Uint16* ramp = NULL;
+	SDL_CalculateGammaRamp(gamma, ramp);
 
-	SDL_SetGamma(gamma, gamma, gamma);
+	if (!ramp)
+		SDL_SetWindowGammaRamp(_screen, ramp, ramp, ramp);
+	else
+		warning("Enable to set gamma");
 }
 
 void GraphicsManager::setupScene() {
@@ -578,93 +606,96 @@ bool GraphicsManager::unproject(float x, float y,
                                 float &x1, float &y1, float &z1,
                                 float &x2, float &y2, float &z2) const {
 
-	try {
-		// Generate the inverse of the model matrix
-
-		Common::TransformationMatrix model;
-
-		float cPos[3];
-		float cOrient[3];
-
-		CameraMan.lock();
-		memcpy(cPos   , CameraMan.getPosition(), 3 * sizeof(float));
-		memcpy(cOrient, CameraMan.getOrientation(), 3 * sizeof(float));
-		CameraMan.unlock();
-
-		// Apply camera position
-		model.translate(cPos[0], cPos[1], -cPos[2]);
-
-		// Apply camera orientation
-		model.rotate(cOrient[2], 0.0, 0.0, 1.0);
-		model.rotate(-cOrient[1], 0.0, 1.0, 0.0);
-		model.rotate(cOrient[0], 1.0, 0.0, 0.0);
-
-
-		// Multiply with the inverse of our projection matrix
-		model *= _projectionInv;
-
-
-		// Viewport coordinates
-
-		float view[4];
-
-		view[0] = 0.0;
-		view[1] = 0.0;
-		view[2] = _screen->w;
-		view[3] = _screen->h;
-
-		float zNear = 0.0;
-		float zFar  = 1.0;
-
-
-		// Generate a matrix for the coordinates at the near plane
-
-		Common::Matrix coordsNear(4, 1);
-
-		coordsNear(0, 0) = ((2 * (x - view[0])) / (view[2])) - 1.0;
-		coordsNear(1, 0) = ((2 * (y - view[1])) / (view[3])) - 1.0;
-		coordsNear(2, 0) = (2 * zNear) - 1.0;
-		coordsNear(3, 0) = 1.0;
-
-
-
-		// Generate a matrix for the coordinates at the far plane
-
-		Common::Matrix coordsFar(4, 1);
-
-		coordsFar(0, 0) = ((2 * (x - view[0])) / (view[2])) - 1.0;
-		coordsFar(1, 0) = ((2 * (y - view[1])) / (view[3])) - 1.0;
-		coordsFar(2, 0) = (2 * zFar) - 1.0;
-		coordsFar(3, 0) = 1.0;
-
-
-		// Unproject
-		Common::Matrix oNear(model * coordsNear);
-		Common::Matrix oFar(model * coordsFar);
-		if ((oNear(3, 0) == 0.0) || (oNear(3, 0) == 0.0))
-			return false;
-
-
-		// And return the values
-
-		oNear(3, 0) = 1.0 / oNear(3, 0);
-
-		x1 = oNear(0, 0) * oNear(3, 0);
-		y1 = oNear(1, 0) * oNear(3, 0);
-		z1 = oNear(2, 0) * oNear(3, 0);
-
-		oFar(3, 0) = 1.0 / oFar(3, 0);
-
-		x2 = oFar(0, 0) * oFar(3, 0);
-		y2 = oFar(1, 0) * oFar(3, 0);
-		z2 = oFar(2, 0) * oFar(3, 0);
-
-	} catch (Common::Exception &e) {
-		Common::printException(e, "WARNING: ");
-		return false;
-	} catch (...) {
-		return false;
-	}
+// 	try {
+// 		// Generate the inverse of the model matrix
+// 
+// 		Common::TransformationMatrix model;
+// 
+// 		float cPos[3];
+// 		float cOrient[3];
+// 
+// 		CameraMan.lock();
+// 		memcpy(cPos   , CameraMan.getPosition(), 3 * sizeof(float));
+// 		memcpy(cOrient, CameraMan.getOrientation(), 3 * sizeof(float));
+// 		CameraMan.unlock();
+// 
+// 		// Apply camera position
+// 		model.translate(cPos[0], cPos[1], -cPos[2]);
+// 
+// 		// Apply camera orientation
+// 		model.rotate(cOrient[2], 0.0, 0.0, 1.0);
+// 		model.rotate(-cOrient[1], 0.0, 1.0, 0.0);
+// 		model.rotate(cOrient[0], 1.0, 0.0, 0.0);
+// 
+// 
+// 		// Multiply with the inverse of our projection matrix
+// 		model *= _projectionInv;
+// 
+// 
+// 		// Viewport coordinates
+// 
+// 		float view[4];
+// 
+// 		view[0] = 0.0;
+// 		view[1] = 0.0;
+// 		view[2] = _screen->w;
+// 		view[3] = _screen->h;
+// 
+// 		float zNear = 0.0;
+// 		float zFar  = 1.0;
+// 
+// 
+// 		// Generate a matrix for the coordinates at the near plane
+// 
+// 		Common::Matrix coordsNear(4, 1);
+// 
+// 		coordsNear(0, 0) = ((2 * (x - view[0])) / (view[2])) - 1.0;
+// 		coordsNear(1, 0) = ((2 * (y - view[1])) / (view[3])) - 1.0;
+// 		coordsNear(2, 0) = (2 * zNear) - 1.0;
+// 		coordsNear(3, 0) = 1.0;
+// 
+// 
+// 
+// 		// Generate a matrix for the coordinates at the far plane
+// 
+// 		Common::Matrix coordsFar(4, 1);
+// 
+// 		coordsFar(0, 0) = ((2 * (x - view[0])) / (view[2])) - 1.0;
+// 		coordsFar(1, 0) = ((2 * (y - view[1])) / (view[3])) - 1.0;
+// 		coordsFar(2, 0) = (2 * zFar) - 1.0;
+// 		coordsFar(3, 0) = 1.0;
+// 
+// 
+// 		// Unproject
+// 		Common::Matrix oNear(model * coordsNear);
+// 		Common::Matrix oFar(model * coordsFar);
+// 
+// 		if ((oNear(3, 0) == 0.0) || (oNear(3, 0) == 0.0))
+// 			return false;
+// 
+// 
+// 		// And return the values
+// 
+// 		oNear(3, 0) = 1.0 / oNear(3, 0);
+// 
+// 		x1 = oNear(0, 0) * oNear(3, 0);
+// 		y1 = oNear(1, 0) * oNear(3, 0);
+// 		z1 = oNear(2, 0) * oNear(3, 0);
+// 
+// 		oFar(3, 0) = 1.0 / oFar(3, 0);
+// 
+// 		x2 = oFar(0, 0) * oFar(3, 0);
+// 		y2 = oFar(1, 0) * oFar(3, 0);
+// 		z2 = oFar(2, 0) * oFar(3, 0);
+// 
+// 	} catch
+// 		(Common::Exception &e) {
+// 		Common::printException(e, "WARNING: ");
+// 		return false;
+// 	} catch
+// 		(...) {
+// 		return false;
+// 	}
 
 	return true;
 }
@@ -718,6 +749,7 @@ void GraphicsManager::abandon(TextureID *ids, uint32 count) {
 	Common::StackLock lock(_abandonMutex);
 
 	_abandonTextures.reserve(_abandonTextures.size() + count);
+
 	while (count-- > 0)
 		_abandonTextures.push_back(*ids++);
 
@@ -758,8 +790,8 @@ Renderable *GraphicsManager::getGUIObjectAt(float x, float y) const {
 		return 0;
 
 	// Map the screen coordinates to our OpenGL GUI screen coordinates
-	x =               x  - (_screen->w / 2.0);
-	y = (_screen->h - y) - (_screen->h / 2.0);
+// 	x =               x  - (_screen->w / 2.0);
+// 	y = (_screen->h - y) - (_screen->h / 2.0);
 
 	Renderable *object = 0;
 
@@ -789,15 +821,16 @@ Renderable *GraphicsManager::getWorldObjectAt(float x, float y) const {
 	if (QueueMan.isQueueEmpty(kQueueVisibleWorldObject))
 		return 0;
 
-	// Map the screen coordinates to OpenGL world screen coordinates
-	y = _screen->h - y;
-
-	float x1, y1, z1, x2, y2, z2;
-	if (!unproject(x, y, x1, y1, z1, x2, y2, z2))
-		return 0;
+// 	// Map the screen coordinates to OpenGL world screen coordinates
+// // 	y = _screen->h - y;
+// 
+// 	float x1, y1, z1, x2, y2, z2;
+// 
+// 	if (!unproject(x, y, x1, y1, z1, x2, y2, z2))
+// 		return 0;
 
 	Renderable *object = 0;
-
+/*
 	QueueMan.lockQueue(kQueueVisibleWorldObject);
 	const std::list<Queueable *> &objects = QueueMan.getQueue(kQueueVisibleWorldObject);
 
@@ -815,7 +848,7 @@ Renderable *GraphicsManager::getWorldObjectAt(float x, float y) const {
 		}
 	}
 
-	QueueMan.unlockQueue(kQueueVisibleWorldObject);
+	QueueMan.unlockQueue(kQueueVisibleWorldObject);*/
 	return object;
 }
 
@@ -994,6 +1027,7 @@ bool GraphicsManager::renderGUIFront() {
 			headNode->attachObject(ogreHead);
 // 		glPopMatrix();
 		}
+
 		Ogre::Entity *bat = scene_manager->createEntity("bat" , "c_bat.mesh");
 		Ogre::SceneNode *batNode = scene_manager->getRootSceneNode()->createChildSceneNode("Node_bat");
 		batNode->attachObject(bat);
@@ -1006,11 +1040,12 @@ bool GraphicsManager::renderGUIFront() {
 		mAnimation->setEnabled(true);
 		initR = true;
 	}
+
 	mAnimation->addTime(0.02);
 	root->renderOneFrame();
-	SDL_GL_SwapBuffers();
+	SDL_GL_SwapWindow(_screen);
 	QueueMan.unlockQueue(kQueueVisibleGUIFrontObject);
-	
+
 //
 // 	glEnable(GL_DEPTH_TEST);
 	return true;
@@ -1076,14 +1111,20 @@ int GraphicsManager::getScreenWidth() const {
 	if (!_screen)
 		return 0;
 
-	return _screen->w;
+	int w = 0;
+	int h = 0;
+	SDL_GetWindowSize(_screen, &w, &h);
+	return w;
 }
 
 int GraphicsManager::getScreenHeight() const {
 	if (!_screen)
 		return 0;
 
-	return _screen->h;
+	int w = 0;
+	int h = 0;
+	SDL_GetWindowSize(_screen, &w, &h);
+	return h;
 }
 
 int GraphicsManager::getSystemWidth() const {
@@ -1174,36 +1215,36 @@ void GraphicsManager::toggleFullScreen() {
 }
 
 void GraphicsManager::setFullScreen(bool fullScreen) {
-	if (_fullScreen == fullScreen)
-		// Nothing to do
-		return;
-
-	// Force calling it from the main thread
-	if (!Common::isMainThread()) {
-		Events::MainThreadFunctor<void> functor(boost::bind(&GraphicsManager::setFullScreen, this, fullScreen));
-
-		return RequestMan.callInMainThread(functor);
-	}
-
-	destroyContext();
-
-	// Save the flags
-	uint32 flags = _screen->flags;
-
-	// Now try to change modes
-	_screen = SDL_SetVideoMode(0, 0, 0, flags ^ SDL_FULLSCREEN);
-
-	// If we could not go full screen, revert back.
-	if (!_screen)
-		_screen = SDL_SetVideoMode(0, 0, 0, flags);
-	else
-		_fullScreen = fullScreen;
-
-	// There's no reason how this could possibly fail, but ok...
-	if (!_screen)
-		throw Common::Exception("Failed going to fullscreen and then failed reverting.");
-
-	rebuildContext();
+// 	if (_fullScreen == fullScreen)
+// 		// Nothing to do
+// 		return;
+// 
+// 	// Force calling it from the main thread
+// 	if (!Common::isMainThread()) {
+// 		Events::MainThreadFunctor<void> functor(boost::bind(&GraphicsManager::setFullScreen, this, fullScreen));
+// 
+// 		return RequestMan.callInMainThread(functor);
+// 	}
+// 
+// 	destroyContext();
+// 
+// 	// Save the flags
+// 	uint32 flags = _screen->flags;
+// 
+// 	// Now try to change modes
+// 	_screen = SDL_SetVideoMode(0, 0, 0, flags ^ SDL_FULLSCREEN);
+// 
+// 	// If we could not go full screen, revert back.
+// 	if (!_screen)
+// 		_screen = SDL_SetVideoMode(0, 0, 0, flags);
+// 	else
+// 		_fullScreen = fullScreen;
+// 
+// 	// There's no reason how this could possibly fail, but ok...
+// 	if (!_screen)
+// 		throw Common::Exception("Failed going to fullscreen and then failed reverting.");
+// 
+// 	rebuildContext();
 }
 
 void GraphicsManager::toggleMouseGrab() {
@@ -1215,7 +1256,7 @@ void GraphicsManager::toggleMouseGrab() {
 }
 
 void GraphicsManager::setScreenSize(int width, int height) {
-	if ((width == _screen->w) && (height == _screen->h))
+	if ((width == getScreenWidth()) && (height == getScreenHeight()))
 		// No changes, nothing to do
 		return;
 
@@ -1227,19 +1268,18 @@ void GraphicsManager::setScreenSize(int width, int height) {
 	}
 
 	// Save properties
-	uint32 flags     = _screen->flags;
-	int    bpp       = _screen->format->BitsPerPixel;
-	int    oldWidth  = _screen->w;
-	int    oldHeight = _screen->h;
+	int    oldWidth  = getScreenWidth();
+	int    oldHeight = getScreenHeight();
 
 	destroyContext();
 
 	// Now try to change modes
-	_screen = SDL_SetVideoMode(width, height, bpp, flags);
+	SDL_SetWindowSize(_screen, width, height);
+	renderWindow->resize(width, height);
 
 	if (!_screen) {
 		// Could not change mode, revert back.
-		_screen = SDL_SetVideoMode(oldWidth, oldHeight, bpp, flags);
+// 		_screen = SDL_SetVideoMode(oldWidth, oldHeight, bpp, flags);
 	}
 
 	// There's no reason how this could possibly fail, but ok...
@@ -1248,6 +1288,7 @@ void GraphicsManager::setScreenSize(int width, int height) {
 
 	rebuildContext();
 	renderWindow->resize(width, height);
+
 	if (width == 800)
 		camera->setPosition(Ogre::Vector3(0, 0, 400));
 
@@ -1259,14 +1300,21 @@ void GraphicsManager::setScreenSize(int width, int height) {
 
 
 	// Let the NotificationManager notify the Notifyables that the resolution changed
-	if ((oldWidth != _screen->w) || (oldHeight != _screen->h))
-		NotificationMan.resized(oldWidth, oldHeight, _screen->w, _screen->h);
+	if ((oldWidth != getScreenWidth()) || (oldHeight != getScreenHeight()))
+		NotificationMan.resized(oldWidth, oldHeight, getScreenWidth(), getScreenHeight());
 }
 
 void GraphicsManager::showCursor(bool show) {
 // 	Common::StackLock lock(_cursorMutex);
 //
 // 	_cursorState = show ? kCursorStateSwitchOn : kCursorStateSwitchOff;
+}
+
+SDL_Window *GraphicsManager::getWindow() {
+	if (!_screen)
+		throw Common::Exception("Failed to get window: %s", SDL_GetError());
+
+	return _screen;
 }
 
 } // End of namespace Graphics

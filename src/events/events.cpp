@@ -129,7 +129,7 @@ uint32 EventsManager::getTimestamp() const {
 bool EventsManager::parseEventQuit(const Event &event) {
 	if ((event.type == kEventQuit) ||
 			((event.type == kEventKeyDown) &&
-			 (event.key.keysym.mod & (KMOD_CTRL | KMOD_META)) &&
+			 (event.key.keysym.mod & (KMOD_CTRL | KMOD_GUI)) &&
 			 (event.key.keysym.sym == SDLK_q))) {
 
 		requestQuit();
@@ -162,7 +162,7 @@ bool EventsManager::parseEventGraphics(const Event &event) {
 	}
 
 	if (event.type == kEventResize) {
-		GfxMan.setScreenSize(event.resize.w, event.resize.h);
+		GfxMan.setScreenSize(event.window.data1, event.window.data2);
 		return true;
 	}
 
@@ -200,6 +200,9 @@ void EventsManager::processEvents() {
 
 	Event event;
 	while (SDL_PollEvent(&event)) {
+		if (event.key.repeat && _repeat)
+			continue;
+
 		// Check for quit events
 		if (parseEventQuit(event))
 			continue;
@@ -261,21 +264,22 @@ bool EventsManager::pushEvent(Event &event) {
 	int result = SDL_PushEvent(&event);
 	_queueSize++;
 
-	return result == 0;
+	return result == 1;
 }
 
 void EventsManager::enableUnicode(bool enable) {
-	Common::StackLock lock(_eventQueueMutex);
-
-	SDL_EnableUNICODE(enable ? 1 : 0);
+// 	Common::StackLock lock(_eventQueueMutex);
+// 
+// 	SDL_EnableUNICODE(enable ? 1 : 0);
 }
 
-void EventsManager::enableKeyRepeat(int delayTime, int interval) {
-	SDL_EnableKeyRepeat(delayTime, interval);
+void EventsManager::enableKeyRepeat(bool repeat) {
+	// 	SDL_EnableKeyRepeat(delayTime, interval);
+	_repeat = repeat;
 }
 
 uint32 EventsManager::getPressedCharacter(const Event &event) {
-	uint32 c = event.key.keysym.unicode;
+	uint32 c = event.key.keysym.mod;
 	if ((event.type != kEventKeyDown) || (Common::UString::isCntrl(c)))
 		return 0;
 

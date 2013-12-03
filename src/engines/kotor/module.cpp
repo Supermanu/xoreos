@@ -108,7 +108,7 @@ void Module::run() {
 	}
 
 	EventMan.enableUnicode(false);
-	EventMan.enableKeyRepeat(0);
+	EventMan.enableKeyRepeat(false);
 }
 
 void Module::showMenu() {

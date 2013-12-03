@@ -746,9 +746,7 @@ bool Console::processEvent(Events::Event &event) {
 	if (!isVisible())
 		return false;
 
-	if ((event.type == Events::kEventMouseDown) &&
-		   ((event.button.button != SDL_BUTTON_WHEELUP) &&
-		    (event.button.button != SDL_BUTTON_WHEELDOWN))) {
+	if ((event.type == Events::kEventMouseDown)) {
 
 		const uint8 button     = event.button.button;
 		const uint8 pasteMask1 = SDL_BUTTON_MMASK;
@@ -767,9 +765,7 @@ bool Console::processEvent(Events::Event &event) {
 		}
 	}
 
-	if ((event.type == Events::kEventMouseMove) &&
-		   ((event.button.button != SDL_BUTTON_WHEELUP) &&
-		    (event.button.button != SDL_BUTTON_WHEELDOWN))) {
+	if ((event.type == Events::kEventMouseMove)) {
 
 		if (event.motion.state & SDL_BUTTON_LMASK) {
 			_console->stopHighlight(event.button.x, event.button.y);
@@ -777,9 +773,7 @@ bool Console::processEvent(Events::Event &event) {
 		}
 	}
 
-	if ((event.type == Events::kEventMouseUp) &&
-		   ((event.button.button != SDL_BUTTON_WHEELUP) &&
-		    (event.button.button != SDL_BUTTON_WHEELDOWN))) {
+	if ((event.type == Events::kEventMouseUp)) {
 
 		uint32 curTime = EventMan.getTimestamp();
 
@@ -858,13 +852,13 @@ bool Console::processEvent(Events::Event &event) {
 		}
 
 
-	} else if (event.type == Events::kEventMouseDown) {
-		if (event.button.button == SDL_BUTTON_WHEELUP) {
+	} else if (event.type == Events::kEventMouseWheel) {
+		if (event.wheel.y > 0) {
 			_console->scrollUp();
 			return true;
 		}
 
-		if (event.button.button == SDL_BUTTON_WHEELDOWN) {
+		if (event.wheel.y < 0) {
 			_console->scrollDown();
 			return true;
 		}

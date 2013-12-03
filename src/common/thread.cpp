@@ -50,7 +50,7 @@ bool Thread::createThread() {
 		return true;
 
 	// Try to create the thread
-	if (!(_thread = SDL_CreateThread(threadHelper, (void *) this)))
+	if (!(_thread = SDL_CreateThread(threadHelper, 0,(void *) this)))
 		return false;
 
 	return true;
@@ -78,7 +78,8 @@ bool Thread::destroyThread() {
 	}
 
 	// Still running? Just kill the bugger, then
-	SDL_KillThread(_thread);
+// 	SDL_KillThread(_thread);
+	///TODO implement a correct stop mechanism.
 
 	_killThread    = false;
 	_threadRunning = false;

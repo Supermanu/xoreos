@@ -131,8 +131,8 @@ bool ReadLine::processEvent(Events::Event &event, UString &command) {
 		return false;
 
 	// We only care about certain modifiers
-	SDLKey key = event.key.keysym.sym;
-	SDLMod mod = (SDLMod) (((int) event.key.keysym.mod) & (KMOD_CTRL | KMOD_SHIFT | KMOD_ALT));
+	SDL_Keycode key = event.key.keysym.sym;
+	SDL_Keymod mod = (SDL_Keymod) (((int) event.key.keysym.mod) & (KMOD_CTRL | KMOD_SHIFT | KMOD_ALT));
 
 
 	// Return / Enter: Execute this line

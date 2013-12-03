@@ -370,9 +370,7 @@ void GUI::mouseMove(const Events::Event &event) {
 }
 
 void GUI::mouseDown(const Events::Event &event) {
-	if ((event.button.button != SDL_BUTTON_LMASK) &&
-	    (event.button.button != SDL_BUTTON_WHEELUP) &&
-	    (event.button.button != SDL_BUTTON_WHEELDOWN))
+	if ((event.button.button != SDL_BUTTON_LMASK))
 		// We only care about left mouse button presses, and the wheel
 		return;
 
