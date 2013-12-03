@@ -34,7 +34,7 @@ namespace Events {
 Joystick::Joystick(int index) : _index(index), _sdlJoy(0) {
 	assert(_index >= 0);
 
-	_name = SDL_JoystickName(_index);
+	_name = SDL_JoystickName(_sdlJoy);
 }
 
 Joystick::~Joystick() {
