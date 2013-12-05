@@ -58,7 +58,7 @@
 
 #include "SDL_syswm.h"
 #ifdef __APPLE__
-#include "OSX.h"
+#include "OSX/OSX.h"
 #endif
 
 DECLARE_SINGLETON(Graphics::GraphicsManager)
@@ -701,17 +701,17 @@ bool GraphicsManager::unproject(float x, float y,
 }
 
 void GraphicsManager::lockFrame() {
-// 	Common::StackLock frameLock(_frameLockMutex);
+	Common::StackLock frameLock(_frameLockMutex);
 //
-// 	_frameLock++;
+	_frameLock++;
 }
 
 void GraphicsManager::unlockFrame() {
-// 	Common::StackLock frameLock(_frameLockMutex);
+	Common::StackLock frameLock(_frameLockMutex);
 //
-// 	assert(_frameLock != 0);
+	assert(_frameLock != 0);
 //
-// 	_frameLock--;
+	_frameLock--;
 }
 
 void GraphicsManager::recalculateObjectDistances() {

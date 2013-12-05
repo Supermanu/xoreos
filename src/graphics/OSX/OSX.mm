@@ -36,7 +36,5 @@
 #include "OSX.h"
 
 Ogre::String OSX_cocoa_view( SDL_SysWMinfo &info ) {
-  NSWindow * window = info.info.cocoa.window;
-  NSView * view = [window contentView];
-  return Ogre::StringConverter::toString( (unsigned long)view );
+ 
 }

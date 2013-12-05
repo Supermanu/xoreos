@@ -167,7 +167,7 @@ case "$target" in
 
 		GL_CFLAGS=""
 		GL_LIBS="-framework OpenGL"
-		HAVE_DARWIN_PLATFORM="true"
+		[HAVE_DARWIN_PLATFORM="true"]
 		;;
 	*)
 		AX_CHECK_GL
