@@ -37,13 +37,13 @@
 #include "graphics/aurora/fontman.h"
 
 namespace Common {
-	class UString;
+class UString;
 }
 
 namespace Engines {
 
 namespace NWN {
-  
+
 class WidgetButton;
 class WidgetScrollbar;
 
@@ -59,27 +59,34 @@ public:
 
 	void setTitle(Common::UString title);
 	void setMainText(Common::UString &mainText);
+	/** Set position's widget adjustement. Default : x = +9, y = -199. **/
+	void setAdjustement(int x, int y);
 	void subActive(Widget &widget);
 	void mouseDown(uint8 state, float x, float y);
+	void mouseWheel(uint8 state, int x, int y);
 
 private:
 	void createScrollbar();
+	void createTitle();
 	void scrollUp(uint n);
 	void scrollDown(uint n);
 	void getProperties();
 	void updateScrollbarLength();
 	void updateScrollbarPosition();
-	
+
 	Graphics::Aurora::FontHandle _fontHandle;
-	Graphics::Aurora::Text *_title;
+	Graphics::Aurora::Text       *_title;
 	std::vector<Graphics::Aurora::Text *> _mainText;
 	WidgetButton    *_up;
 	WidgetButton    *_down;
 	WidgetScrollbar *_scrollbar;
 	bool _hasScrollbar;
+	bool _hasTitle;
+	int  _xAdjust;
+	int  _yAdjust;
 	// There is 18 lines to show
 	Uint8 _firstLineToShow;
-	bool _stillPressed;
+	bool  _stillPressed;
 
 };
 

@@ -43,15 +43,13 @@ namespace NWN {
 
 WidgetEditBox::WidgetEditBox(::Engines::GUI &gui, const Common::UString &tag,
                              const Common::UString &model, const Common::UString &font) :
-	ModelWidget(gui, tag, model), _hasScrollbar(false), _firstLineToShow(0){
+	ModelWidget(gui, tag, model), _hasScrollbar(false), _hasTitle(false), _xAdjust(9), _yAdjust(-199), _firstLineToShow(0) {
 
 	_fontHandle = FontMan.get(font);
-	
-	_title = new Graphics::Aurora::Text(_fontHandle,"");
-	_title->setPosition(15,192,-90);
 
 	getProperties();
 	createScrollbar();
+	createTitle();
 	_model->setClickable(true);
 }
 
@@ -60,30 +58,35 @@ WidgetEditBox::~WidgetEditBox() {
 }
 
 void WidgetEditBox::setMainText(Common::UString &mainText) {
-      if (!_mainText.empty()) {
+	if (!_mainText.empty()) {
 		for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it) {
 			(*it)->hide();
 			delete (*it);
 		}
 		_mainText.clear();
-      }
+	}
 
-      std::vector<Common::UString> lines;
-      _fontHandle.getFont().split(mainText, lines, getWidth() - 30);
-      for (std::vector<Common::UString>::iterator it = lines.begin(); it != lines.end(); ++it) {
-		Graphics::Aurora::Text * text = new Graphics::Aurora::Text(_fontHandle, *it);
-		text->setPosition(15, 105 - (it - lines.begin()) *  text->getHeight(), -100);
+	std::vector<Common::UString> lines;
+	_fontHandle.getFont().split(mainText, lines, getWidth() - 30);
+	float pX, pY, pZ;
+	_model->getNode("text0")->getPosition(pX, pY, pZ);
+	pY += _yAdjust - _fontHandle.getFont().getHeight();
+	pX += _xAdjust;
+	for (std::vector<Common::UString>::iterator it = lines.begin(); it != lines.end(); ++it) {
+		Graphics::Aurora::Text *text = new Graphics::Aurora::Text(_fontHandle, *it);
+		text->setPosition(pX, pY - (it - lines.begin()) * text->getHeight(), -100);
 		_mainText.push_back(text);
-		if (this->isVisible() && (it - lines.begin()) < 18)
+		if (this->isVisible() && ((it - lines.begin()) < 18))
 			text->show();
-      }
-      _firstLineToShow = 0;
-      updateScrollbarLength();
-      updateScrollbarPosition();
+	}
+	_firstLineToShow = 0;
+	updateScrollbarLength();
+	updateScrollbarPosition();
 }
 
 void WidgetEditBox::setTitle(Common::UString title) {
-	_title->set(title);
+	if (_hasTitle)
+		_title->set(title);
 }
 
 void WidgetEditBox::show() {
@@ -104,7 +107,7 @@ void WidgetEditBox::show() {
 		if (counter >= _firstLineToShow + 18)
 			break;
 
-		(*it)->setPosition(15, 105 - (counter - _firstLineToShow) *  (*it)->getHeight(), -100);
+		(*it)->setPosition(15, 105 - (counter - _firstLineToShow) * (*it)->getHeight(), -100);
 		(*it)->show();
 	}
 	setActive(true);
@@ -121,10 +124,9 @@ void WidgetEditBox::hide() {
 		_scrollbar->hide();
 	}
 
-// 	Uint8 counter = 0;
-	for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it) {
+	// Uint8 counter = 0;
+	for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it)
 		(*it)->hide();
-	}
 	setActive(false);
 }
 
@@ -135,9 +137,9 @@ void WidgetEditBox::createScrollbar() {
 	// Get top position
 	float minX, minY, minZ;
 	_model->getNode("scrollmin")->getPosition(minX, minY, minZ);
-	//Adjustement
-	minX += 9;
-	minY -= 199;
+	// Adjustement
+	minX += _xAdjust;
+	minY += _yAdjust;
 
 
 	// Create the "up" button
@@ -148,9 +150,9 @@ void WidgetEditBox::createScrollbar() {
 	// Get bottom position
 	float maxX, maxY, maxZ;
 	_model->getNode("scrollmax")->getPosition(maxX, maxY, maxZ);
-	//Adjustement
-	maxY -= 199;
-	maxX += 9;
+	// Adjustement
+	maxY += _yAdjust;
+	maxX += _xAdjust;
 
 	// Create the "down" button
 	_down = new WidgetButton(*_gui, getTag() + "#Down", "pb_scrl_down", "gui_scroll");
@@ -172,6 +174,27 @@ void WidgetEditBox::createScrollbar() {
 	addSub(*_scrollbar);
 }
 
+void WidgetEditBox::createTitle() {
+	if (!_hasTitle) {
+		_title = 0;
+		return;
+	}
+
+	_title = new Graphics::Aurora::Text(_fontHandle, "");
+	float pX, pY, pZ;
+	_model->getNode("title0")->getPosition(pX, pY, pZ);
+	pY += _yAdjust - _fontHandle.getFont().getHeight();
+	pX += _xAdjust;
+
+	_title->setPosition(pX, pY, -90);
+}
+
+void WidgetEditBox::setAdjustement(int x, int y) {
+	_xAdjust = x;
+	_yAdjust = y;
+}
+
+
 void WidgetEditBox::updateScrollbarLength() {
 	///TODO Add condition to ensure a minimal length
 	if (!_scrollbar)
@@ -188,19 +211,18 @@ void WidgetEditBox::updateScrollbarPosition() {
 		return;
 
 	float max = _mainText.size() - 18 + 1;
-	if ( max == 1)
+	if (max == 1)
 		return;
 
 	_scrollbar->setState(_firstLineToShow / (max - 1));
 }
 
 void WidgetEditBox::scrollDown(uint n) {
-	if (_mainText.size() <= 18 || (_mainText.size() - 18) == _firstLineToShow)
+	if ((_mainText.size() <= 18) || ((_mainText.size() - 18) == _firstLineToShow))
 		return;
 
 	hide();
 	_firstLineToShow += n;
-// 	updateScrollbarPosition();
 	if (!_scrollbar->isActive())
 		updateScrollbarPosition();
 
@@ -208,7 +230,7 @@ void WidgetEditBox::scrollDown(uint n) {
 }
 
 void WidgetEditBox::scrollUp(uint n) {
-	if (_mainText.size() <= 18 || _firstLineToShow == 0)
+	if ((_mainText.size() <= 18) || (_firstLineToShow == 0))
 		return;
 
 	hide();
@@ -223,6 +245,7 @@ void WidgetEditBox::scrollUp(uint n) {
 void WidgetEditBox::getProperties() {
 	// Do we have a scroll bar?
 	_hasScrollbar = _model->hasNode("scrollmin") && _model->hasNode("scrollmax");
+	_hasTitle     = _model->hasNode("title0");
 }
 
 void WidgetEditBox::subActive(Widget &widget) {
@@ -238,12 +261,11 @@ void WidgetEditBox::subActive(Widget &widget) {
 	}
 
 	if (widget.getTag().endsWith("#Bar")) {
-		int futurePosition =  _firstLineToShow - (_scrollbar->getState() * (_mainText.size() - 18 + 1));
-		if (futurePosition > 0) {
+		int futurePosition = _firstLineToShow - (_scrollbar->getState() * (_mainText.size() - 18 + 1));
+		if (futurePosition > 0)
 			scrollUp(futurePosition);
-		} else {
+		else
 			scrollDown(-1 * futurePosition);
-		}
 	}
 }
 
@@ -251,14 +273,30 @@ void WidgetEditBox::mouseDown(uint8 state, float x, float y) {
 	if (isDisabled())
 		return;
 
-	if (state == SDL_BUTTON_WHEELUP) {
+	float wX, wY, wZ;
+	getPosition(wX, wY, wZ);
+
+	// Check if we clicked on the scrollbar area
+	if (_scrollbar) {
+		if (x > (wX + getWidth() - 20)) {
+			if (y > _scrollbar->getBarPosition())
+				scrollUp(1);
+			else
+				scrollDown(1);
+
+			return;
+		}
+	}
+}
+
+void WidgetEditBox::mouseWheel(uint8 state, int x, int y) {
+	if (isDisabled())
+		return;
+
+	if (y > 0)
 		scrollUp(1);
-		return;
-	}
-	if (state == SDL_BUTTON_WHEELDOWN) {
+	else if (y < 0)
 		scrollDown(1);
-		return;
-	}
 }
 
 } // End of namespace NWN
