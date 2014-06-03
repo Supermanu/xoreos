@@ -302,6 +302,9 @@ void PortraitWidget::mouseDown(uint8 state, float x, float y) {
 	_owner->mouseDown(state, x, y);
 }
 
+void PortraitWidget::mouseWheel(uint8 state, int x, int y) {
+	_owner->mouseWheel(state, x, y);
+}
 
 void PortraitWidget::setPosition(float x, float y, float z) {
 	NWNWidget::setPosition(x, y, z);
