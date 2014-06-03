@@ -31,6 +31,7 @@
 #include "common/ustring.h"
 
 #include "graphics/aurora/model.h"
+#include "graphics/aurora/modelnode.h"
 
 #include "engines/aurora/model.h"
 
@@ -77,6 +78,15 @@ void ModelWidget::setPosition(float x, float y, float z) {
 
 	getPosition(x, y, z);
 	_model->setPosition(x, y, z);
+}
+
+void ModelWidget::getNodePosition(const Common::UString &nodeName, float &pX, float &pY, float &pZ) {
+	_model->getNode(nodeName)->getPosition(pX, pY, pZ);
+	float bX, bY, bZ;
+	getPosition(bX, bY, bZ);
+	pX += bX;
+	pY += bY;
+	pZ += bZ;
 }
 
 float ModelWidget::getWidth() const {

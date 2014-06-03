@@ -57,6 +57,7 @@ public:
 	void hide();
 
 	void setPosition(float x, float y, float z);
+	void getNodePosition(const Common::UString &nodeName, float &pX, float &pY, float &pZ);
 
 	float getWidth () const;
 	float getHeight() const;
