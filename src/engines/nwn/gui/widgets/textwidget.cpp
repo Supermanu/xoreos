@@ -90,6 +90,10 @@ void TextWidget::setText(const Common::UString &text) {
 	_text->set(text);
 }
 
+const Common::UString TextWidget::getText() {
+	return _text->get();
+}
+
 float TextWidget::getWidth() const {
 	return _text->getWidth();
 }

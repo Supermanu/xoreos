@@ -59,6 +59,7 @@ public:
 	void setPosition(float x, float y, float z);
 	void setColor(float r, float g, float b, float a);
 	void setText(const Common::UString &text);
+	const Common::UString getText();
 
 	float getWidth () const;
 	float getHeight() const;
