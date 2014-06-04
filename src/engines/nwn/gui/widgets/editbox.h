@@ -38,6 +38,8 @@
 #include "graphics/aurora/fontman.h"
 #include "graphics/aurora/guiquad.h"
 
+#include "graphics/aurora/fontman.h"
+
 namespace Common {
 class UString;
 }
@@ -45,6 +47,9 @@ class UString;
 namespace Engines {
 
 namespace NWN {
+  
+class WidgetButton;
+class WidgetScrollbar;
 
 class WidgetButton;
 class WidgetScrollbar;

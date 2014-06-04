@@ -159,10 +159,16 @@ public:
 	WidgetListItem * getItem(uint item) const;
 	uint getSize() const;
 
+
 	bool wasDblClicked();
 
 	void mouseDown(uint8 state, float x, float y);
 	void mouseWheel(uint8 state, int x, int y);
+
+	/** Set the scrollbar position.
+	 * @param position The value must be in the interval [0,1]. 
+	 */
+	void setScrollBarPosition(float position);
 
 	/** Set the scrollbar position.
 	 * @param position The value must be in the interval [0,1]. 

@@ -184,6 +184,7 @@ void WidgetEditBox::createScrollbar() {
 	addSub(*_up);
 	addChild(*_up);
 
+
 	// Get bottom position
 	float maxX, maxY, maxZ;
 	_model->getNode("scrollmax")->getPosition(maxX, maxY, maxZ);
@@ -193,6 +194,7 @@ void WidgetEditBox::createScrollbar() {
 	_down->setPosition(maxX, maxY - 10, -100.0);
 	addSub(*_down);
 	addChild(*_down);
+
 
 	// Scroll bar range (max length)
 	float scrollRange = minY - (maxY - 10) - _up->getHeight() - 1;
@@ -297,6 +299,7 @@ void WidgetEditBox::subActive(Widget &widget) {
 			scrollUp(futurePosition);
 		else
 			scrollDown(-1 * futurePosition);
+
 	}
 }
 

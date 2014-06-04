@@ -121,6 +121,8 @@ public:
 
 	void show();
 	void hide();
+	
+	void mouseDown(uint8 state, float x, float y);
 
 	void mouseDown(uint8 state, float x, float y);
 	void mouseWheel(uint8 state, int x, int y);
