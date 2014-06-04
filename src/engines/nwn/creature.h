@@ -100,9 +100,9 @@ public:
 	/** Get the creature's level for this class. */
 	uint16 getClassLevel(uint32 classID) const;
 	/** Get the last added class. */
-	Uint32 getLastClass() const;	
+	uint32 getLastClass() const;	
 	/** Add a level to the class. */
-	bool addLevel(Uint32 className);
+	bool addLevel(uint32 className);
 	/** Remove the last level. */
 	void removeLastLevel();
 	/** Get the total level of the creature */
@@ -122,11 +122,52 @@ public:
 
 	/** Return a creature's ability score. */
 	uint8 getAbility(Ability ability) const;
+	/** Return the modifier of a creature's ability score. */
+	int8 getAbilityModifier(Ability ability) const;
+	/** Set the ability score. */
+	void setAbility(int8 ability, uint8 score);
 	/** Return the creature's rank in this skill. */
-	 int8 getSkillRank(uint32 skill) const;
+	int8 getSkillRank(uint32 skill) const;
+	/** Set the rank of this creature's skill. */
+	void setSkillRank(uint32 skill, int8 rank);
+	/** Set a feat to the creature. **/
+	void setFeat(uint32 feat);
 	/** Does the creature have this feat? */
 	bool  hasFeat(uint32 feat) const;
-
+	/** Add a spell level to the creature. */
+	/** @param spellType Bit flags. 0x01: knownList, 0x02: memorizedList. */
+	void addSpellLevel(uint32 classID, uint8 spellType);
+	/** Add a spell in the creature's spell list. */
+	/** @param classID The class the spell is added. */
+	/** @param spell Spell id. */
+	/** @param spellLevel Spell level. */
+	/** @param spellType  Spell type list. Bit flags (0x01: knownList, 0x02: memorizedList). */
+	/** @param spellFlag General bit flags (0x01: readied, 0x02: spontaneously cast, 0x04: unlimited use). */
+	/** @param metamagicType MetaMagic type, default is none (0x00: none, 0x01: empower, 0x02: extend, 0x04: maximize, 0x08: quicken, 0x10: silent, 0x20: still). Cannot be added (these flags are not bitwise). */
+	void addSpell(uint32 classID, uint16 spell, uint16 spellLevel, uint8 spellType, uint8 spellFlag, uint8 metamagicType = 0x00);
+	/** Does the creature have this spell? */
+	/** @param spell Spell id. */
+	/** @param spellLevel Spell level. */
+	/** @param spellType  Spell type list. Default both. (bit flags) 0x01: knownList, 0x02: memorizedList. */
+	/** @param classID In which class the creature has the spell. Default is all creature's classes.*/
+	bool hasSpell(uint16 spell, uint16 spellLevel, uint8 spellType = 0x03, uint32 classID = kClassInvalid);
+	/** Return the creature's maximum spell level by default. */
+	/** @param specificClass Get the maximum spell for a specific creature's class. Default disabled. */
+	/** @param addLevelToClass Allow you to add a virtual class level in the maximum spell level computation. Default is none. Specific must be specified, otherwise it will ignore. */
+	uint16 getMaxSpellLevel(uint32 specificClass = kClassInvalid, bool addLevelToClass = false);
+	/** Set a package for the creature. Packages are predefined skills and feats for a class. */
+	void setPackage(uint8 package);
+	/** Get the creature's package. */
+	uint8 getPackage() const;
+	/** Set the creature's domains. */
+	void setDomain(uint32 classID, uint8 firstDomain, uint8 secondDomain);
+	/** Set the base attack bonus. */
+	void setBaseAttackBonus(uint8 bab);
+	/** Get the base attack bonus. */
+	uint8 getBaseAttackBonus() const;
+	int8 getWillSaveThrow() const;
+	int8 getForSaveThrow() const;
+	int8 getRefSaveThrow() const;
 	/** Get the creature's deity. */
 	const Common::UString &getDeity() const;
 
@@ -191,6 +232,9 @@ public:
 	/** Set the portrait. */
 	void setPortrait(Common::UString portrait);
 
+	/** Replace equipped armor. */
+	void replaceArmor(const Common::UString &armor);
+
 	// Positioning
 
 	/** Set the creature's position. */
@@ -243,10 +287,26 @@ private:
 		kBodyPartMAX
 	};
 
+	/** Spell state. */
+	struct Spell {
+		uint16 spell; ///< Index into spells.2da.
+		uint8 spellFlags; ///< General bit flags (0x01: readied, 0x02: spontaneously cast, 0x04: unlimited use).
+		uint8 spellMetaMagic; ///< MetaMagic type (0x00: none, 0x01: empower, 0x02: extend, 0x04: maximize, 0x08: quicken, 0x10: silent, 0x20: still). Cannot be added (these flags are not bitwise).
+	};
+
 	/** A class. */
 	struct Class {
 		uint32 classID; ///< Index into classes.2da.
 		uint16 level;   ///< Levels of that class.
+
+		std::vector<std::vector<Spell> > memorizedList;
+		std::vector<std::vector<Spell> > knownList;
+
+		uint8 domain1;
+		uint8 domain2;
+		uint8 school;
+		std::vector<uint8> spellsPerDayList;
+
 		Class(uint32 className = kClassInvalid, uint16 levelClass = 0) : classID(className), level(levelClass) {}
 	};
 
@@ -296,6 +356,13 @@ private:
 	std::vector<Class>  _classes; ///< The creature's classes.
 	std::vector<int8>   _skills;  ///< The creature's skills.
 	std::vector<uint32> _feats;   ///< The creature's feats.
+
+	uint8 _baseAttackBonus; ///< The creature's base attack bonus.
+	int8 _willSaveThrow; ///< The creature's base will save throw.
+	int8 _forSaveThrow; ///< The creature's base fortitude save throw.
+	int8 _refSaveThrow; ///< The creature's base reflexe save throw.
+
+	uint8 _startingPackage; ///< The creature's package. Packages are predefined skills and feats.
 
 	std::vector<Class>::iterator _lastClass; ///< The class from the last level.
 
@@ -402,3 +469,4 @@ private:
 } // End of namespace Engines
 
 #endif // ENGINES_NWN_CREATURE_H
+

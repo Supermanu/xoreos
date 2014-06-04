@@ -68,6 +68,14 @@ Creature::BodyPart::BodyPart() : id(Aurora::kFieldIDInvalid) {
 
 Creature::Creature(): Object(kObjectTypeCreature) {
 	init();
+
+	_isPC = true;
+	// Set default clothes.
+	Item *cloth = new Item();
+	Aurora::GFFFile *uti = new Aurora::GFFFile("NW_CLOTH001", Aurora::kFileTypeUTI, MKTAG('U', 'T', 'I', ' '));
+	cloth->load(uti->getTopLevel(), &uti->getTopLevel());
+	_equippedItems.push_back(*cloth);
+	delete uti;
 }
 
 
@@ -102,6 +110,9 @@ void Creature::init() {
 	_gender 	= kGenderNone;
 	_race   	= kRaceInvalid;
 	_portrait 	= "gui_po_nwnlogo_";
+	_startingPackage= _race;
+
+	_name = "John Doe";
 
 	_isPC = false;
 	_isDM = false;
@@ -114,25 +125,29 @@ void Creature::init() {
 	_bonusHP   = 0;
 	_currentHP = 0;
 
+	_baseAttackBonus = 0;
+
 	_hitDice = 0;
 
 	_goodEvil = 0;
 	_lawChaos = 0;
 
-	_appearanceID = Aurora::kFieldIDInvalid;
-	_phenotype    = Aurora::kFieldIDInvalid;
+	_skills.assign(28, 0);
 
-	_colorSkin    = Aurora::kFieldIDInvalid;
-	_colorHair    = Aurora::kFieldIDInvalid;
-	_colorTattoo1 = Aurora::kFieldIDInvalid;
-	_colorTattoo2 = Aurora::kFieldIDInvalid;
+	_appearanceID = 6;
+	_phenotype    = 0;
 
-	_colorMetal1 = Aurora::kFieldIDInvalid;
-	_colorMetal2 = Aurora::kFieldIDInvalid;
-	_colorLeather1 = Aurora::kFieldIDInvalid;
-	_colorLeather2 = Aurora::kFieldIDInvalid;
-	_colorCloth1 = Aurora::kFieldIDInvalid;
-	_colorCloth2 = Aurora::kFieldIDInvalid;
+	_colorSkin    = 1;
+	_colorHair    = 1;
+	_colorTattoo1 = 1;
+	_colorTattoo2 = 1;
+
+	_colorMetal1 = 1;
+	_colorMetal2 = 1;
+	_colorLeather1 = 1;
+	_colorLeather2 = 1;
+	_colorCloth1 = 1;
+	_colorCloth2 = 1;
 
 	_master = 0;
 
@@ -145,6 +160,11 @@ void Creature::init() {
 		_abilities[i] = 0;
 
 	_bodyParts.resize(kBodyPartMAX);
+	for (uint it = 0; it < kBodyPartMAX; ++it) {
+		_bodyParts.push_back(BodyPart());
+		_bodyParts[it].id = it;
+		_bodyParts[it].armor_id = 1;
+	}
 }
 
 void Creature::show() {
@@ -196,7 +216,7 @@ uint32 Creature::getGender() const {
 	return _gender;
 }
 
-void Creature::setGender(Uint32 gender) {
+void Creature::setGender(uint32 gender) {
 	_gender = gender;
 }
 
@@ -206,6 +226,17 @@ void Creature::setRace(uint32 race) {
 
 void Creature::setPortrait(Common::UString portrait) {
 	_portrait = portrait;
+}
+
+void Creature::replaceArmor(const Common::UString &armor) {
+	///TODO Remove every equip item as Item::isArmor is broken.
+
+	  _equippedItems.clear();
+	Item *armorItem = new Item();
+	Aurora::GFFFile *uti = new Aurora::GFFFile(armor, Aurora::kFileTypeUTI, MKTAG('U', 'T', 'I', ' '));
+	armorItem->load(uti->getTopLevel(), &uti->getTopLevel());
+	_equippedItems.push_back(*armorItem);
+	delete uti;
 }
 
 void Creature::setAppearance(uint32 appearance) {
@@ -667,6 +698,12 @@ void Creature::loadProperties(const Aurora::GFFStruct &gff) {
 	// Experience
 	_xp = gff.getUint("Experience", _xp);
 
+	// Starting package
+	_startingPackage = gff.getUint("StartingPackage", _startingPackage);
+
+	// Base attack bonus
+	_baseAttackBonus = gff.getUint("BaseAttackBonus", _baseAttackBonus);
+
 	// Abilities
 	_abilities[kAbilityStrength]     = gff.getUint("Str", _abilities[kAbilityStrength]);
 	_abilities[kAbilityDexterity]    = gff.getUint("Dex", _abilities[kAbilityDexterity]);
@@ -855,11 +892,14 @@ uint16 Creature::getClassLevel(uint32 classID) const {
 	return 0;
 }
  
-Uint32 Creature::getLastClass() const {
-	return _lastClass->classID;
+uint32 Creature::getLastClass() const {
+	if (getLevel() > 0)
+		return _lastClass->classID;
+
+	return kClassInvalid;
 }
 
-bool Creature::addLevel(Uint32 className) {
+bool Creature::addLevel(uint32 className) {
 	///TODO Check if we have reach the level limit
 	for (std::vector<Class>::iterator it = _classes.begin(); it != _classes.end(); ++it) {
 		if ((*it).classID == className) {
@@ -869,7 +909,7 @@ bool Creature::addLevel(Uint32 className) {
 		}
 	}
 	_classes.push_back(Class(className,1));
-	_lastClass = _classes.end() - 1;
+	_lastClass = --(_classes.end());
 	return true;
 }
 
@@ -936,11 +976,39 @@ uint8 Creature::getAbility(Ability ability) const {
 	return _abilities[ability];
 }
 
+int8 Creature::getAbilityModifier(Ability ability) const {
+	const Aurora::TwoDAFile &twodaRace = TwoDAReg.get("racialtypes");
+	const Aurora::TwoDAFile &twodaAbilities = TwoDAReg.get("iprp_abilities");
+	int racialModifier = twodaRace.getRow(_race).getInt(twodaAbilities.getRow(_race).getString("Label") + "Adjust");
+
+	uint realValue = _abilities[ability] + racialModifier;
+	realValue -= 6;
+	int8 modifier = (realValue - realValue % 2) / 2;
+	modifier -= 2;
+
+	return modifier;
+}
+
+void Creature::setAbility(int8 ability, uint8 score) {
+	_abilities[ability] = score;
+}
+
 int8 Creature::getSkillRank(uint32 skill) const {
 	if (skill >= _skills.size())
 		return -1;
 
 	return _skills[skill];
+}
+
+void Creature::setSkillRank(uint32 skill, int8 rank) {
+	_skills[skill] = rank;
+}
+
+void Creature::setFeat(uint32 feat) {
+	if (hasFeat(feat))
+		return;
+
+	_feats.push_back(feat);
 }
 
 bool Creature::hasFeat(uint32 feat) const {
@@ -949,6 +1017,166 @@ bool Creature::hasFeat(uint32 feat) const {
 			return true;
 
 	return false;
+}
+
+void Creature::addSpellLevel(uint32 classID, uint8 spellType) {
+	for (std::vector<Class>::iterator it = _classes.begin(); it != _classes.end(); ++it) {
+		if (it->classID == classID) {
+			std::vector<Spell> newSpellLevel;
+			if (spellType & 0x01) {
+				it->knownList.push_back(newSpellLevel);
+			}
+			if (spellType & 0x02) {
+				it->memorizedList.push_back(newSpellLevel);
+			}
+		}
+	}
+}
+
+void Creature::addSpell(uint32 classID, uint16 spell, uint16 spellLevel, uint8 spellType, uint8 spellFlag, uint8 metamagicType) {
+	for (std::vector<Engines::NWN::Creature::Class>::iterator cl = _classes.begin(); cl != _classes.end(); ++cl) {
+		if (cl->classID != classID)
+			continue;
+
+		if (spellType & 0x01) {
+			Spell newSpell;
+			newSpell.spell = spell;
+			newSpell.spellFlags = spellFlag;
+			newSpell.spellMetaMagic = metamagicType;
+
+			for (std::vector<Class>::iterator it = _classes.begin(); it != _classes.end(); ++it) {
+				if (it->classID != classID)
+					continue;
+
+				if (hasSpell(spell, spellLevel, 0x01, classID))
+					continue;
+
+				it->knownList[spellLevel].push_back(newSpell);
+			}
+		}
+
+		if (spellType & 0x02) {
+			Spell newSpell;
+			newSpell.spell = spell;
+			newSpell.spellFlags = spellFlag;
+			newSpell.spellMetaMagic = metamagicType;
+
+			for (std::vector<Class>::iterator it = _classes.begin(); it != _classes.end(); ++it) {
+				if (it->classID != classID)
+					continue;
+				
+				if (hasSpell(spell, spellLevel, 0x02, classID))
+					continue;
+				
+				it->memorizedList[spellLevel].push_back(newSpell);
+			}
+		}
+	}
+}
+
+bool Creature::hasSpell(uint16 spell, uint16 spellLevel,uint8 spellType, uint32 classID) {
+	for (std::vector<Engines::NWN::Creature::Class>::iterator cl = _classes.begin(); cl != _classes.end(); ++cl) {
+		if (classID == cl->classID || classID == kClassInvalid) {
+			// Look into the memorized list.
+			if (spellType & 0x02) {
+				for (std::vector<Spell>::iterator sp = cl->memorizedList[spellLevel].begin(); sp != cl->memorizedList[spellLevel].end(); ++sp) {
+					if (sp->spell == spell)
+						return true;
+				}
+			}
+
+			// Look into the known list.
+			if (spellType & 0x01) {
+				for (std::vector<Spell>::iterator sp = cl->knownList[spellLevel].begin(); sp != cl->knownList[spellLevel].end(); ++sp)
+					if (sp->spell == spell)
+						return true;
+			}
+		}
+	}
+
+	return false;
+}
+
+uint16 Creature::getMaxSpellLevel(uint32 specificClass, bool addLevelToClass) {
+	uint16 levelMax = 0;
+
+	// If we are level 0.
+	if (getLevel() == 0 && addLevelToClass) {
+		const Aurora::TwoDAFile &twodaClasses = TwoDAReg.get("classes");
+		const Aurora::TwoDARow &rowClass = twodaClasses.getRow(specificClass);
+
+		if (rowClass.isEmpty("SpellGainTable"))
+			return levelMax;
+
+		const Aurora::TwoDAFile &twodaClsSpell = TwoDAReg.get(rowClass.getString("SpellGainTable"));
+		const Aurora::TwoDARow &rowSpellTable = twodaClsSpell.getRow(0);
+		return rowSpellTable.getInt("NumSpellLevels") - 1;
+	}
+
+	for (std::vector<Class>::iterator it = _classes.begin(); it != _classes.end(); ++it) {
+		uint16 spellLevel;
+		if (it->classID == specificClass) {
+			const Aurora::TwoDAFile &twodaClasses = TwoDAReg.get("classes");
+			const Aurora::TwoDARow &rowClass = twodaClasses.getRow(specificClass);
+			const Aurora::TwoDAFile &twodaClsSpell = TwoDAReg.get(rowClass.getString("SpellGainTable"));
+			uint level = it->level;
+
+			if (addLevelToClass)
+				level++;
+
+			const Aurora::TwoDARow &rowSpellTable = twodaClsSpell.getRow(level);
+
+			return (rowSpellTable.getInt("NumSpellLevels") - 1);
+		} else {
+			spellLevel = MAX<uint16>(it->knownList.size(), it->memorizedList.size());
+		}
+
+		levelMax = MAX<uint16>(levelMax, spellLevel);
+	}
+
+	return levelMax;
+}
+
+void Creature::setPackage(uint8 package) {
+	_startingPackage = package;
+}
+
+uint8 Creature::getPackage() const {
+	return _startingPackage;
+}
+
+void Creature::setDomain(uint32 classID, uint8 firstDomain, uint8 secondDomain) {
+	for (std::vector<Class>::iterator it = _classes.begin(); it != _classes.end(); ++it) {
+		if (classID != it->classID)
+			continue;
+
+		it->domain1 = firstDomain;
+		it->domain2 = secondDomain;
+	}
+	
+}
+
+uint8 Creature::getBaseAttackBonus() const {
+	return _baseAttackBonus;
+}
+
+void Creature::setBaseAttackBonus(uint8 bab) {
+	_baseAttackBonus = bab;
+}
+
+int8 Creature::getForSaveThrow() const {
+	///TODO Add modifier from effects, such as from spells or items.
+	return _forSaveThrow + getAbilityModifier(kAbilityConstitution);
+}
+
+int8 Creature::getWillSaveThrow() const {
+	///TODO Add modifier from effects, such as from spells or items.
+	return _willSaveThrow + getAbilityModifier(kAbilityWisdom);
+}
+
+int8 Creature::getRefSaveThrow() const {
+	///TODO Add modifier from effects, such as from spells or items.
+	return _refSaveThrow + getAbilityModifier(kAbilityDexterity);
 }
 
 void Creature::enter() {
