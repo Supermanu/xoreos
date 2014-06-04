@@ -253,6 +253,18 @@ Creature *Module::getPC() {
 	return _pc;
 }
 
+void Module::setPC(Creature *pc) {
+	unloadPC();
+
+	_pc = pc;
+
+	setPCTokens();
+
+	TalkMan.setGender((Aurora::Gender) _pc->getGender());
+
+	addObject(*_pc);
+}
+
 bool Module::replaceModule() {
 	if (_newModule.empty())
 		return true;
@@ -311,10 +323,12 @@ bool Module::enter() {
 	float orientX, orientY, orientZ;
 	Common::vector2orientation(entryDirX, entryDirY, orientX, orientY, orientZ);
 
+	_pc->unloadModel();
 	_pc->setPosition(entryX, entryY, entryZ);
 	_pc->setOrientation(orientX, orientY, orientZ);
 
 	_pc->loadModel();
+
 
 	runScript(kScriptModuleLoad , this, _pc);
 	runScript(kScriptModuleStart, this, _pc);

@@ -75,6 +75,7 @@ public:
 	bool loadModule(const Common::UString &module);
 	/** Use this character as the player character. */
 	bool usePC(const Common::UString &bic, bool local);
+	void setPC(Creature *pc);
 
 	void run();
 
