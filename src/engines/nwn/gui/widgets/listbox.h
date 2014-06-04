@@ -170,11 +170,6 @@ public:
 	 */
 	void setScrollBarPosition(float position);
 
-	/** Set the scrollbar position.
-	 * @param position The value must be in the interval [0,1]. 
-	 */
-	void setScrollBarPosition(float position);
-
 	void subActive(Widget &widget);
 
 private:
