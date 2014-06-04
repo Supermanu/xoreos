@@ -223,92 +223,6 @@ bool WidgetListItemTextLine::deactivate() {
 	return true;
 }
 
-WidgetListItemButton::WidgetListItemButton(::Engines::GUI &gui, const Common::UString &model, const Common::UString &font, const Common::UString &text, const Common::UString &icon): WidgetListItem(gui), _available(true) {
-	_button = loadModelGUI(model);
-	_button->setClickable(true);
-	_text = new Graphics::Aurora::Text(FontMan.get(font), text);
-	if (icon == "")
-		_icon = 0;
-	else {
-		_icon = new PortraitWidget(gui, _tag + "#icon", icon, Portrait::kSizeIcon);
-		addChild(*_icon);
-	}
-}
-
-WidgetListItemButton::~WidgetListItemButton() {
-	delete _button;
-	delete _text;
-}
-
-void WidgetListItemButton::mouseUp(uint8 state, float x, float y) {
-	WidgetListItem::mouseUp(state, x, y);
-}
-
-void WidgetListItemButton::show() {
-	Engines::Widget::show();
-	_button->show();
-	_text->show();
-}
-void WidgetListItemButton::hide() {
-	Engines::NWN::NWNWidget::hide();
-	_button->hide();
-	_text->hide();
-}
-
-float WidgetListItemButton::getWidth() const {
-	return _button->getWidth();
-}
-
-float WidgetListItemButton::getHeight() const {
-	return _button->getHeight();
-}
-
-void WidgetListItemButton::setPosition(float x, float y, float z) {
-	NWNWidget::setPosition(x, y, z);
-	getPosition(x, y ,z);
-
-	z -= 5;
-	_button->setPosition(x, y, z);
-	z -= 5;
-	_text->setPosition(x + 40, y + 10, z);
-	if (_icon == 0)
-		return;
-
-	_icon->setPosition(x + 5 , y + 4, z - 5);
-}
-
-void WidgetListItemButton::setDisabled(bool disable) {
-	if (_available != disable)
-		return;
-
-	if (disable)
-		_text->setColor(0.5, 0.5, 0.5, 1.0);
-	else
-		_text->unsetColor();
-}
-
-void WidgetListItemButton::setTag(const Common::UString &tag) {
-	Engines::Widget::setTag(tag);
-	_button->setTag(tag);
-}
-
-bool WidgetListItemButton::activate() {
-	if (!WidgetListItem::activate())
-		return false;
-
-	_button->setState("down");
-	return true;
-}
-
-bool WidgetListItemButton::deactivate() {
-	if(!WidgetListItem::deactivate())
-		return false;
-
-	_button->setState("");
-	return true;
-}
-
-
 WidgetListBox::WidgetListBox(::Engines::GUI &gui, const Common::UString &tag,
                              const Common::UString &model) :
 	ModelWidget(gui, tag, model),
@@ -517,6 +431,38 @@ void WidgetListBox::add(WidgetListItem *item) {
 	_items.push_back(item);
 
 	addSub(*item);
+
+	updateVisible();
+	updateScrollbarLength();
+	updateScrollbarPosition();
+}
+
+void WidgetListBox::removeItem(uint item) {
+	assert(_locked);
+
+	if (_items.empty())
+		return;
+
+	if (_items.back() == _visibleItems.back() && _items.size() > _visibleItems.size())
+		_startItem--;
+
+	for (std::vector<WidgetListItem *>::iterator it = _visibleItems.begin(); it != _visibleItems.end(); ++it) {
+		if (_items[item] == *it) {
+			_visibleItems.erase(it);
+			break;
+		}
+	}
+
+	for (std::vector<WidgetListItem *>::iterator it = _items.begin() + item; it != _items.end(); ++it)
+		(*it)->_itemNumber--;
+
+	_items[item]->remove();
+	_items.erase(_items.begin() + item);
+	_selectedItem = 0xFFFFFFFF;
+
+	updateVisible();
+	updateScrollbarLength();
+	updateScrollbarPosition();
 }
 
 void WidgetListBox::unlock() {
@@ -645,6 +591,9 @@ void WidgetListBox::updateVisible() {
 	for (uint i = 0; i < _visibleItems.size(); i++)
 		_visibleItems[i]->hide();
 
+	if (_visibleItems.size() > _items.size())
+		_visibleItems.resize(_items.size());
+
 	if (_viewStyle == kViewStyleOneColumn) {
 		float itemHeight = _items.front()->getHeight();
 		float itemY      = _contentY;
@@ -739,12 +688,24 @@ void WidgetListBox::select(uint item) {
 	_selectedItem = item;
 }
 
+void WidgetListBox::deselect() {
+	if (_selectedItem == 0xFFFFFFFF)
+		return;
+
+	getItem(_selectedItem)->signalGroupMemberActive();
+	_selectedItem = 0xFFFFFFFF;
+}
+
 uint WidgetListBox::getSelected() const {
 	return _selectedItem;
 }
 
 WidgetListItem *WidgetListBox::getItem(uint item) const {
 	return _items.at(item);
+}
+
+uint WidgetListBox::getSize() const {
+	return _items.size();
 }
 
 bool WidgetListBox::wasDblClicked() {

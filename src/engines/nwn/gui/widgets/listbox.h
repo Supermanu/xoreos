@@ -54,7 +54,7 @@ class WidgetScrollbar;
 class WidgetListItem : public NWNWidget {
 public:
 	WidgetListItem(::Engines::GUI &gui);
-	~WidgetListItem();
+	virtual ~WidgetListItem();
 
 	void mouseUp  (uint8 state, float x, float y);
 	void mouseWheel(uint8 state, int x, int y);
@@ -112,36 +112,6 @@ private:
 	float _spacing;
 };
 
-/** A button widget within a NWN listbox widget with a text and an icon. */
-class WidgetListItemButton : public WidgetListItem {
-public:
-	WidgetListItemButton(::Engines::GUI &gui, const Common::UString &model, const Common::UString &font, const Common::UString &text, const Common::UString &icon = "");
-	~WidgetListItemButton();
-
-	void mouseUp(uint8 state, float x, float y);
-
-	void show();
-	void hide();
-
-	float getWidth() const;
-	float getHeight() const;
-	void setPosition(float x, float y, float z);
-	void setDisabled(bool disable);
-
-	void setTag(const Common::UString &tag);
-
-protected:
-	bool activate();
-	bool deactivate();
-
-private:
-	Graphics::Aurora::Model *_button;
-	Graphics::Aurora::Text *_text;
-	PortraitWidget *_icon;
-
-	bool _available;
-};
-
 /** A NWN listbox widget. */
 class WidgetListBox : public ModelWidget {
 public:
@@ -176,15 +146,18 @@ public:
 	void clear();
 	void reserve(uint n);
 	void add(WidgetListItem *item);
+	void removeItem(uint item);
 	void unlock();
 
 	void setText(const Common::UString &font, const Common::UString &text,
 	             float spacing = 0.0);
 
 	void select(uint item);
+	void deselect();
 	uint getSelected() const;
 
 	WidgetListItem * getItem(uint item) const;
+	uint getSize() const;
 
 	bool wasDblClicked();
 
