@@ -21,7 +21,6 @@
  *
  * The Infinity, Aurora, Odyssey, Eclipse and Lycium engines, Copyright (c) BioWare corp.
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
- *
  */
 
 /** @file engines/nwn/gui/chargen/charportrait.h
@@ -31,7 +30,7 @@
 #ifndef ENGINES_NWN_GUI_CHARGEN_CHARPORTRAIT_H
 #define ENGINES_NWN_GUI_CHARGEN_CHARPORTRAIT_H
 
-#include "engines/nwn/gui/gui.h"
+#include "engines/nwn/gui/chargen/chargenabstract.h"
 
 #include "engines/nwn/creature.h"
 
@@ -42,8 +41,6 @@
 namespace Engines {
 
 namespace NWN {
-
-class Module;
 
 class WidgetListItemPortrait : public WidgetListItem {
 public:
@@ -68,12 +65,12 @@ private:
 	float _border;
 };
 
-class CharPortrait : public GUI {
+class CharPortrait : public CharGenAbstract {
 public:
-	CharPortrait(Module &module, Creature &character);
+	CharPortrait(Engines::NWN::Creature & character);
 	~CharPortrait();
 
-	void reset() const;
+	void reset();
 	void show();
 	void hide();
 
@@ -84,7 +81,6 @@ private:
 	void initPortraitList();
 	void buildPortraitList();
 
-	Module *_module;
 	Creature *_character;
 	PortraitWidget *_mainPortrait;
 	WidgetPanel *_bigPortraitPanel;

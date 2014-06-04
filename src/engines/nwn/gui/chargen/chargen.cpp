@@ -27,6 +27,11 @@
  *  The new character generator.
  */
 
+
+#include "aurora/talkman.h"
+#include "aurora/2dareg.h"
+#include "aurora/2dafile.h"
+
 #include "engines/aurora/widget.h"
 
 #include "engines/nwn/module.h"
@@ -40,52 +45,50 @@ namespace NWN {
 
 CharGenMenu::CharGenMenu(Module &module) : _module(&module) {
 	load("cg_main");
-	
+
 	_character = new Creature();
-	
-	_charSex	= new CharSex		(*_module, *_character);
-	_charRace	= new CharRace		(*_module, *_character);
-	_charPortrait	= new CharPortrait	(*_module, *_character);
-	_charClass	= new CharClass		(*_module, *_character);
-	_charAlignment 	= new CharAlignment	(*_module, *_character);
-	_charAttributes = new CharAttributes	(*_module, *_character);
-	_charPackage	= new CharPackage	(*_module, *_character);
-	_charAppearance	= new CharAppearance	(*_module, *_character);
 
 	// Move to half the parent widget
-	//getWidget("TitleLabel"     , true)->movePosition(371,0,0);
-	getWidget("TitleLabel"     , true)->setHorCentered();
+	// getWidget("TitleLabel"     , true)->movePosition(371,0,0);
+	getWidget("TitleLabel", true)->setHorCentered();
 
 	// TODO: Play
-	getWidget("PlayButton" , true)->setDisabled(true);
+	// getWidget("PlayButton" , true)->setDisabled(true);
+	init();
 
 }
 
 CharGenMenu::~CharGenMenu() {
-	delete _character;
-	delete _charSex;
-	delete _charRace;
-	delete _charPortrait;
-	delete _charClass;
-	delete _charAlignment;
-	delete _charAttributes;
-	delete _charPackage;
-	delete _charAppearance;
+	for (uint it = 0; it < _choiceGui.size(); ++it)
+		delete _choiceGui[it];
 }
 
 void CharGenMenu::reset() {
 	delete _character;
 	_character = new Creature();
-	_charSex->reset();
-	_charRace->reset();
-	_charPortrait->reset();
-	_charClass->reset();
-	_charAlignment->reset();
-	_charAttributes->reset();
-	_charPackage->reset();
-	_charAppearance->reset();
+	for (uint it = 0; it < _choiceGui.size(); ++it)
+		_choiceGui[it]->reset();
 }
 
+void CharGenMenu::init() {
+	_choiceButtons.push_back(getButton("GenderButton", true));
+	_choiceButtons.push_back(getButton("RaceButton", true));
+	_choiceButtons.push_back(getButton("PortraitButton", true));
+	// _choiceButtons.push_back(getButton("ClassButton", true));
+	// _choiceButtons.push_back(getButton("AlignButton", true));
+	// _choiceButtons.push_back(getButton("AbilitiesButton", true));
+	// _choiceButtons.push_back(getButton("PackagesButton", true));
+	// _choiceButtons.push_back(getButton("CustomizeButton", true));
+
+	_choiceGui.push_back(new CharSex(*_character));
+	_choiceGui.push_back(new CharRace(*_character));
+	_choiceGui.push_back(new CharPortrait(*_character));
+	// _choiceGui.push_back(new CharClass(*_character));
+	// _choiceGui.push_back(new CharAlignment(*_character));
+	// _choiceGui.push_back(new CharAttributes(*_character));
+	// _choiceGui.push_back(new CharPackage(*_character));
+	// _choiceGui.push_back(new CharAppearance(*_character));
+}
 
 void CharGenMenu::callbackActive(Widget &widget) {
 	if (widget.getTag() == "CancelButton") {
@@ -93,45 +96,29 @@ void CharGenMenu::callbackActive(Widget &widget) {
 		_returnCode = 1;
 		return;
 	}
-	
-	if (widget.getTag() == "GenderButton") {
-		sub(*_charSex);
-		return;
-	}
-	
-	if (widget.getTag() == "RaceButton") {
-		sub(*_charRace);
+
+	if (widget.getTag() == "PlayButton") {
+		_characterChoices.applyAbilities();
+		_module->setPC(_character);
+		_returnCode = 2;
 		return;
 	}
 
-	if (widget.getTag() == "PortraitButton") {
-		sub(*_charPortrait);
-		return;
-	}
+	for (uint it = 0; it < _choiceGui.size(); ++it) {
+		if (widget.getTag() == _choiceButtons[it]->getTag()) {
+			if (sub(*_choiceGui[it]) == 2) {
+				if (it == _choiceGui.size() - 1)
+					return;
 
-	if (widget.getTag() == "ClassButton") {
-		sub(*_charClass);
-		return;
-	}
-
-	if (widget.getTag() == "AlignButton") {
-		sub(*_charAlignment);
-		return;
-	}
-
-	if (widget.getTag() == "AbilitiesButton") {
-		sub(*_charAttributes);
-		return;
-	}
-
-	if (widget.getTag() == "PackagesButton") {
-		sub(*_charPackage);
-		return;
-	}
-
-	if (widget.getTag() == "CustomizeButton") {
-		sub(*_charAppearance);
-		return;
+				_choiceButtons[it + 1]->setDisabled(false);
+				_choiceGui[it + 1]->reset();
+				for (uint next = it + 2; next < _choiceButtons.size(); ++next) {
+					_choiceButtons[next]->setDisabled(true);
+					_choiceGui[next]->reset();
+				}
+				return;
+			}
+		}
 	}
 
 	if (widget.getTag() == "ResetButton") {

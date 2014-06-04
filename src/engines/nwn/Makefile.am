@@ -32,6 +32,7 @@ noinst_HEADERS = \
                  gui/widgets/frame.h \
                  gui/widgets/label.h \
                  gui/widgets/listbox.h \
+                 gui/widgets/listitembutton.h \
                  gui/widgets/panel.h \
                  gui/widgets/scrollbar.h \
                  gui/widgets/portrait.h \
@@ -48,14 +49,10 @@ noinst_HEADERS = \
                  gui/options/video.h \
                  gui/options/videoadv.h \
                  gui/chargen/chargen.h \
+                 gui/chargen/chargenabstract.h \
                  gui/chargen/charsex.h \
                  gui/chargen/charrace.h \
                  gui/chargen/charportrait.h \
-                 gui/chargen/charclass.h \
-                 gui/chargen/charalignment.h \
-                 gui/chargen/charattributes.h \
-                 gui/chargen/charpackage.h \
-                 gui/chargen/charappearance.h \
                  gui/main/charpremade.h \
                  gui/main/chartype.h \
                  gui/main/main.h \
@@ -111,6 +108,7 @@ libnwn_la_SOURCES = \
                     gui/widgets/frame.cpp \
                     gui/widgets/label.cpp \
                     gui/widgets/listbox.cpp \
+                    gui/widgets/listitembutton.cpp \
                     gui/widgets/panel.cpp \
                     gui/widgets/scrollbar.cpp \
                     gui/widgets/portrait.cpp \
@@ -127,14 +125,11 @@ libnwn_la_SOURCES = \
                     gui/options/video.cpp \
                     gui/options/videoadv.cpp \
                     gui/chargen/chargen.cpp \
+                    gui/chargen/chargenabstract.cpp \
                     gui/chargen/charsex.cpp \
                     gui/chargen/charrace.cpp \
                     gui/chargen/charportrait.cpp \
                     gui/chargen/charclass.cpp \
-                    gui/chargen/charalignment.cpp \
-                    gui/chargen/charattributes.cpp \
-                    gui/chargen/charpackage.cpp \
-                    gui/chargen/charappearance.cpp \
                     gui/main/charpremade.cpp \
                     gui/main/chartype.cpp \
                     gui/main/main.cpp \

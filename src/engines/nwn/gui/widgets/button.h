@@ -43,6 +43,12 @@ namespace NWN {
 /** A NWN button widget. */
 class WidgetButton : public ModelWidget {
 public:
+	enum ButtonMode {
+		kButtonModeNormal = 0,
+		kButtonModeUnchanged,
+		kButtonModeStayPressed
+	};
+
 	WidgetButton(::Engines::GUI &gui, const Common::UString &tag,
 	             const Common::UString &model, const Common::UString &sound = "gui_button");
 	~WidgetButton();
@@ -50,11 +56,12 @@ public:
 	void enter();
 	void leave();
 
+	void subActive(Widget &widget);
 	void setDisabled(bool disabled);
-	void setStayPressed(bool stay = true);
 	void setPressed(bool pressed = true);
-	void setUnchangedMode(bool unchanged);
+	void setMode(ButtonMode mode);
 	void setCaption(const Common::UString &caption);
+	const Common::UString getCaption();
 	void setCaptionPosition(float pX, float pY, float pZ);
 	void setCaptionLeft();
 	void moveCaptionPosition(float pX, float pY, float pZ);
@@ -65,9 +72,9 @@ public:
 
 private:
 	Common::UString _sound;
-	bool _stayPressed;
+	ButtonMode _buttonMode;
 	bool _pressed;
-	bool _unchangedMode;
+
 };
 
 } // End of namespace NWN

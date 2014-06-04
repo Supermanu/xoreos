@@ -21,7 +21,10 @@
  *
  * The Infinity, Aurora, Odyssey, Eclipse and Lycium engines, Copyright (c) BioWare corp.
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
- *
+ */
+
+/** @file engines/nwn/gui/chargen/charportrait.h
+ *  The portrait character chooser.
  */
 
 #include "aurora/2dareg.h"
@@ -29,12 +32,9 @@
 #include "aurora/resman.h"
 #include "aurora/gfffile.h"
 
-#include "engines/nwn/gui/chargen/charportrait.h"
-
 #include "engines/nwn/gui/widgets/button.h"
 
-// #include "engines/nwn/types.h"
-
+#include "engines/nwn/gui/chargen/charportrait.h"
 
 namespace Engines {
 
@@ -96,7 +96,7 @@ void WidgetListItemPortrait::setPosition(float x, float y, float z) {
 }
 
 
-CharPortrait::CharPortrait(Module &module, Creature &character) : _module(&module), _character(&character), _selected("") {
+CharPortrait::CharPortrait(Creature &character): _character(&character), _selected("") {
 	load("cg_portrait");
 
 	getWidget("Title"	, true)->setHorCentered();
@@ -106,7 +106,6 @@ CharPortrait::CharPortrait(Module &module, Creature &character) : _module(&modul
 	float pX, pY, pZ;
 	_bigPortraitPanel->getPosition(pX, pY, pZ);
 	_mainPortrait->setPosition(pX + 3, pY + 3, pZ - 1);
-	_mainPortrait->setPortrait(_character->getPortrait() + "h");
 	_bigPortraitPanel->addChild(*_mainPortrait);
 
 	_portraitListBox = new WidgetListBox(*this, "ListBox", "ctl_cg_portraits");
@@ -114,20 +113,18 @@ CharPortrait::CharPortrait(Module &module, Creature &character) : _module(&modul
 	_portraitListBox->setViewStyle(WidgetListBox::kViewStyleColumns);
 	addWidget(_portraitListBox);
 
-	if (_mainPortrait->getPortrait() == "gui_po_nwnlogo_h")
-		getWidget("OkButton", true)->setDisabled(true);
+	getWidget("OkButton", true)->setDisabled(true);
 
 	initPortraitList();
 }
 
 CharPortrait::~CharPortrait() {
-	delete _mainPortrait;
-	delete _bigPortraitPanel;
-	delete _portraitListBox;
 }
 
-void CharPortrait::reset() const {
+void CharPortrait::reset() {
 	_character->setPortrait("gui_po_nwnlogo_");
+	_selected = "";
+	getWidget("OkButton", true)->setDisabled(true);
 }
 
 void CharPortrait::show() {
@@ -138,7 +135,6 @@ void CharPortrait::show() {
 }
 
 void CharPortrait::hide() {
-// 	Engines::GUI::hide();
 	_portraitListBox->hide();
 	Engines::GUI::hide();
 }
@@ -222,36 +218,35 @@ void CharPortrait::buildPortraitList() {
 	_portraitListBox->clear();
 	_portraitListBox->setMode(WidgetListBox::kModeSelectable);
 
-	if (_character->getGender() == Aurora::kGenderMale) {
-		for (std::vector<Common::UString>::iterator it = _portraitsMale.at(_character->getRace()).begin(); it != _portraitsMale.at(_character->getRace()).end(); ++it) {
-			_portraitListBox->add(new WidgetListItemPortrait(*this, (*it), 10.0, 6.0));
-		}
-		for (Uint32 it = 0; it < 7; ++it) {
-			//The portraits for human and halfelf are the same.
-			if (it == kRaceHalfElf || it == _character->getRace() || ((_character->getRace() ==  kRaceHalfElf) && (it == kRaceHuman)) )
-				continue;
+	std::vector<std::vector<Common::UString> > *portrait = 0;
+	if (_character->getGender() == Aurora::kGenderMale)
+		portrait = &_portraitsMale;
+	else if (_character->getGender() == Aurora::kGenderFemale)
+		portrait = &_portraitsFemale;
 
-			for (std::vector<Common::UString>::iterator subIt = _portraitsMale.at(it).begin(); subIt != _portraitsMale.at(it).end(); ++subIt) {
-				WidgetListItemPortrait *itemPortrait = new WidgetListItemPortrait(*this, (*subIt), 10.0, 6.0);
-				_portraitListBox->add(itemPortrait);
-			}
-		}
-	} else if (_character->getGender() == Aurora::kGenderFemale) {
-		for (std::vector<Common::UString>::iterator it = _portraitsFemale.at(_character->getRace()).begin(); it != _portraitsFemale.at(_character->getRace()).end(); ++it) {
-			_portraitListBox->add(new WidgetListItemPortrait(*this, (*it), 10.0, 6.0));
-		}
-		for (Uint32 it = 0; it < 7; ++it) {
-			//The portraits for human and halfelf are the same.
-			if (it == kRaceHalfElf || it == _character->getRace())
-				continue;
-
-			for (std::vector<Common::UString>::iterator subIt = _portraitsFemale.at(it).begin(); subIt != _portraitsFemale.at(it).end(); ++subIt) {
-				WidgetListItemPortrait *itemPortrait = new WidgetListItemPortrait(*this, (*subIt), 10.0, 6.0);
-				_portraitListBox->add(itemPortrait);
-			}
+	uint previouslySelected = 0;
+	for (std::vector<Common::UString>::iterator it = portrait->at(_character->getRace()).begin(); it != portrait->at(_character->getRace()).end(); ++it) {
+		WidgetListItemPortrait *itemPortrait = new WidgetListItemPortrait(*this, (*it), 10.0, 6.0);
+		_portraitListBox->add(itemPortrait);
+		if (*it == _selected)
+			previouslySelected = _portraitListBox->getSize() - 1;
+	}
+	for (uint16 it = 0; it < 7; ++it) {
+		//The portraits for human and halfelf are the same.
+		if (it == kRaceHalfElf || it == _character->getRace() || ((_character->getRace() ==  kRaceHalfElf) && (it == kRaceHuman)) )
+			continue;
+		
+		for (std::vector<Common::UString>::iterator subIt = portrait->at(it).begin(); subIt != portrait->at(it).end(); ++subIt) {
+			WidgetListItemPortrait *itemPortrait = new WidgetListItemPortrait(*this, (*subIt), 10.0, 6.0);
+			_portraitListBox->add(itemPortrait);
 		}
 	}
 	_portraitListBox->unlock();
+
+	if (!_selected.empty()) {
+		_portraitListBox->getItem(previouslySelected)->select();
+		getWidget("OkButton", true)->setDisabled(false);
+	}
 }
 
 void CharPortrait::callbackActive(Widget &widget) {
@@ -261,13 +256,12 @@ void CharPortrait::callbackActive(Widget &widget) {
 	}
 
 	if (widget.getTag() == "OkButton") {
-		if (_portraitListBox->getSelected() != 0xFFFFFFFF) {
-			// The last letter indicate only the size of the portrait, we do not need it.
-			_selected = _mainPortrait->getPortrait();
-			_selected.erase(--(_selected.end()));
-			_character->setPortrait(_selected);
-			_returnCode = 1;
-		}
+		// The last letter indicate only the size of the portrait, we do not need it.
+		_selected = _mainPortrait->getPortrait();
+		_selected.erase(--(_selected.end()));
+		_character->setPortrait(_selected);
+		_returnCode = 2;
+
 		return;
 	}
 

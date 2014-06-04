@@ -32,7 +32,7 @@
 
 #include <map>
 
-#include "engines/nwn/gui/gui.h"
+#include "engines/nwn/gui/chargen/chargenabstract.h"
 #include "engines/nwn/gui/widgets/button.h"
 #include "engines/nwn/gui/widgets/editbox.h"
 
@@ -41,23 +41,22 @@
 namespace Engines {
 
 namespace NWN {
-  
-class Module;
-  
-class CharSex : public GUI {
+
+class CharSex : public CharGenAbstract {
 public:
-	CharSex(Module &module, Creature &character);
+	CharSex(Engines::NWN::Creature & character);
 	~CharSex();
+
 	void swapGender();
 	void reset();
 
 private:
 	void callbackActive(Widget &widget);
-	Module *_module;
+
 	Creature *_character;
 	uint32 _gender;
-	std::map<Common::UString,WidgetButton*> * _genderWidgets;
-	WidgetEditBox * _helpBox;
+	std::map<Common::UString,WidgetButton*> *_genderWidgets;
+	WidgetEditBox *_helpBox;
 	std::vector<Common::UString> _helpTexts;
 };
 

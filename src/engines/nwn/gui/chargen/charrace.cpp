@@ -21,7 +21,10 @@
  *
  * The Infinity, Aurora, Odyssey, Eclipse and Lycium engines, Copyright (c) BioWare corp.
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
- *
+ */
+
+/** @file engines/nwn/gui/chargen/charrace.cpp
+ *  The NWN race selection for the character generator.
  */
 
 #include "engines/nwn/gui/chargen/charrace.h"
@@ -33,11 +36,11 @@ namespace Engines {
 namespace NWN {
 
 
-CharRace::CharRace(Module &module, Creature &character) : _module(&module), _character(&character) {
+CharRace::CharRace(Creature &character) : _character(&character) {
 	load("cg_race");
 
 	getWidget("Title"		, true)->setHorCentered();
-	//TODO Implement subrace.
+	///TODO Implement subrace.
 	getWidget("SubRaceButton"	, true)->setDisabled(true);
 
 	initVectors();
@@ -45,7 +48,7 @@ CharRace::CharRace(Module &module, Creature &character) : _module(&module), _cha
 	_helpBox = (WidgetEditBox *) getWidget("HelpBox", true);
 
 	for (std::vector<WidgetButton *>::iterator it = _widgetList.begin(); it != _widgetList.end(); ++it) 
-		(*it)->setStayPressed();
+		(*it)->setMode(WidgetButton::kButtonModeStayPressed);
 	
 	if (_character->getRace() == kRaceInvalid) {
 		changeRaceTo(kRaceHuman);
@@ -58,7 +61,7 @@ CharRace::CharRace(Module &module, Creature &character) : _module(&module), _cha
 }
 
 CharRace::~CharRace() {
-	delete _helpBox;
+// 	delete _helpBox;
 }
 
 void CharRace::callbackActive(Widget &widget) {
@@ -72,8 +75,9 @@ void CharRace::callbackActive(Widget &widget) {
 		if (_race == kRaceInvalid)
 			_race = kRaceHuman;
 
-		_character->setRace(_race);
-		_returnCode = 1;
+		_characterChoices = CharacterAbilities(_character);
+		_characterChoices.setRace(_race);
+		_returnCode = 2;
 		return;
 	}
 	
@@ -155,6 +159,7 @@ void CharRace::reset() {
 	_helpBox->setTitle(_helpTexts[15]);
 	_helpBox->setMainText(_helpTexts[7]);
 	_race = kRaceInvalid;
+	_characterChoices.racialFeats.clear();
 }
 
 

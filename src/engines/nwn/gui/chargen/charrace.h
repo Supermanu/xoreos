@@ -21,7 +21,6 @@
  *
  * The Infinity, Aurora, Odyssey, Eclipse and Lycium engines, Copyright (c) BioWare corp.
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
- *
  */
 
 /** @file engines/nwn/gui/chargen/charrace.h
@@ -31,7 +30,7 @@
 #ifndef ENGINES_NWN_GUI_CHARGEN_CHARRACE_H
 #define ENGINES_NWN_GUI_CHARGEN_CHARRACE_H
 
-#include "engines/nwn/gui/gui.h"
+#include "engines/nwn/gui/chargen/chargenabstract.h"
 #include "engines/nwn/gui/widgets/button.h"
 #include "engines/nwn/gui/widgets/editbox.h"
 
@@ -41,11 +40,9 @@ namespace Engines {
 
 namespace NWN {
   
-class Module;
-  
-class CharRace : public GUI {
+class CharRace : public CharGenAbstract {
 public:
-	CharRace(Module &module, Creature &character);
+	CharRace(Engines::NWN::Creature & character);
 	~CharRace();
 	
 	void changeRaceTo(Uint32 race);
@@ -56,7 +53,6 @@ protected:
 	void callbackActive(Widget &widget);
 
 private:
-	Module *_module;
 	Creature *_character;
 	uint32 _race;
 	std::vector<WidgetButton *> _widgetList;

@@ -30,6 +30,7 @@
 #include "graphics/aurora/model.h"
 
 #include "engines/aurora/util.h"
+#include "engines/nwn/gui/gui.h"
 
 #include "engines/nwn/gui/widgets/button.h"
 #include "label.h"
@@ -40,7 +41,7 @@ namespace NWN {
 
 WidgetButton::WidgetButton(::Engines::GUI &gui, const Common::UString &tag,
                            const Common::UString &model, const Common::UString &sound) :
-	ModelWidget(gui, tag, model), _stayPressed(false), _pressed(false), _unchangedMode(false) {
+	ModelWidget(gui, tag, model), _buttonMode(kButtonModeNormal), _pressed(false) {
 
 	_model->setClickable(true);
 	_model->setState("up");
@@ -57,10 +58,8 @@ void WidgetButton::enter() {
 	if (isDisabled())
 		return;
 
-	if (_stayPressed || _unchangedMode) 
-		return;
-
-	_model->setState("hilite");
+	if (_buttonMode == kButtonModeNormal) 
+		_model->setState("hilite");
 }
 
 void WidgetButton::leave() {
@@ -68,34 +67,42 @@ void WidgetButton::leave() {
 
 	if (isDisabled())
 		return;
-	if (_stayPressed || _unchangedMode)
-		return;
-
-	_model->setState("up");
+	if (_buttonMode == kButtonModeNormal)
+		_model->setState("up");
 }
 
 void WidgetButton::setDisabled(bool disabled) {
 	NWNWidget::setDisabled(disabled);
 
 	if (isDisabled()) {
-		_model->setState("disabled");
+		if (_model->getState() != "down")
+			_model->setState("disabled");
+
 		if (hasChildren())
 			((WidgetLabel *) getChild(_tag + "#Caption"))->setColor(0.5, 0.5, 0.5, 1.0);
 	} else {
-		_model->setState("up");
 		if (hasChildren())
 			((WidgetLabel *) getChild(_tag + "#Caption"))->setColor(1.0, 1.0, 1.0, 1.0);
 	}
 }
 
-void WidgetButton::setUnchangedMode(bool unchanged) {
-	_model->setState("disabled");
-	_unchangedMode = unchanged;
+void WidgetButton::setMode(ButtonMode mode) {
+	_buttonMode = mode;
+
+	if (mode == kButtonModeUnchanged)
+		_model->setState("disabled");
 }
 
 void WidgetButton::setCaption(const Common::UString &caption) {
 	if (hasChildren())
 		((WidgetLabel *) getChild(_tag + "#Caption"))->setText(caption);
+}
+
+const Common::UString WidgetButton::getCaption() {
+	if (hasChildren())
+		return ((WidgetLabel *) getChild(_tag + "#Caption"))->getText();
+
+	return "";
 }
 
 void WidgetButton::setCaptionPosition(float pX, float pY, float pZ) {
@@ -125,10 +132,10 @@ void WidgetButton::mouseDown(uint8 state, float x, float y) {
 		return;
 
 	///TODO Add an animation when pressed: the text should move a little to the bottom.
-	if (_stayPressed) 
+	if (_buttonMode == kButtonModeStayPressed) 
 		return;
 
-	if (_unchangedMode) {
+	if (_buttonMode == kButtonModeUnchanged) {
 		setActive(true);
 		return;
 	}
@@ -139,10 +146,10 @@ void WidgetButton::mouseDown(uint8 state, float x, float y) {
 }
 
 void WidgetButton::mouseUp(uint8 state, float x, float y) {
-	if (isDisabled() || _unchangedMode)
+	if (isDisabled() || _buttonMode == kButtonModeUnchanged)
 		return;
 
-	if (!_stayPressed) {
+	if (_buttonMode == kButtonModeNormal) {
 		_model->setState("hilite");
 		setActive(true);
 		return;
@@ -154,17 +161,11 @@ void WidgetButton::mouseUp(uint8 state, float x, float y) {
 			setPressed(true);
 		}
 	}
-
-}
-
-void WidgetButton::setStayPressed(bool stay) {
-	_stayPressed = stay;
 }
 
 void WidgetButton::setPressed(bool pressed) {
-	if (!_stayPressed)
+	if (_buttonMode != kButtonModeStayPressed)
 		return;
-
 
 	if (pressed) {
 		_model->setState("down");
@@ -181,8 +182,9 @@ bool WidgetButton::isPressed() {
 	return _pressed;
 }
 
-
-
+void WidgetButton::subActive(Widget &widget) {
+	
+}
 
 } // End of namespace NWN
 

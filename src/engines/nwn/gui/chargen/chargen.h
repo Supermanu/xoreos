@@ -30,16 +30,14 @@
 #ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
 #define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
 
-#include "engines/nwn/gui/gui.h"
-
 #include "engines/nwn/gui/chargen/charsex.h"
 #include "engines/nwn/gui/chargen/charrace.h"
 #include "engines/nwn/gui/chargen/charportrait.h"
-#include "engines/nwn/gui/chargen/charclass.h"
-#include "engines/nwn/gui/chargen/charalignment.h"
-#include "engines/nwn/gui/chargen/charattributes.h"
-#include "engines/nwn/gui/chargen/charpackage.h"
-#include "engines/nwn/gui/chargen/charappearance.h"
+// #include "engines/nwn/gui/chargen/charclass.h"
+// #include "engines/nwn/gui/chargen/charalignment.h"
+// #include "engines/nwn/gui/chargen/charattributes.h"
+// #include "engines/nwn/gui/chargen/charpackage.h"
+// #include "engines/nwn/gui/chargen/charappearance.h"
 
 namespace Engines {
 
@@ -48,7 +46,7 @@ namespace NWN {
 class Module;
 
 /** The NWN character generator. */
-class CharGenMenu : public GUI {
+class CharGenMenu : public CharGenAbstract {
 public:
 	CharGenMenu(Module &module);
 	~CharGenMenu();
@@ -58,16 +56,12 @@ protected:
 	void callbackActive(Widget &widget);
 
 private:
+	void init();
 	Module *_module;
 	Creature *_character;
-	CharSex *_charSex;
-	CharRace *_charRace;
-	CharPortrait *_charPortrait;
-	CharClass *_charClass;
-	CharAlignment *_charAlignment;
-	CharAttributes *_charAttributes;
-	CharPackage *_charPackage;
-	CharAppearance *_charAppearance;
+
+	std::vector<WidgetButton *> _choiceButtons;
+	std::vector<CharGenAbstract *> _choiceGui;
 };
 
 } // End of namespace NWN

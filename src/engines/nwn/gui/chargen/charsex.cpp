@@ -23,6 +23,10 @@
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
  */
 
+/** @file engines/nwn/gui/chargen/charsex.cpp
+ *  The NWN gender selection for the character generator.
+ */
+
 #include "engines/nwn/gui/chargen/charsex.h"
 
 #include "aurora/talkman.h"
@@ -34,7 +38,7 @@ namespace Engines {
 namespace NWN {
 
 
-CharSex::CharSex(Module &module, Creature &character) : _module(&module), _character(&character) {
+CharSex::CharSex(Creature &character) : _character(&character) {
 	load("cg_sex");
 
 	getWidget("Title"		, true)->setHorCentered();
@@ -44,7 +48,6 @@ CharSex::CharSex(Module &module, Creature &character) : _module(&module), _chara
 	_helpTexts.push_back(TalkMan.getString(447));
 	
 	_helpBox = getEditBox("HelpBox", true);
-	addWidget(_helpBox);
 	
 	_helpBox->setTitle(TalkMan.getString(203));
 	_helpBox->setMainText(_helpTexts[2]);
@@ -53,8 +56,8 @@ CharSex::CharSex(Module &module, Creature &character) : _module(&module), _chara
 	_genderWidgets->insert(std::pair<Common::UString, WidgetButton *>("MaleButton", ((WidgetButton *) getWidget("MaleButton"	, true))));
 	_genderWidgets->insert(std::pair<Common::UString, WidgetButton *>("FemaleButton", ((WidgetButton *) getWidget("FemaleButton"	, true))));
 
-	_genderWidgets->at("MaleButton")->setStayPressed();
-	_genderWidgets->at("FemaleButton")->setStayPressed();
+	_genderWidgets->at("MaleButton")->setMode(WidgetButton::kButtonModeStayPressed);
+	_genderWidgets->at("FemaleButton")->setMode(WidgetButton::kButtonModeStayPressed);
 	_gender = _character->getGender();
 	if (_gender == Aurora::kGenderFemale) {
 		_genderWidgets->at("FemaleButton")->setPressed();
@@ -67,13 +70,10 @@ CharSex::CharSex(Module &module, Creature &character) : _module(&module), _chara
 		_genderWidgets->at("MaleButton")->setPressed();
 		_gender = Aurora::kGenderMale;
 	}
-	
-	
 }
 
 CharSex::~CharSex() {
 	delete _genderWidgets;
-	delete _helpBox;
 }
 
 void CharSex::callbackActive(Widget &widget) {
@@ -88,7 +88,7 @@ void CharSex::callbackActive(Widget &widget) {
 	if (widget.getTag() == "OkButton") {
 		_helpBox->setMainText(_helpTexts[2]);
 		_character->setGender(_gender);
-		_returnCode = 1;
+		_returnCode = 2;
 		return;
 	}
 
