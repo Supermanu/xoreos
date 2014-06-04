@@ -1,4 +1,5 @@
-/* xoreos - A reimplementation of BioWare's Aurora engine
+/*
+ * xoreos - A reimplementation of BioWare's Aurora engine
  *
  * xoreos is the legal property of its developers, whose names can be
  * found in the AUTHORS file distributed with this source
@@ -23,49 +24,49 @@
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
  */
 
-/** @file engines/nwn/gui/chargen/chargen.h
- *  The NWN character generator.
+/** @file engines/nwn/gui/chargen/charattributes.h
+ *  The NWN attributes selection for the character generator.
  */
 
-#ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-#define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#ifndef ENGINES_NWN_GUI_CHARGEN_CHARATTRIBUTES_H
+#define ENGINES_NWN_GUI_CHARGEN_CHARATTRIBUTES_H
 
-#include "engines/nwn/gui/chargen/charsex.h"
-#include "engines/nwn/gui/chargen/charrace.h"
-#include "engines/nwn/gui/chargen/charportrait.h"
-#include "engines/nwn/gui/chargen/charclass.h"
-#include "engines/nwn/gui/chargen/charalignment.h"
-#include "engines/nwn/gui/chargen/charattributes.h"
-// #include "engines/nwn/gui/chargen/charpackage.h"
-// #include "engines/nwn/gui/chargen/charappearance.h"
+#include "engines/nwn/gui/chargen/chargenabstract.h"
+#include "engines/nwn/gui/widgets/button.h"
 
 namespace Engines {
 
 namespace NWN {
 
-class Module;
-
-/** The NWN character generator. */
-class CharGenMenu : public CharGenAbstract {
+class CharAttributes : public CharGenAbstract {
 public:
-	CharGenMenu(Module &module);
-	~CharGenMenu();
+	CharAttributes(Creature & character);
+	~CharAttributes();
+
+	void show();
 	void reset();
 
-protected:
-	void callbackActive(Widget &widget);
-
 private:
+	void callbackActive(Widget &widget);
 	void init();
-	Module *_module;
+	void updateText(uint8 attribute);
+	void changeHelp(uint8 attribute);
+	void setRecommend();
+	uint pointCost(uint8 attributeValue);
+
+	const Common::UString genTextAttributes(uint8 attribute);
+
 	Creature *_character;
 
-	std::vector<WidgetButton *> _choiceButtons;
-	std::vector<CharGenAbstract *> _choiceGui;
+	std::vector<WidgetButton *> _attrButtons;
+	std::vector<uint8>          _attributes;
+	std::vector<int> _attrAdjust;
+	uint _pointLeft;
+	std::vector<Common::UString> _helpTexts;
 };
 
 } // End of namespace NWN
 
 } // End of namespace Engines
 
-#endif // ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#endif // ENGINES_NWN_GUI_CHARGEN_CHARATTRIBUTES_H

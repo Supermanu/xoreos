@@ -74,18 +74,18 @@ void CharGenMenu::init() {
 	_choiceButtons.push_back(getButton("GenderButton", true));
 	_choiceButtons.push_back(getButton("RaceButton", true));
 	_choiceButtons.push_back(getButton("PortraitButton", true));
-	// _choiceButtons.push_back(getButton("ClassButton", true));
-	// _choiceButtons.push_back(getButton("AlignButton", true));
-	// _choiceButtons.push_back(getButton("AbilitiesButton", true));
+	_choiceButtons.push_back(getButton("ClassButton", true));
+	_choiceButtons.push_back(getButton("AlignButton", true));
+	_choiceButtons.push_back(getButton("AbilitiesButton", true));
 	// _choiceButtons.push_back(getButton("PackagesButton", true));
 	// _choiceButtons.push_back(getButton("CustomizeButton", true));
 
 	_choiceGui.push_back(new CharSex(*_character));
 	_choiceGui.push_back(new CharRace(*_character));
 	_choiceGui.push_back(new CharPortrait(*_character));
-	// _choiceGui.push_back(new CharClass(*_character));
-	// _choiceGui.push_back(new CharAlignment(*_character));
-	// _choiceGui.push_back(new CharAttributes(*_character));
+	_choiceGui.push_back(new CharClass(*_character));
+	_choiceGui.push_back(new CharAlignment(*_character));
+	_choiceGui.push_back(new CharAttributes(*_character));
 	// _choiceGui.push_back(new CharPackage(*_character));
 	// _choiceGui.push_back(new CharAppearance(*_character));
 }
