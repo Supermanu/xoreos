@@ -306,7 +306,10 @@ enum FileType {
 	kFileTypeVLM            = 25020,
 	kFileTypeWBD            = 25021,
 	kFileTypeXBX            = 25022,
-	kFileTypeXLS            = 25023
+	kFileTypeXLS            = 25023,
+
+	// Found in the iOS version of Knights of the Old Republic
+	kFileTypeBZF            = 26000  ///< Game resource data, LZMA-compressed BIF
 };
 
 enum GameID {

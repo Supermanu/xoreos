@@ -27,6 +27,8 @@
  *  The project's main entry point.
  */
 
+#define SDL_MAIN_HANDLED
+
 #include <cstdio>
 
 #include "cline.h"
@@ -67,17 +69,6 @@ void deinit();
 
 void initDebug();
 void listDebug();
-
-// *grumbles about Microsoft incompetence*
-#ifdef WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-
-int __stdcall WinMain(HINSTANCE /*hInst*/, HINSTANCE /*hPrevInst*/,  LPSTR /*lpCmdLine*/, int /*iShowCmd*/) {
-	SDL_SetModuleHandle(GetModuleHandle(0));
-	return main(__argc, __argv);
-}
-#endif
 
 static bool configFileIsBroken = false;
 
