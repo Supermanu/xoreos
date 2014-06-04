@@ -33,8 +33,10 @@
 #include "graphics/font.h"
 
 #include "engines/nwn/gui/widgets/modelwidget.h"
+#include "engines/nwn/gui/widgets/textwidget.h"
 
 #include "graphics/aurora/fontman.h"
+#include "graphics/aurora/guiquad.h"
 
 namespace Common {
 class UString;
@@ -50,20 +52,31 @@ class WidgetScrollbar;
 /** A NWN editbox widget. */
 class WidgetEditBox : public ModelWidget {
 public:
-	WidgetEditBox(::Engines::GUI &gui, const Common::UString &tag,
-	              const Common::UString &model, const Common::UString &font);
+	enum Mode {
+		kModeStatic = 0,
+		kModeEditable
+	};
+
+	WidgetEditBox(::Engines::GUI & gui, const Common::UString & tag,
+	              const Common::UString & model, const Common::UString & font);
 	~WidgetEditBox();
 
 	void show();
 	void hide();
 
-	void setTitle(Common::UString title);
-	void setMainText(Common::UString &mainText);
-	/** Set position's widget adjustement. Default : x = +9, y = -199. **/
-	void setAdjustement(int x, int y);
+	void setTitle(const Common::UString &title);
+	void setMainText(const Common::UString &mainText);
+	void setMode(Mode mode);
+
 	void subActive(Widget &widget);
 	void mouseDown(uint8 state, float x, float y);
 	void mouseWheel(uint8 state, int x, int y);
+
+	void  setFocus(bool hasFocus);
+	void  moveCursorLine(bool down);
+	void  moveCursorCharacter(bool next);
+	void  updateCursor();
+	float getWidth() const;
 
 private:
 	void createScrollbar();
@@ -75,18 +88,21 @@ private:
 	void updateScrollbarPosition();
 
 	Graphics::Aurora::FontHandle _fontHandle;
-	Graphics::Aurora::Text       *_title;
+	TextWidget *_title;
 	std::vector<Graphics::Aurora::Text *> _mainText;
+	Graphics::Aurora::GUIQuad *_cursor;
 	WidgetButton    *_up;
 	WidgetButton    *_down;
 	WidgetScrollbar *_scrollbar;
 	bool _hasScrollbar;
 	bool _hasTitle;
-	int  _xAdjust;
-	int  _yAdjust;
-	// There is 18 lines to show
-	Uint8 _firstLineToShow;
-	bool  _stillPressed;
+
+	uint8  _firstLineToShow;
+	bool   _stillPressed;
+	bool   _hasFocus;
+	uint32 _cursorPosition;
+
+	Mode _mode;
 
 };
 

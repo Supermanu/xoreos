@@ -36,14 +36,13 @@
 #include "engines/nwn/gui/widgets/button.h"
 #include "engines/nwn/gui/widgets/scrollbar.h"
 
-
 namespace Engines {
 
 namespace NWN {
 
 WidgetEditBox::WidgetEditBox(::Engines::GUI &gui, const Common::UString &tag,
                              const Common::UString &model, const Common::UString &font) :
-	ModelWidget(gui, tag, model), _hasScrollbar(false), _hasTitle(false), _xAdjust(9), _yAdjust(-199), _firstLineToShow(0) {
+	ModelWidget(gui, tag, model), _cursor(0), _hasScrollbar(false), _hasTitle(false), _firstLineToShow(0), _hasFocus(false), _cursorPosition(0), _mode(kModeStatic) {
 
 	_fontHandle = FontMan.get(font);
 
@@ -54,10 +53,10 @@ WidgetEditBox::WidgetEditBox(::Engines::GUI &gui, const Common::UString &tag,
 }
 
 WidgetEditBox::~WidgetEditBox() {
-	delete _title;
+	delete _cursor;
 }
 
-void WidgetEditBox::setMainText(Common::UString &mainText) {
+void WidgetEditBox::setMainText(const Common::UString &mainText) {
 	if (!_mainText.empty()) {
 		for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it) {
 			(*it)->hide();
@@ -68,38 +67,74 @@ void WidgetEditBox::setMainText(Common::UString &mainText) {
 
 	std::vector<Common::UString> lines;
 	_fontHandle.getFont().split(mainText, lines, getWidth() - 30);
+
 	float pX, pY, pZ;
 	_model->getNode("text0")->getPosition(pX, pY, pZ);
-	pY += _yAdjust - _fontHandle.getFont().getHeight();
-	pX += _xAdjust;
+	pY -= _fontHandle.getFont().getHeight();
+
+	// Adjust position from the widget.
+	float x, y, z;
+	getPosition(x, y, z);
+
 	for (std::vector<Common::UString>::iterator it = lines.begin(); it != lines.end(); ++it) {
 		Graphics::Aurora::Text *text = new Graphics::Aurora::Text(_fontHandle, *it);
-		text->setPosition(pX, pY - (it - lines.begin()) * text->getHeight(), -100);
+		text->setPosition(x + pX, y + pY - (it - lines.begin()) * text->getHeight(), -1500);
 		_mainText.push_back(text);
 		if (this->isVisible() && ((it - lines.begin()) < 18))
 			text->show();
 	}
 	_firstLineToShow = 0;
-	updateScrollbarLength();
-	updateScrollbarPosition();
+
+	if (_hasScrollbar) {
+		updateScrollbarLength();
+		updateScrollbarPosition();
+	}
 }
 
-void WidgetEditBox::setTitle(Common::UString title) {
+void WidgetEditBox::setTitle(const Common::UString &title) {
 	if (_hasTitle)
-		_title->set(title);
+		_title->setText(title);
+}
+
+void WidgetEditBox::setMode(WidgetEditBox::Mode mode) {
+	_mode = mode;
+	if (mode == kModeStatic)
+		return;
+
+	_cursor = new Graphics::Aurora::GUIQuad("", 0, 1.0, 0, _fontHandle.getFont().getHeight() + 2);
+	float pX, pY, pZ, x, y, z;
+	_model->getNode("text0")->getPosition(pX, pY, pZ);
+	getPosition(x, y, z);
+	_cursor->setPosition(pX + x, pY + y - _fontHandle.getFont().getHeight() - 1);
+	_cursor->setWidth(1);
+	_cursor->setColor(1.0, 1.0, 1.0, 1.0);
+}
+
+void WidgetEditBox::setFocus(bool hasFocus) {
+	_hasFocus = hasFocus;
 }
 
 void WidgetEditBox::show() {
 	GfxMan.lockFrame();
 	ModelWidget::show();
 
-	_title->show();
 	if (_hasScrollbar) {
 		_up->show();
 		_down->show();
 		_scrollbar->show();
 	}
-	Uint8 counter = 0;
+
+	if (_hasTitle)
+		_title->show();
+
+	if (_cursor && _hasFocus)
+		_cursor->show();
+
+	float pX, pY, pZ;
+	if (_mainText.size())
+		_mainText.front()->getPosition(pX, pY, pZ);
+
+	uint8 counter = 0;
 	for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it, ++counter) {
 		if (counter < _firstLineToShow)
 			continue;
@@ -107,9 +142,10 @@ void WidgetEditBox::show() {
 		if (counter >= _firstLineToShow + 18)
 			break;
 
-		(*it)->setPosition(15, 105 - (counter - _firstLineToShow) * (*it)->getHeight(), -100);
+		(*it)->setPosition(pX, pY - (counter - _firstLineToShow) * (*it)->getHeight(), pZ);
 		(*it)->show();
 	}
+
 	setActive(true);
 	GfxMan.unlockFrame();
 }
@@ -117,14 +153,18 @@ void WidgetEditBox::show() {
 void WidgetEditBox::hide() {
 	ModelWidget::hide();
 
-	_title->hide();
 	if (_hasScrollbar) {
 		_up->hide();
 		_down->hide();
 		_scrollbar->hide();
 	}
 
-	// Uint8 counter = 0;
+	if (_hasTitle)
+		_title->hide();
+
+	if (_cursor)
+		_cursor->hide();
+
 	for (std::vector<Graphics::Aurora::Text *>::iterator it = _mainText.begin(); it != _mainText.end(); ++it)
 		(*it)->hide();
 	setActive(false);
@@ -137,27 +177,22 @@ void WidgetEditBox::createScrollbar() {
 	// Get top position
 	float minX, minY, minZ;
 	_model->getNode("scrollmin")->getPosition(minX, minY, minZ);
-	// Adjustement
-	minX += _xAdjust;
-	minY += _yAdjust;
-
 
 	// Create the "up" button
 	_up = new WidgetButton(*_gui, getTag() + "#Up", "pb_scrl_up", "gui_scroll");
 	_up->setPosition(minX, minY, -100.0);
 	addSub(*_up);
+	addChild(*_up);
 
 	// Get bottom position
 	float maxX, maxY, maxZ;
 	_model->getNode("scrollmax")->getPosition(maxX, maxY, maxZ);
-	// Adjustement
-	maxY += _yAdjust;
-	maxX += _xAdjust;
 
 	// Create the "down" button
 	_down = new WidgetButton(*_gui, getTag() + "#Down", "pb_scrl_down", "gui_scroll");
 	_down->setPosition(maxX, maxY - 10, -100.0);
 	addSub(*_down);
+	addChild(*_down);
 
 	// Scroll bar range (max length)
 	float scrollRange = minY - (maxY - 10) - _up->getHeight() - 1;
@@ -172,6 +207,7 @@ void WidgetEditBox::createScrollbar() {
 
 	_scrollbar->setPosition(scrollX, scrollY, -100.0);
 	addSub(*_scrollbar);
+	addChild(*_scrollbar);
 }
 
 void WidgetEditBox::createTitle() {
@@ -180,20 +216,15 @@ void WidgetEditBox::createTitle() {
 		return;
 	}
 
-	_title = new Graphics::Aurora::Text(_fontHandle, "");
+	_title = new TextWidget(*_gui, getTag() + "#Title", _fontHandle.getFontName(), "");
+
 	float pX, pY, pZ;
 	_model->getNode("title0")->getPosition(pX, pY, pZ);
-	pY += _yAdjust - _fontHandle.getFont().getHeight();
-	pX += _xAdjust;
+	pY -= _fontHandle.getFont().getHeight();
 
 	_title->setPosition(pX, pY, -90);
+	addChild(*_title);
 }
-
-void WidgetEditBox::setAdjustement(int x, int y) {
-	_xAdjust = x;
-	_yAdjust = y;
-}
-
 
 void WidgetEditBox::updateScrollbarLength() {
 	///TODO Add condition to ensure a minimal length
@@ -273,11 +304,16 @@ void WidgetEditBox::mouseDown(uint8 state, float x, float y) {
 	if (isDisabled())
 		return;
 
+	if (!_hasFocus && _cursor) {
+		_hasFocus = true;
+		_cursor->show();
+	}
+
 	float wX, wY, wZ;
 	getPosition(wX, wY, wZ);
 
 	// Check if we clicked on the scrollbar area
-	if (_scrollbar) {
+	if (_hasScrollbar) {
 		if (x > (wX + getWidth() - 20)) {
 			if (y > _scrollbar->getBarPosition())
 				scrollUp(1);
@@ -287,6 +323,39 @@ void WidgetEditBox::mouseDown(uint8 state, float x, float y) {
 			return;
 		}
 	}
+
+	if (!_cursor)
+		return;
+
+	// Move the cursor to the mouse click position.
+	uint32 position = 0;
+	for (uint32 it = 0; it < _mainText.size(); ++it) {
+		float pX, pY, pZ;
+		_mainText[it]->getPosition(pX, pY, pZ);
+		position += _mainText[it]->get().size();
+
+		if (!_mainText[it]->isIn(pX, y))
+			continue;
+
+
+		Common::UString line = _mainText[it]->get();
+		float lineWidth      = _mainText[it]->getWidth();
+
+		if (!_mainText[it]->isIn(x, y)) {
+			_cursor->setPosition(pX + lineWidth, pY);
+			break;
+		}
+
+		for (uint32 trunc = line.size() - 1; trunc >= 0; --trunc) {
+			position--;
+			line.erase(line.getPosition(trunc));
+			lineWidth = _fontHandle.getFont().getWidth(line);
+			if (lineWidth <= (x - pX))
+				break;
+		}
+		_cursor->setPosition(pX + lineWidth, pY);
+	}
+	_cursorPosition = position;
 }
 
 void WidgetEditBox::mouseWheel(uint8 state, int x, int y) {
@@ -299,6 +368,68 @@ void WidgetEditBox::mouseWheel(uint8 state, int x, int y) {
 		scrollDown(1);
 }
 
-} // End of namespace NWN
+void WidgetEditBox::moveCursorCharacter(bool next) {
+	if (_mode == kModeStatic)
+		return;
+
+	uint32 totalSize = -1;
+	for (uint it = 0; it < _mainText.size(); ++it)
+		totalSize += _mainText[it]->get().size();
+
+	if (next && (_cursorPosition < totalSize))
+		_cursorPosition++;
+	else if (!next && (_cursorPosition > 0))
+		_cursorPosition--;
+
+	updateCursor();
+}
+
+void WidgetEditBox::moveCursorLine(bool down) {
+	uint32 count = 0;
+	for (uint it = 0; it < _mainText.size(); ++it) {
+		count += _mainText[it]->get().size();
+		if (_cursorPosition < count)
+			continue;
+
+		float pX, pY, pZ;
+		_mainText[it]->getPosition(pX, pY, pZ);
+		float height = _fontHandle.getFont().getHeight();
+		if (down)
+			mouseDown(0, pX, pY - height);
+		else
+			mouseDown(0, pX, pY + height);
+
+		break;
+	}
+}
+
+void WidgetEditBox::updateCursor() {
+	uint32 count = 0;
+	for (uint it = 0; it < _mainText.size(); ++it) {
+		count += _mainText[it]->get().size();
+		if (_cursorPosition < count)
+			continue;
+
+		float pX, pY, pZ;
+		_mainText[it]->getPosition(pX, pY, pZ);
+		Common::UString line = _mainText[it]->get();
+		uint32          cursorPositionLine = _cursorPosition - count + line.size();
+		line.truncate(line.size() - cursorPositionLine);
+		float x = pX + _fontHandle.getFont().getWidth(line);
+
+		_cursor->setPosition(x, pY, pZ);
+		break;
+	}
+}
+
+float WidgetEditBox::getWidth() const {
+	///WORKAROUND Sometimes the model has no dimension.
+	if (!Engines::NWN::ModelWidget::getWidth())
+		return _parent->getWidth() - 75;
+
+	return Engines::NWN::ModelWidget::getWidth();
+}
+
+}   // End of namespace NWN
 
 } // End of namespace Engines
