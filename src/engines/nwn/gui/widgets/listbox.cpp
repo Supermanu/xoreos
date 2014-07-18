@@ -27,6 +27,8 @@
  *  A NWN listbox widget.
  */
 
+#include <algorithm>
+
 #include "common/util.h"
 #include "common/error.h"
 #include "common/ustring.h"
@@ -50,10 +52,18 @@ namespace Engines {
 
 namespace NWN {
 
+bool compPtrItem(WidgetListItem *itemA, WidgetListItem *itemB) {
+	return *itemA < *itemB;
+}
+
 WidgetListItem::WidgetListItem(::Engines::GUI &gui) : NWNWidget(gui, ""), _itemNumber(0xFFFFFFFF), _state(false) {
 }
 
 WidgetListItem::~WidgetListItem() {
+}
+
+bool WidgetListItem::operator<(const WidgetListItem &item) const {
+	return getTag() < item.getTag();
 }
 
 void WidgetListItem::mouseUp(uint8 state, float x, float y) {
@@ -393,16 +403,19 @@ void WidgetListBox::clear() {
 
 	for (std::vector<WidgetListItem *>::iterator v = _visibleItems.begin(); v != _visibleItems.end(); ++v)
 		(*v)->hide();
+
 	_visibleItems.clear();
 
 	for (std::vector<WidgetListItem *>::iterator i = _items.begin(); i != _items.end(); ++i)
 		(*i)->remove();
+
 	_items.clear();
 
 	_startItem    = 0;
 	_selectedItem = 0xFFFFFFFF;
 
 	updateScrollbarLength();
+	updateVisible();
 }
 
 void WidgetListBox::reserve(uint n) {
@@ -437,7 +450,7 @@ void WidgetListBox::add(WidgetListItem *item) {
 	updateScrollbarPosition();
 }
 
-void WidgetListBox::removeItem(uint item) {
+void WidgetListBox::removeItem(uint item, bool deletePtr) {
 	assert(_locked);
 
 	if (_items.empty())
@@ -453,11 +466,23 @@ void WidgetListBox::removeItem(uint item) {
 		}
 	}
 
-	for (std::vector<WidgetListItem *>::iterator it = _items.begin() + item; it != _items.end(); ++it)
+	for (std::vector<WidgetListItem *>::iterator it = _items.begin() + item; it != _items.end(); ++it) {
+		(*it)->removeGroupMember(*_items[item]);
+		_items[item]->removeGroupMember(**it);
+	}
+
+	for (std::vector<WidgetListItem *>::iterator it = _items.begin() + item + 1; it != _items.end(); ++it)
 		(*it)->_itemNumber--;
 
-	_items[item]->remove();
+	_items[item]->hide();
+
+	removeSub(*_items[item]);
+
+	if (deletePtr)
+		_items[item]->remove();
+
 	_items.erase(_items.begin() + item);
+	
 	_selectedItem = 0xFFFFFFFF;
 
 	updateVisible();
@@ -538,6 +563,15 @@ void WidgetListBox::unlock() {
 	updateScrollbarPosition();
 
 	GfxMan.unlockFrame();
+}
+
+void WidgetListBox::sortByTag() {
+	std::sort(_items.begin(), _items.end(), compPtrItem);
+	for (uint16 it = 0; it < _items.size(); ++it) {
+		_items[it]->_itemNumber = it;
+	}
+
+	updateVisible();
 }
 
 void WidgetListBox::setText(const Common::UString &font,

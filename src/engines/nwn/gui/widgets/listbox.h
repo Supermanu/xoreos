@@ -56,6 +56,7 @@ public:
 	WidgetListItem(::Engines::GUI &gui);
 	virtual ~WidgetListItem();
 
+	bool operator<(const WidgetListItem &item) const;
 	void mouseUp  (uint8 state, float x, float y);
 	void mouseWheel(uint8 state, int x, int y);
 
@@ -146,9 +147,11 @@ public:
 	void clear();
 	void reserve(uint n);
 	void add(WidgetListItem *item);
-	void removeItem(uint item);
+	void removeItem(uint item, bool deletePtr = false);
 	void unlock();
 
+	void sortByTag();
+	
 	void setText(const Common::UString &font, const Common::UString &text,
 	             float spacing = 0.0);
 
