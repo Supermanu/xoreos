@@ -1,4 +1,5 @@
-/* xoreos - A reimplementation of BioWare's Aurora engine
+/*
+ * xoreos - A reimplementation of BioWare's Aurora engine
  *
  * xoreos is the legal property of its developers, whose names can be
  * found in the AUTHORS file distributed with this source
@@ -23,49 +24,38 @@
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
  */
 
-/** @file engines/nwn/gui/chargen/chargen.h
- *  The NWN character generator.
+/** @file engines/nwn/gui/chargen/charinfo.h
+ *  The NWN character's informations for the character generator.
  */
 
-#ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-#define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#ifndef ENGINES_NWN_GUI_CHARGEN_CHARINFO_H
+#define ENGINES_NWN_GUI_CHARGEN_CHARINFO_H
 
-#include "engines/nwn/gui/chargen/charsex.h"
-#include "engines/nwn/gui/chargen/charrace.h"
-#include "engines/nwn/gui/chargen/charportrait.h"
-#include "engines/nwn/gui/chargen/charclass.h"
-#include "engines/nwn/gui/chargen/charalignment.h"
-#include "engines/nwn/gui/chargen/charattributes.h"
-#include "engines/nwn/gui/chargen/charpackage.h"
-// #include "engines/nwn/gui/chargen/charappearance.h"
+#include "engines/nwn/creature.h"
+
+#include "engines/nwn/gui/chargen/chargenabstract.h"
 
 namespace Engines {
 
 namespace NWN {
 
-class Module;
-
-/** The NWN character generator. */
-class CharGenMenu : public CharGenAbstract {
+class CharInfo : public CharGenAbstract {
 public:
-	CharGenMenu(Module &module);
-	~CharGenMenu();
+	CharInfo(Creature &character);
+	~CharInfo();
+
+	void show();
 	void reset();
 
-protected:
-	void callbackActive(Widget &widget);
+	void fixWidgetType(const Common::UString &tag, WidgetType &type);
 
 private:
-	void init();
-	Module *_module;
+	void callbackActive(Widget &widget);
 	Creature *_character;
-
-	std::vector<WidgetButton *> _choiceButtons;
-	std::vector<CharGenAbstract *> _choiceGui;
 };
 
 } // End of namespace NWN
 
 } // End of namespace Engines
 
-#endif // ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#endif // ENGINES_NWN_GUI_CHARGEN_CHARINFO_H

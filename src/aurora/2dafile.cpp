@@ -105,7 +105,7 @@ bool TwoDARow::isEmpty(uint32 column) const {
 }
 
 bool TwoDARow::isEmpty(const Common::UString &column) const {
-	isEmpty(_parent->headerToColumn(column));
+	return isEmpty(_parent->headerToColumn(column));
 }
 
 static const Common::UString kEmpty;

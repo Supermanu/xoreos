@@ -1,4 +1,5 @@
-/* xoreos - A reimplementation of BioWare's Aurora engine
+/*
+ * xoreos - A reimplementation of BioWare's Aurora engine
  *
  * xoreos is the legal property of its developers, whose names can be
  * found in the AUTHORS file distributed with this source
@@ -23,49 +24,46 @@
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
  */
 
-/** @file engines/nwn/gui/chargen/chargen.h
- *  The NWN character generator.
+/** @file engines/nwn/gui/chargen/charappearance.h
+ *  The NWN appearance selection for the character generator.
  */
 
-#ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-#define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#ifndef ENGINES_NWN_GUI_CHARGEN_CHARAPPEARANCE_H
+#define ENGINES_NWN_GUI_CHARGEN_CHARAPPEARANCE_H
 
-#include "engines/nwn/gui/chargen/charsex.h"
-#include "engines/nwn/gui/chargen/charrace.h"
-#include "engines/nwn/gui/chargen/charportrait.h"
-#include "engines/nwn/gui/chargen/charclass.h"
-#include "engines/nwn/gui/chargen/charalignment.h"
-#include "engines/nwn/gui/chargen/charattributes.h"
-#include "engines/nwn/gui/chargen/charpackage.h"
-// #include "engines/nwn/gui/chargen/charappearance.h"
+#include "engines/nwn/gui/chargen/chargenabstract.h"
+
+#include "engines/nwn/creature.h"
+
+#include "engines/nwn/gui/chargen/charinfo.h"
 
 namespace Engines {
 
 namespace NWN {
 
-class Module;
-
-/** The NWN character generator. */
-class CharGenMenu : public CharGenAbstract {
+class CharAppearance : public CharGenAbstract {
 public:
-	CharGenMenu(Module &module);
-	~CharGenMenu();
+	CharAppearance(Creature &character);
+	~CharAppearance();
+
+	void show();
+	void hide();
 	void reset();
 
-protected:
-	void callbackActive(Widget &widget);
-
 private:
+	void callbackActive(Widget &widget);
 	void init();
-	Module *_module;
+	void setArrowButton(const Common::UString &buttonName);
+	void changeCloth(uint8 cloth);
 	Creature *_character;
 
-	std::vector<WidgetButton *> _choiceButtons;
-	std::vector<CharGenAbstract *> _choiceGui;
+	CharInfo *_charInfo;
+	std::vector<Common::UString> _clothes;
+	uint8 _cloth;
 };
+
+#endif // CHARAPPEARANCE_H
 
 } // End of namespace NWN
 
 } // End of namespace Engines
-
-#endif // ENGINES_NWN_GUI_CHARGEN_CHARGEN_H

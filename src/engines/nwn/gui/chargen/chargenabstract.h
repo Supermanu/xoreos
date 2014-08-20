@@ -60,7 +60,7 @@ protected:
 		CharacterAbilities();
 		CharacterAbilities(Creature * charac);
 		bool hasFeat(uint32 feat);
-		bool hasPrereqFeat(uint32 feat);
+		bool hasPrereqFeat(uint32 feat, bool isClassFeat = false);
 		void setRace(uint32 race);
 		void setClass(uint32 classID);
 		void setFeat(uint32 feat);

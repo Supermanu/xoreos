@@ -58,13 +58,13 @@ public:
 	void setDisabled(bool disable);
 	/** Check if the button have been disabled. Return false if it's the case. **/
 	bool isAvailable();
-	
+
 	void setTag(const Common::UString &tag);
 	
 protected:
 	bool activate();
 	bool deactivate();
-	Graphics::Aurora::Model *_button;
+	Graphics::Aurora::Model *_buttonItem;
 	Graphics::Aurora::Text *_text;
 	PortraitWidget *_icon;
 	
@@ -104,13 +104,21 @@ public:
 	
 	uint16 getAbstractIndex() const;
 	void setAbstractIndex(uint16 feat);
-	
+
+	void changeOrientation();
+
+	bool hasToMove() const;
+	void setNeedToMove(bool needToMove);
+
+	bool isLeft() const;
+
 protected:
 	WidgetButton *_addRemoveButton;
 	
 	Common::UString _description;
 	bool _isMovable;
 	bool _left;
+	bool _needToMove;
 	uint16 _abstractIndex;
 };
 

@@ -33,7 +33,7 @@
 #include "engines/nwn/gui/gui.h"
 
 #include "engines/nwn/gui/widgets/button.h"
-#include "label.h"
+#include "engines/nwn/gui/widgets/label.h"
 
 namespace Engines {
 

@@ -31,6 +31,7 @@
 
 #include "engines/aurora/widget.h"
 #include "engines/aurora/gui.h"
+#include <lua/llex.h>
 
 namespace Engines {
 

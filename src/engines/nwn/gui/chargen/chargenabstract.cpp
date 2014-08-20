@@ -110,7 +110,7 @@ bool CharGenAbstract::CharacterAbilities::hasFeat(uint32 feat) {
 	return character->hasFeat(feat);
 }
 
-bool CharGenAbstract::CharacterAbilities::hasPrereqFeat(uint32 feat) {
+bool CharGenAbstract::CharacterAbilities::hasPrereqFeat(uint32 feat, bool isClassFeat) {
 	const Aurora::TwoDAFile &twodaFeats = TwoDAReg.get("feat");
 	const Aurora::TwoDARow  &row        = twodaFeats.getRow(feat);
 
@@ -118,8 +118,8 @@ bool CharGenAbstract::CharacterAbilities::hasPrereqFeat(uint32 feat) {
 	if (row.isEmpty("FEAT"))
 		return false;
 
-	if (!row.getInt("ALLCLASSESCANUSE"))
-		return false; ///TODO Check properly.
+	if (!row.getInt("ALLCLASSESCANUSE") && !isClassFeat)
+		return false;
 
 	// Check abilities.
 	if (row.getInt("MINSTR") > (int32) character->getAbility(kAbilityStrength))
@@ -225,6 +225,7 @@ void CharGenAbstract::CharacterAbilities::setFeat(uint32 feat) {
 	if (hasFeat(feat))
 		return;
 
+	///TODO Handle succesor feats.
 	normalFeats.push_back(feat);
 }
 
@@ -263,7 +264,7 @@ int8 CharGenAbstract::CharacterAbilities::setPackageSkill(uint16 package) {
 	const Aurora::TwoDAFile &twodaClassSkills   = TwoDAReg.get(rowClass.getString("SkillsTable"));
 
 	// Construct a map of class skills.
-	std::map<uint8, bool> classSkillMap;
+	std::map<uint16, bool> classSkillMap;
 	for (uint it = 0; it < twodaClassSkills.getRowCount(); ++it) {
 		const Aurora::TwoDARow &rowClsSkills = twodaClassSkills.getRow(it);
 		classSkillMap[rowClsSkills.getInt("SkillIndex")] = (bool) rowClsSkills.getInt("ClassSkill");
@@ -285,54 +286,29 @@ int8 CharGenAbstract::CharacterAbilities::setPackageSkill(uint16 package) {
 
 	uint8 skillLimit = character->getLevel() + 4;
 
-	// First we add a skill points recursively to each class skills from the package.
-	uint classSkillsPck = 0;
-	for (std::map<uint8, bool>::iterator it = classSkillMap.begin(); it != classSkillMap.end(); ++it)
-		if (it->second)
-			classSkillsPck++;
+	// We iterate on the skill package.
+	for (uint r = 0; r < twodaSkillsPackage.getRowCount(); ++r) {
+		const Aurora::TwoDARow &rowPckSkill = twodaSkillsPackage.getRow(r);
+		if (skillsCount == 0)
+			break;
 
-
-
-	uint skillsFull = 0;
-	while (skillsFull < classSkillsPck) {
-		for (std::map<uint8, bool>::iterator it = classSkillMap.begin(); it != classSkillMap.end(); ++it) {
-			if (!it->second)
+		uint32 skillIndex = rowPckSkill.getInt("SKILLINDEX");
+		int8 limit = skillLimit;
+		uint8 gain = 1;
+		if (!classSkillMap[skillIndex]) {
+			if (skillsCount < 2)
 				continue;
 
-			if (skills[it->first] == skillLimit) {
-				skillsFull++;
-				continue;
-			}
+			limit = floor(skillLimit / 2);
+			gain = 2;
+		}
 
-			skills[it->first]++;
-			skillsCount--;
-			if (skillsCount == 0)
-				return 0;
+		while (skills[skillIndex] < limit && skillsCount >= gain) {
+			skills[skillIndex] += gain;
+			skillsCount -= gain;
 		}
 	}
-
-	// If there are skill points left we add to non class skills from the package.
-	skillsFull = 0;
-	while (skillsFull < twodaSkillsPackage.getRowCount() - classSkillsPck) {
-		for (std::map<uint8, bool>::iterator it = classSkillMap.begin(); it != classSkillMap.end(); ++it) {
-			if (it->second)
-				continue;
-
-			if (skillsCount == 1)
-				return 1;
-
-			if (skills[it->first] == round(skillLimit / 2 - 0.5)) {
-				skillsFull++;
-				continue;
-			}
-
-			skills[it->first]++;
-			skillsCount -= 2;
-			if (skillsCount == 0)
-				return 0;
-		}
-	}
-
+ 
 	return skillsCount;
 }
 

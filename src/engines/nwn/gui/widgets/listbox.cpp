@@ -407,6 +407,9 @@ void WidgetListBox::clear() {
 	_visibleItems.clear();
 
 	for (std::vector<WidgetListItem *>::iterator i = _items.begin(); i != _items.end(); ++i)
+		std::cout << "Clearing item " << (*i)->getTag().c_str() << std::endl;
+		
+	for (std::vector<WidgetListItem *>::iterator i = _items.begin(); i != _items.end(); ++i)
 		(*i)->remove();
 
 	_items.clear();

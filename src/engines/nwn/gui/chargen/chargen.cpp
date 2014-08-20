@@ -77,7 +77,7 @@ void CharGenMenu::init() {
 	_choiceButtons.push_back(getButton("ClassButton", true));
 	_choiceButtons.push_back(getButton("AlignButton", true));
 	_choiceButtons.push_back(getButton("AbilitiesButton", true));
-	// _choiceButtons.push_back(getButton("PackagesButton", true));
+	_choiceButtons.push_back(getButton("PackagesButton", true));
 	// _choiceButtons.push_back(getButton("CustomizeButton", true));
 
 	_choiceGui.push_back(new CharSex(*_character));
@@ -86,7 +86,7 @@ void CharGenMenu::init() {
 	_choiceGui.push_back(new CharClass(*_character));
 	_choiceGui.push_back(new CharAlignment(*_character));
 	_choiceGui.push_back(new CharAttributes(*_character));
-	// _choiceGui.push_back(new CharPackage(*_character));
+	_choiceGui.push_back(new CharPackage(*_character));
 	// _choiceGui.push_back(new CharAppearance(*_character));
 }
 

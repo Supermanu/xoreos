@@ -1,4 +1,5 @@
-/* xoreos - A reimplementation of BioWare's Aurora engine
+/*
+ * xoreos - A reimplementation of BioWare's Aurora engine
  *
  * xoreos is the legal property of its developers, whose names can be
  * found in the AUTHORS file distributed with this source
@@ -23,21 +24,19 @@
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
  */
 
-/** @file engines/nwn/gui/chargen/chargen.h
- *  The NWN character generator.
+/** @file engines/nwn/gui/chargen/charpackage.h
+ *  The NWN package selection for the character generator.
  */
 
-#ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-#define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#ifndef ENGINES_NWN_GUI_CHARGEN_CHARPACKAGE_H
+#define ENGINES_NWN_GUI_CHARGEN_CHARPACKAGE_H
 
-#include "engines/nwn/gui/chargen/charsex.h"
-#include "engines/nwn/gui/chargen/charrace.h"
-#include "engines/nwn/gui/chargen/charportrait.h"
-#include "engines/nwn/gui/chargen/charclass.h"
-#include "engines/nwn/gui/chargen/charalignment.h"
-#include "engines/nwn/gui/chargen/charattributes.h"
-#include "engines/nwn/gui/chargen/charpackage.h"
-// #include "engines/nwn/gui/chargen/charappearance.h"
+#include "engines/nwn/gui/chargen/chargenabstract.h"
+#include "engines/nwn/gui/widgets/listbox.h"
+
+#include "engines/nwn/gui/chargen/charskills.h"
+
+#include "engines/nwn/creature.h"
 
 namespace Engines {
 
@@ -45,27 +44,33 @@ namespace NWN {
 
 class Module;
 
-/** The NWN character generator. */
-class CharGenMenu : public CharGenAbstract {
+class CharPackage : public CharGenAbstract {
 public:
-	CharGenMenu(Module &module);
-	~CharGenMenu();
-	void reset();
+	CharPackage(Engines::NWN::Creature & character);
+	~CharPackage();
 
-protected:
-	void callbackActive(Widget &widget);
+	void show();
+	void fixWidgetType(const Common::UString &tag, WidgetType &type);
+	void reset();
+	void applyPackage();
+	bool hasTakenPackage();
 
 private:
-	void init();
-	Module *_module;
+	void callbackActive(Widget &widget);
+
 	Creature *_character;
 
-	std::vector<WidgetButton *> _choiceButtons;
-	std::vector<CharGenAbstract *> _choiceGui;
+	WidgetEditBox *_helpBox;
+	WidgetListBox *_packageList;
+	std::vector<Common::UString> _helpTexts;
+	std::vector<Common::UString> _packageNames;
+	bool _hasTakenPackage;
+
+	CharSkills *_charSkills;
 };
 
 } // End of namespace NWN
 
 } // End of namespace Engines
 
-#endif // ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#endif // ENGINES_NWN_GUI_CHARGEN_CHARPACKAGE_H

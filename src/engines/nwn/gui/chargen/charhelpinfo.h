@@ -1,4 +1,5 @@
-/* xoreos - A reimplementation of BioWare's Aurora engine
+/*
+ * xoreos - A reimplementation of BioWare's Aurora engine
  *
  * xoreos is the legal property of its developers, whose names can be
  * found in the AUTHORS file distributed with this source
@@ -21,51 +22,33 @@
  *
  * The Infinity, Aurora, Odyssey, Eclipse and Lycium engines, Copyright (c) BioWare corp.
  * The Electron engine, Copyright (c) Obsidian Entertainment and BioWare corp.
+ *
  */
 
-/** @file engines/nwn/gui/chargen/chargen.h
- *  The NWN character generator.
- */
+#ifndef ENGINES_NWN_GUI_CHARGEN_CHARFEATINFO_H
+#define ENGINES_NWN_GUI_CHARGEN_CHARFEATINFO_H
 
-#ifndef ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-#define ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
-
-#include "engines/nwn/gui/chargen/charsex.h"
-#include "engines/nwn/gui/chargen/charrace.h"
-#include "engines/nwn/gui/chargen/charportrait.h"
-#include "engines/nwn/gui/chargen/charclass.h"
-#include "engines/nwn/gui/chargen/charalignment.h"
-#include "engines/nwn/gui/chargen/charattributes.h"
-#include "engines/nwn/gui/chargen/charpackage.h"
-// #include "engines/nwn/gui/chargen/charappearance.h"
+#include "engines/nwn/gui/gui.h"
+#include "engines/nwn/gui/widgets/portrait.h"
 
 namespace Engines {
 
 namespace NWN {
 
-class Module;
-
-/** The NWN character generator. */
-class CharGenMenu : public CharGenAbstract {
+class CharHelpInfo : public GUI {
 public:
-	CharGenMenu(Module &module);
-	~CharGenMenu();
-	void reset();
+	CharHelpInfo(const Common::UString &guiName);
+	~CharHelpInfo();
 
-protected:
-	void callbackActive(Widget &widget);
+	void setInfo(const Common::UString &feat, const Common::UString &featDescription, const Common::UString &icon);
 
 private:
-	void init();
-	Module *_module;
-	Creature *_character;
-
-	std::vector<WidgetButton *> _choiceButtons;
-	std::vector<CharGenAbstract *> _choiceGui;
+	void callbackActive(Widget &widget);
+	PortraitWidget *_icon;
 };
 
 } // End of namespace NWN
 
 } // End of namespace Engines
 
-#endif // ENGINES_NWN_GUI_CHARGEN_CHARGEN_H
+#endif // ENGINES_NWN_GUI_CHARGEN_CHARFEATINFO_H

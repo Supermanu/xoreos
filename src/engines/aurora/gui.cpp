@@ -48,8 +48,11 @@ GUI::GUI() : _currentWidget(0), _returnCode(0), _x(0.0), _y(0.0), _z(0.0) {
 }
 
 GUI::~GUI() {
+	std::cout << "Deleting GUI" << std::endl;
+
 	// Delete all widgets
 	for (WidgetList::iterator widget = _widgets.begin(); widget != _widgets.end(); ++widget) {
+		std::cout << "removing " << (*widget)->getTag().c_str() << std::endl;
 		delete *widget;
 		*widget = 0;
 	}
@@ -157,6 +160,14 @@ void GUI::addWidget(Widget *widget) {
 
 	assert(!widget->getTag().empty());
 
+	if (hasWidget(widget->_tag)) {
+		if (getWidget(widget->_tag) != widget) {
+			throw Common::Exception("Widget with the same tag, \"%s\", already exist", widget->_tag.c_str());
+		} else {
+			return;
+		}
+	}
+
 	_widgets.push_back(widget);
 	_widgetMap[widget->getTag()] = widget;
 }
@@ -166,6 +177,8 @@ void GUI::removeWidget(Widget *widget) {
 		return;
 
 	widget->hide();
+
+	std::cout << "Removing a widget " << widget->getTag().c_str() << std::endl;
 
 	for (WidgetList::iterator i = _widgets.begin(); i != _widgets.end(); ++i) {
 		if (*i == widget) {
@@ -186,6 +199,7 @@ void GUI::removeWidget(Widget *widget) {
 	for (std::list<Widget *>::iterator i = widget->_groupMembers.begin(); i != widget->_groupMembers.end(); ++i)
 		(*i)->removeGroupMember(*widget);
 
+	std::cout << "deleting object" << std::endl;
 	delete widget;
 }
 

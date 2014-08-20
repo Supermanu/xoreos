@@ -58,6 +58,7 @@ public:
 
 	void subActive(Widget &widget);
 	void setDisabled(bool disabled);
+
 	void setPressed(bool pressed = true);
 	void setMode(ButtonMode mode);
 	void setCaption(const Common::UString &caption);
@@ -74,7 +75,6 @@ private:
 	Common::UString _sound;
 	ButtonMode _buttonMode;
 	bool _pressed;
-
 };
 
 } // End of namespace NWN

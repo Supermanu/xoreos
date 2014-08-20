@@ -44,12 +44,13 @@ namespace Engines {
 namespace NWN {
 
 WidgetListItemButton::WidgetListItemButton(::Engines::GUI &gui, const Common::UString &model, const Common::UString &font, const Common::UString &text, const Common::UString &icon): WidgetListItem(gui), _available(true) {
-	_button = loadModelGUI(model);
-	_button->setClickable(true);
+	_buttonItem = loadModelGUI(model);
+	_buttonItem->setClickable(true);
 	_text = new Graphics::Aurora::Text(FontMan.get(font), text);
-	if (icon == "")
+// 	if (icon == "")
+	if (true) {
 		_icon = 0;
-	else {
+	} else {
 		_icon = new PortraitWidget(gui, icon + "#icon", icon, Portrait::kSizeIcon);
 		addChild(*_icon);
 		addSub(*_icon);
@@ -57,8 +58,11 @@ WidgetListItemButton::WidgetListItemButton(::Engines::GUI &gui, const Common::US
 }
 
 WidgetListItemButton::~WidgetListItemButton() {
-	delete _button;
+	if (_icon)
+		_icon->remove();
+
 	delete _text;
+	freeModel(_buttonItem);
 }
 
 void WidgetListItemButton::mouseUp(uint8 state, float x, float y) {
@@ -77,21 +81,21 @@ void WidgetListItemButton::mouseDown(uint8 state, float x, float y) {
 
 void WidgetListItemButton::show() {
 	Engines::Widget::show();
-	_button->show();
+	_buttonItem->show();
 	_text->show();
 }
 void WidgetListItemButton::hide() {
 	Engines::NWN::NWNWidget::hide();
-	_button->hide();
+	_buttonItem->hide();
 	_text->hide();
 }
 
 float WidgetListItemButton::getWidth() const {
-	return _button->getWidth();
+	return _buttonItem->getWidth();
 }
 
 float WidgetListItemButton::getHeight() const {
-	return _button->getHeight();
+	return _buttonItem->getHeight();
 }
 
 void WidgetListItemButton::setPosition(float x, float y, float z) {
@@ -99,14 +103,14 @@ void WidgetListItemButton::setPosition(float x, float y, float z) {
 	getPosition(x, y ,z);
 	
 	z -= 5;
-	_button->setPosition(x, y, z);
+	_buttonItem->setPosition(x, y, z);
 	z -= 5;
 	float pX, pY, pZ;
-	if (_button->getNode("text0")) {
-		_button->getNode("text0")->getPosition(pX, pY, pZ);
+	if (_buttonItem->getNode("text0")) {
+		_buttonItem->getNode("text0")->getPosition(pX, pY, pZ);
 		pY -= _text->getHeight() * 1.5;
-	} else if (_button->getNode("text")) {
-		_button->getNode("text")->getPosition(pX, pY, pZ);
+	} else if (_buttonItem->getNode("text")) {
+		_buttonItem->getNode("text")->getPosition(pX, pY, pZ);
 		pY -= _text->getHeight() / 2;
 	}
 
@@ -114,7 +118,7 @@ void WidgetListItemButton::setPosition(float x, float y, float z) {
 	if (_icon == 0)
 		return;
 	
-	_button->getNode("icon")->getPosition(pX, pY, pZ);
+	_buttonItem->getNode("icon")->getPosition(pX, pY, pZ);
 	_icon->setPosition(x + pX - _icon->getWidth() / 2, y + pY - _icon->getHeight() / 2, z - 5);
 }
 
@@ -130,18 +134,18 @@ void WidgetListItemButton::setDisabled(bool disable) {
 
 void WidgetListItemButton::setTag(const Common::UString &tag) {
 	Engines::Widget::setTag(tag);
-	_button->setTag(tag);
+	_buttonItem->setTag(tag);
 }
 
 bool WidgetListItemButton::activate() {
-	if (_button->getState() == "down" && isVisible())
+	if (_buttonItem->getState() == "down" && isVisible())
 		playSound("gui_button", Sound::kSoundTypeSFX);
 	
 	if (!WidgetListItem::activate()) {
 		return false;
 	}
 	
-	_button->setState("down");
+	_buttonItem->setState("down");
 	return true;
 }
 
@@ -149,7 +153,7 @@ bool WidgetListItemButton::deactivate() {
 	if(!WidgetListItem::deactivate())
 		return false;
 	
-	_button->setState("");
+	_buttonItem->setState("");
 	return true;
 }
 
@@ -164,12 +168,13 @@ bool WidgetListItemButton::isAvailable() {
 
 WidgetListItemButtonWithHelp::WidgetListItemButtonWithHelp(Engines::GUI& gui, const Common::UString& model, const Common::UString& text, const Common::UString& icon, const Common::UString& tag): WidgetListItemButton(gui, model, "fnt_galahad14", text, icon) {
 	setTag(tag);
-	
+
 	_helpButton = loadModelGUI("ctl_cg_btn_help");
 }
 
 WidgetListItemButtonWithHelp::~WidgetListItemButtonWithHelp() {
-	delete _helpButton;
+	std::cout << "Removing WidgetListItemButtonWithHelp " << std::endl;
+	freeModel(_helpButton);
 }
 
 void WidgetListItemButtonWithHelp::enter() {
@@ -203,8 +208,8 @@ void WidgetListItemButtonWithHelp::setPosition(float x, float y, float z) {
 	
 	getPosition(x, y, z);
 	float nX, nY, nZ;
-	if (_button->getNode("helpbutton")) {
-		_button->getNode("helpbutton")->getPosition(nX, nY, nZ);
+	if (_buttonItem->getNode("helpbutton")) {
+		_buttonItem->getNode("helpbutton")->getPosition(nX, nY, nZ);
 		_helpButton->setPosition(x + nX, y + nY, z - 10);
 	}
 }
@@ -213,6 +218,7 @@ WidgetListItemExchange::WidgetListItemExchange(Engines::GUI &gui, const Common::
 	_description = description;
 	_isMovable = true;
 	_left = left;
+	_needToMove = false;
 	_abstractIndex = abstractIndex;
 
 	_addRemoveButton = new WidgetButton(gui, tag + "#AddRemove", left ? "ctl_cg_btn_left" : "ctl_cg_btn_right");
@@ -221,6 +227,9 @@ WidgetListItemExchange::WidgetListItemExchange(Engines::GUI &gui, const Common::
 }
 
 WidgetListItemExchange::~WidgetListItemExchange() {
+	std::cout << "Removing WidgetListItemExchange" << std::endl;
+	_addRemoveButton->remove();
+	std::cout << "end removing WidgetListItemExchange" << std::endl;
 }
 
 void WidgetListItemExchange::setPosition(float x, float y, float z) {
@@ -228,21 +237,25 @@ void WidgetListItemExchange::setPosition(float x, float y, float z) {
 	
 	getPosition(x, y, z);
 	float nX, nY, nZ;
-	_button->getNode("addremovebutton")->getPosition(nX, nY, nZ);
+	_buttonItem->getNode("addremovebutton")->getPosition(nX, nY, nZ);
 	_addRemoveButton->setPosition(x + nX, y + nY, z - 10);
 }
 
 void WidgetListItemExchange::subActive(Widget &widget) {
-	if (widget.getTag().endsWith("#AddRemove")) {
-		if (!_isMovable)
-			return;
-	}
+	if (!_isMovable)
+		return;
+
+	if (widget.getTag().endsWith("#AddRemove"))
+		_needToMove = true;
 }
 
 void WidgetListItemExchange::getProperties(Common::UString &title, Common::UString &featDescription, Common::UString &icon) {
 	title = _text->get();
 	featDescription = _description;
-	icon = _icon->getPortrait();
+	if (_icon)
+		icon = _icon->getPortrait();
+	else
+		icon = "";
 }
 
 void WidgetListItemExchange::setProperties(const Common::UString &title, const Common::UString &description) {
@@ -262,6 +275,28 @@ uint16 WidgetListItemExchange::getAbstractIndex() const {
 void WidgetListItemExchange::setAbstractIndex(uint16 abstractIndex) {
 	_abstractIndex = abstractIndex;
 }
+
+void WidgetListItemExchange::changeOrientation() {
+	_left = !_left;
+
+	_addRemoveButton->remove();
+	_addRemoveButton = new WidgetButton(*_gui, _tag + "#AddRemove", _left ? "ctl_cg_btn_left" : "ctl_cg_btn_right");
+	addChild(*_addRemoveButton);
+	addSub(*_addRemoveButton);
+}
+
+bool WidgetListItemExchange::hasToMove() const {
+	return _needToMove;
+}
+
+void WidgetListItemExchange::setNeedToMove(bool needToMove) {
+	_needToMove = needToMove;
+}
+
+bool WidgetListItemExchange::isLeft() const {
+	return _left;
+}
+
 } // End of namespace NWN
 
 } // End of namespace Engines
