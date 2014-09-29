@@ -45,7 +45,11 @@ protected:
 	void callbackActive(Widget &widget);
 
 private:
+	void init();
+
 	Module *_module;
+	std::vector<WidgetButton *> _charButtons;
+	std::vector<CharGenBase *> _chargenGuis;
 };
 
 } // End of namespace NWN

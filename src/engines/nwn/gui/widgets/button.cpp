@@ -40,6 +40,7 @@ WidgetButton::WidgetButton(::Engines::GUI &gui, const Common::UString &tag,
 	_model->setState("up");
 
 	_sound = sound;
+	_mode = kModeNormal;
 }
 
 WidgetButton::~WidgetButton() {
@@ -51,7 +52,8 @@ void WidgetButton::enter() {
 	if (isDisabled())
 		return;
 
-	_model->setState("hilite");
+	if (_mode == kModeNormal)
+		_model->setState("hilite");
 }
 
 void WidgetButton::leave() {
@@ -60,7 +62,19 @@ void WidgetButton::leave() {
 	if (isDisabled())
 		return;
 
-	_model->setState("up");
+	if (_mode == kModeNormal)
+		_model->setState("up");
+}
+
+void WidgetButton::setMode(WidgetButton::Mode mode) {
+	_mode = mode;
+}
+
+void WidgetButton::setPressed(bool pushed) {
+	if (pushed)
+		_model->setState("down");
+	else
+		_model->setState("up");
 }
 
 void WidgetButton::setDisabled(bool disabled) {
@@ -79,7 +93,9 @@ void WidgetButton::mouseDown(uint8 state, float x, float y) {
 	if (state != SDL_BUTTON_LMASK)
 		return;
 
-	_model->setState("down");
+	if (_mode == kModeNormal)
+		_model->setState("down");
+
 	playSound(_sound, Sound::kSoundTypeSFX);
 }
 
@@ -87,8 +103,13 @@ void WidgetButton::mouseUp(uint8 state, float x, float y) {
 	if (isDisabled())
 		return;
 
-	_model->setState("hilite");
 	setActive(true);
+
+	if (_mode == kModeNormal) {
+		_model->setState("hilite");
+	} else if (_mode == kModeToggle) {
+		_model->setState("down");
+	}
 }
 
 } // End of namespace NWN

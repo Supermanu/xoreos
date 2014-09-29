@@ -49,6 +49,8 @@ noinst_HEADERS = \
                  gui/options/videoadv.h \
                  gui/chargen/chargenbase.h \
                  gui/chargen/chargen.h \
+                 gui/chargen/buttonsgroup.h \
+                 gui/chargen/charsex.h \
                  gui/main/charpremade.h \
                  gui/main/chartype.h \
                  gui/main/main.h \
@@ -121,6 +123,8 @@ libnwn_la_SOURCES = \
                     gui/options/videoadv.cpp \
                     gui/chargen/chargenbase.cpp \
                     gui/chargen/chargen.cpp \
+                    gui/chargen/buttonsgroup.cpp \
+                    gui/chargen/charsex.cpp \
                     gui/main/charpremade.cpp \
                     gui/main/chartype.cpp \
                     gui/main/main.cpp \
