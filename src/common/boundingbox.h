@@ -33,6 +33,7 @@ namespace Common {
 class BoundingBox {
 public:
 	BoundingBox();
+	BoundingBox(float min[3], float max[3]);
 	~BoundingBox();
 
 	void clear();
@@ -42,7 +43,9 @@ public:
 	const TransformationMatrix &getOrigin() const;
 
 	void getMin(float &x, float &y, float &z) const;
+	void getRelativeMin(float &x, float &y, float &z) const;
 	void getMax(float &x, float &y, float &z) const;
+	void getRelativeMax(float &x, float &y, float &z) const;
 
 	float getWidth () const; ///< Get the width of the bounding box.
 	float getHeight() const; ///< Get the height of the bounding box.

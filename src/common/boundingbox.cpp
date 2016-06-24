@@ -22,6 +22,8 @@
  *  A bounding box.
  */
 
+#include <cassert>
+
 #include "src/common/boundingbox.h"
 #include "src/common/util.h"
 #include "src/common/maths.h"
@@ -30,6 +32,30 @@ namespace Common {
 
 BoundingBox::BoundingBox() {
 	clear();
+}
+
+BoundingBox::BoundingBox(float min[], float max[]) {
+	clear();
+
+	assert(min[0] <= max[0]);
+	assert(min[1] <= max[1]);
+	assert(min[2] <= max[2]);
+
+	_coords[0][0] = min[0]; _coords[0][1] = min[1]; _coords[0][2] = min[2];
+	_coords[1][0] = min[0]; _coords[1][1] = min[1]; _coords[1][2] = max[2];
+	_coords[2][0] = min[0]; _coords[2][1] = max[1]; _coords[2][2] = min[2];
+	_coords[3][0] = min[0]; _coords[3][1] = max[1]; _coords[3][2] = max[2];
+	_coords[4][0] = max[0]; _coords[4][1] = min[1]; _coords[4][2] = min[2];
+	_coords[5][0] = max[0]; _coords[5][1] = min[1]; _coords[5][2] = max[2];
+	_coords[6][0] = max[0]; _coords[6][1] = max[1]; _coords[6][2] = min[2];
+	_coords[7][0] = max[0]; _coords[7][1] = max[1]; _coords[7][2] = max[2];
+
+	for (uint8 i = 0; i < 3; ++i) {
+		_min[i] = min[i];
+		_max[i] = max[i];
+	}
+
+	_empty = false;
 }
 
 BoundingBox::~BoundingBox() {
@@ -82,6 +108,12 @@ void BoundingBox::getMin(float &x, float &y, float &z) const {
 	z = MIN(min.getZ(), max.getZ());
 }
 
+void BoundingBox::getRelativeMin(float &x, float &y, float &z) const {
+	x = _min[0];
+	y = _min[1];
+	z = _min[2];
+}
+
 void BoundingBox::getMax(float &x, float &y, float &z) const {
 	// Maximum, relative to the origin
 
@@ -99,6 +131,12 @@ void BoundingBox::getMax(float &x, float &y, float &z) const {
 	x = MAX(min.getX(), max.getX());
 	y = MAX(min.getY(), max.getY());
 	z = MAX(min.getZ(), max.getZ());
+}
+
+void BoundingBox::getRelativeMax(float &x, float &y, float &z) const {
+	x = _max[0];
+	y = _max[1];
+	z = _max[2];
 }
 
 float BoundingBox::getWidth() const {
