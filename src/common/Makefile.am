@@ -99,6 +99,7 @@ noinst_HEADERS = \
                  systemfonts.h \
                  changeid.h \
                  xml.h \
+                 aabb.h \
                  $(EMPTY)
 
 libcommon_la_SOURCES = \
@@ -149,4 +150,5 @@ libcommon_la_SOURCES = \
                        systemfonts.cpp \
                        changeid.cpp \
                        xml.cpp \
+                       aabb.cpp \
                        $(EMPTY)
