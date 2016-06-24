@@ -447,6 +447,11 @@ void Area::unloadTileset() {
 }
 
 void Area::loadTiles() {
+	std::vector<bool> walkMap;
+	const Aurora::TwoDAFile &twodaSurf = TwoDAReg.get2DA("surfacemat");
+	for (uint32 r = 0; r < twodaSurf.getRowCount(); ++r)
+		walkMap.push_back(static_cast<bool>(twodaSurf.getRow(r).getInt("Walk")));
+
 	for (uint32 y = 0; y < _height; y++) {
 		for (uint32 x = 0; x < _width; x++) {
 			uint32 n = y * _width + x;
@@ -469,8 +474,16 @@ void Area::loadTiles() {
 
 			t.model->setPosition(tileX, tileY, tileZ);
 			t.model->setOrientation(0.0f, 0.0f, 1.0f, ((int) t.orientation) * 90.0f);
+
+			Graphics::Aurora::Walkmesh *walkmesh = t.model->getWalkmesh();
+			if (walkmesh) {
+				walkmesh->setPosition(tileX, tileY, tileZ);
+				walkmesh->setOrientation(t.orientation);
+				walkmesh->setWalkMap(walkMap);
+			}
 		}
 	}
+	
 }
 
 void Area::unloadTiles() {
@@ -554,8 +567,37 @@ void Area::processEventQueue() {
 
 	_eventQueue.clear();
 
-	if (hasMove)
+	if (hasMove) {
 		checkActive();
+
+		float x1, y1, z1, x2, y2, z2;
+		int x, y;
+		CursorMan.getPosition(x, y);
+
+		GfxMan.unproject(x, y, x1, y1, z1, x2, y2, z2);
+
+		float distance = 10000000000.f;
+		bool isWalkable = false;
+		
+		for (std::vector<Tile>::iterator t = _tiles.begin(); t != _tiles.end(); ++t) {
+			Tile tile = *t;
+			Graphics::Aurora::Walkmesh *walkmesh = tile.model->getWalkmesh();
+			if (walkmesh->isIn(x1, y1, z1, x2, y2, z2)) {
+				float dist;
+				bool iW = walkmesh->isWalkable(x1, y1, z1, x2, y2, z2, dist);
+				if (dist < distance) {
+					isWalkable = iW;
+					distance = dist;
+				}
+			}
+		}
+
+		if (isWalkable) {
+			CursorMan.set("");
+		} else {
+			CursorMan.set("nowalk", "up");
+		}
+	}
 }
 
 NWN::Object *Area::getObjectAt(int x, int y) {
