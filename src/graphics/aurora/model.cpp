@@ -48,8 +48,8 @@ namespace Graphics {
 namespace Aurora {
 
 Model::Model(ModelType type) : Renderable((RenderableType) type),
-	_type(type), _superModel(0), _currentState(0),
-	_currentAnimation(0), _nextAnimation(0), _drawBound(false),
+	_type(type), _superModel(0), _currentState(0), 
+	_currentAnimation(0), _nextAnimation(0), _walkmesh(0), _drawBound(false),
 	_drawSkeleton(false), _drawSkeletonInvisible(false) {
 
 	_scale   [0] = 1.0f; _scale   [1] = 1.0f; _scale   [2] = 1.0f;
@@ -88,6 +88,9 @@ Model::~Model() {
 	}
 
 	delete _boundRenderable;
+
+	if (_walkmesh)
+		delete _walkmesh;
 }
 
 ModelType Model::getType() const {
@@ -188,6 +191,10 @@ Animation *Model::selectDefaultAnimation() const {
 	}
 
 	return 0;
+}
+
+Walkmesh *Model::getWalkmesh() const {
+	return _walkmesh;
 }
 
 void Model::getScale(float &x, float &y, float &z) const {
@@ -517,6 +524,10 @@ void Model::render(RenderPass pass) {
 	// Draw the bounding box, if requested
 	doDrawBound();
 
+	// AABB
+	if (_walkmesh)
+		_walkmesh->drawAABBs();
+
 	// Draw the nodes
 	for (NodeList::iterator n = _currentState->rootNodes.begin();
 	     n != _currentState->rootNodes.end(); ++n) {
@@ -531,6 +542,7 @@ void Model::render(RenderPass pass) {
 
 	// Draw the skeleton, if requested
 	doDrawSkeleton();
+
 }
 
 void Model::doDrawBound() {

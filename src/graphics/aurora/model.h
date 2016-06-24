@@ -1,4 +1,4 @@
-/* xoreos - A reimplementation of BioWare's Aurora engine
+﻿/* xoreos - A reimplementation of BioWare's Aurora engine
  *
  * xoreos is the legal property of its developers, whose names
  * can be found in the AUTHORS file distributed with this source
@@ -38,6 +38,7 @@
 #include "src/graphics/renderable.h"
 
 #include "src/graphics/aurora/types.h"
+#include "src/graphics/aurora/walkmesh.h"
 
 #include "src/graphics/shader/shaderrenderable.h"
 
@@ -151,6 +152,9 @@ public:
 	void playDefaultAnimation();
 
 
+	// Walkmesh
+	Walkmesh *getWalkmesh() const;
+
 	// Renderable
 	void calculateDistance();
 	void render(RenderPass pass);
@@ -211,6 +215,8 @@ protected:
 
 	/** All default animations, sorted from least to most probable. */
 	DefaultAnimations _defaultAnimations;
+
+	Walkmesh *_walkmesh;
 
 	float _scale      [3]; ///< Model's scale.
 	float _orientation[4]; ///< Model's orientation.
