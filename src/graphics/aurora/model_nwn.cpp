@@ -41,6 +41,7 @@
 #include "src/common/encoding.h"
 #include "src/common/streamtokenizer.h"
 #include "src/common/vector3.h"
+#include "src/common/aabb.h"
 
 #include "src/aurora/types.h"
 #include "src/aurora/resman.h"
@@ -48,6 +49,7 @@
 #include "src/graphics/aurora/model_nwn.h"
 #include "src/graphics/aurora/animation.h"
 #include "src/graphics/aurora/animnode.h"
+#include "src/graphics/aurora/walkmesh.h"
 
 // Disable the "unused variable" warnings while most stuff is still stubbed
 IGNORE_UNUSED_VARIABLES
@@ -120,7 +122,7 @@ namespace Aurora {
 
 Model_NWN::ParserContext::ParserContext(const Common::UString &name,
                                         const Common::UString &t) :
-	mdl(0), state(0), texture(t) {
+	mdl(0), state(0), texture(t), AABBOffset(0) {
 
 	mdl = ResMan.getResource(name, ::Aurora::kFileTypeMDL);
 	if (!mdl)
@@ -275,6 +277,16 @@ void Model_NWN::loadBinary(ParserContext &ctx) {
 		readAnimBinary(ctx, ctx.offModelData + *offset);
 
 		addState(ctx);
+	}
+
+	// AABB
+	if (ctx.AABBOffset > 0) {
+		Common::AABBNode *aabbTree = readAABBNode(ctx, ctx.AABBOffset);
+		float x, y, z;
+		getNode(ctx.AABBName)->getPosition(x, y, z);
+		aabbTree->translate(x, y, z);
+		aabbTree->absolutize();
+		_walkmesh = new Walkmesh(ctx.AABBName, aabbTree, ctx.smooth);
 	}
 }
 
@@ -467,7 +479,44 @@ void Model_NWN::readAnimBinary(ParserContext &ctx, uint32 offset) {
 		AnimNode *animnode = new AnimNode(*n);
 		anim->addAnimNode(animnode);
 	}
+}
 
+void ModelNode_NWN_Binary::readAABB(Model_NWN::ParserContext &ctx) {
+	ctx.AABBName = _name;
+	ctx.AABBOffset = ctx.mdl->readUint32LE();
+}
+
+Common::AABBNode *Model_NWN::readAABBNode(ParserContext &ctx, uint32 offset) {
+	ctx.mdl->seek(offset + ctx.offModelData);
+
+	float min[3];
+	min[0] = ctx.mdl->readIEEEFloatLE();
+	min[1] = ctx.mdl->readIEEEFloatLE();
+	min[2] = ctx.mdl->readIEEEFloatLE();
+
+	float max[3];
+	max[0] = ctx.mdl->readIEEEFloatLE();
+	max[1] = ctx.mdl->readIEEEFloatLE();
+	max[2] = ctx.mdl->readIEEEFloatLE();
+
+	uint32 leftOffset = ctx.mdl->readUint32LE();
+	uint32 rightOffset = ctx.mdl->readUint32LE();
+
+	int32 leafFace = ctx.mdl->readSint32LE();
+	uint32 plane = ctx.mdl->readUint32LE();
+
+	Common::AABBNode *node = new Common::AABBNode(min, max);
+	node->setProperty(leafFace);
+
+	if (leftOffset == 0 && rightOffset == 0)
+		return node;
+
+	Common::AABBNode *leftChild = readAABBNode(ctx, leftOffset);
+	Common::AABBNode *rightChild = readAABBNode(ctx, rightOffset);
+
+	node->setChildren(leftChild, rightChild);
+
+	return node;
 }
 
 void Model_NWN::loadSuperModel(ModelCache *modelCache) {
@@ -582,7 +631,7 @@ void ModelNode_NWN_Binary::load(Model_NWN::ParserContext &ctx) {
 	}
 
 	if (flags & kNodeFlagHasMesh) {
-		readMesh(ctx);
+		readMesh(ctx, flags & kNodeFlagHasAABB);
 	}
 
 	if (flags & kNodeFlagHasSkin) {
@@ -600,8 +649,7 @@ void ModelNode_NWN_Binary::load(Model_NWN::ParserContext &ctx) {
 	}
 
 	if (flags & kNodeFlagHasAABB) {
-		// TODO: AABB
-		ctx.mdl->skip(0x4);
+		readAABB(ctx);
 	}
 
 	// If the node has no own geometry, inherit the geometry from the root state
@@ -657,7 +705,7 @@ static bool fuzzyEqual(const float *a, const float *b) {
 	       fabs(a[2] - b[2]) < 1E-4;
 }
 
-void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx) {
+void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx, bool isWalkmesh) {
 	ctx.mdl->skip(8); // Function pointers
 
 	uint32 facesOffset, facesCount;
@@ -786,6 +834,7 @@ void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx) {
 
 	assert (facesOffset != 0xFFFFFFFF);
 	ctx.mdl->seek(ctx.offModelData + facesOffset);
+
 	for (std::vector<Face>::iterator f = faces.begin(); f != faces.end(); ++f) {
 		f->normal[0] = ctx.mdl->readIEEEFloatLE();
 		f->normal[1] = ctx.mdl->readIEEEFloatLE();
@@ -794,6 +843,8 @@ void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx) {
 		ctx.mdl->skip(4); // Plane distance
 
 		f->smooth = ctx.mdl->readUint32LE();
+		if (isWalkmesh)
+			ctx.smooth.push_back(f->smooth);
 
 		ctx.mdl->skip(3 * 2); // Adjacent face number or -1
 
@@ -812,6 +863,7 @@ void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx) {
 					vFaces[j].push_back(&*f);
 		}
 	}
+
 
 	// Read texture coordinates
 

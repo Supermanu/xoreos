@@ -31,6 +31,7 @@
 namespace Common {
 	class SeekableReadStream;
 	class StreamTokenizer;
+	class AABBNode;
 }
 
 namespace Graphics {
@@ -68,6 +69,10 @@ private:
 		Common::StreamTokenizer *tokenize;
 		std::vector<uint32> anims;
 
+		uint32 AABBOffset;
+		Common::UString AABBName;
+		std::vector<uint32> smooth;
+
 		ParserContext(const Common::UString &name, const Common::UString &t);
 		~ParserContext();
 
@@ -82,6 +87,7 @@ private:
 
 	void loadBinary(ParserContext &ctx);
 	void readAnimBinary(ParserContext &ctx, uint32 offset);
+	Common::AABBNode *readAABBNode(Model_NWN::ParserContext &ctx, uint32 offset);
 
 	void loadASCII(ParserContext &ctx);
 	void readAnimASCII(ParserContext &ctx);
@@ -103,8 +109,9 @@ public:
 	void load(Model_NWN::ParserContext &ctx);
 
 private:
-	void readMesh(Model_NWN::ParserContext &ctx);
+	void readMesh(Model_NWN::ParserContext &ctx, bool isWalkmesh = false);
 	void readAnim(Model_NWN::ParserContext &ctx);
+	void readAABB(Model_NWN::ParserContext &ctx);
 
 	void readNodeControllers(Model_NWN::ParserContext &ctx, uint32 offset,
                            uint32 count, std::vector<float> &data);
