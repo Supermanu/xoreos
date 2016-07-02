@@ -25,6 +25,9 @@
 #include "src/common/error.h"
 #include "src/common/ustring.h"
 
+#include "src/aurora/2dafile.h"
+#include "src/aurora/2dareg.h"
+
 #include "src/graphics/aurora/model.h"
 
 #include "src/engines/aurora/model.h"
@@ -51,7 +54,17 @@ void Room::load(const Common::UString &resRef, float x, float y, float z) {
 	if (!_model)
 		throw Common::Exception("Can't load room model \"%s\"", resRef.c_str());
 
+	std::vector<bool> walkMap;
+	const Aurora::TwoDAFile &twodaSurf = TwoDAReg.get2DA("surfacemat");
+	for (uint32 r = 0; r < twodaSurf.getRowCount(); ++r)
+		walkMap.push_back(static_cast<bool>(twodaSurf.getRow(r).getInt("Walk")));
+
 	_model->setPosition(x, y, z);
+	Graphics::Aurora::Walkmesh *wm = _model->getWalkmesh();
+	if (wm) {
+		wm->setPosition(x, y, z);
+		wm->setWalkMap(walkMap);
+	}
 }
 
 void Room::show() {
