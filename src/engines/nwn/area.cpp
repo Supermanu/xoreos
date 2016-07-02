@@ -568,7 +568,8 @@ void Area::processEventQueue() {
 	_eventQueue.clear();
 
 	if (hasMove) {
-		checkActive();
+		if (checkActive())
+			return;
 
 		float x1, y1, z1, x2, y2, z2;
 		int x, y;
@@ -625,16 +626,22 @@ void Area::setActive(NWN::Object *object) {
 		_activeObject->enter();
 }
 
-void Area::checkActive(int x, int y) {
+bool Area::checkActive(int x, int y) {
 	if (_highlightAll)
-		return;
+		return false;
 
 	Common::StackLock lock(_mutex);
 
 	if ((x < 0) || (y < 0))
 		CursorMan.getPosition(x, y);
 
-	setActive(getObjectAt(x, y));
+	NWN::Object *obj = getObjectAt(x, y);
+	if (obj) {
+		setActive(obj);
+		return true;
+	}
+
+	return false;
 }
 
 void Area::click(int x, int y) {

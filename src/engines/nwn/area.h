@@ -234,7 +234,7 @@ private:
 
 	// Highlight / active helpers
 
-	void checkActive(int x = -1, int y = -1);
+	bool checkActive(int x = -1, int y = -1);
 	void setActive(NWN::Object *object);
 	NWN::Object *getObjectAt(int x, int y);
 
