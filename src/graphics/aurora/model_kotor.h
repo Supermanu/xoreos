@@ -63,6 +63,10 @@ private:
 
 		std::vector<Common::UString> names;
 
+		uint32 AABBOffset;
+		Common::UString AABBName;
+		std::vector<uint32> smooth;
+
 		ParserContext(const Common::UString &name, const Common::UString &t, bool k2);
 		~ParserContext();
 
@@ -75,6 +79,7 @@ private:
 
 	void load(ParserContext &ctx);
 	void readAnim(ParserContext &ctx, uint32 offset);
+	Common::AABBNode *readAABBNode(Model_KotOR::ParserContext &ctx, uint32 offset);
 
 	void loadSuperModel(ModelCache *modelCache, bool kotor2);
 
@@ -96,6 +101,7 @@ private:
 	void readNodeControllers(Model_KotOR::ParserContext &ctx, uint32 offset,
 	                         uint32 count, std::vector<float> &data);
 	void readMesh(Model_KotOR::ParserContext &ctx);
+	void readAABB(Model_KotOR::ParserContext &ctx);
 };
 
 } // End of namespace Aurora

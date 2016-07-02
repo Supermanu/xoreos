@@ -30,6 +30,7 @@
 #include "src/common/maths.h"
 #include "src/common/readstream.h"
 #include "src/common/encoding.h"
+#include "src/common/aabb.h"
 
 #include "src/aurora/types.h"
 #include "src/aurora/resman.h"
@@ -107,7 +108,7 @@ namespace Aurora {
 
 Model_KotOR::ParserContext::ParserContext(const Common::UString &name,
                                           const Common::UString &t, bool k2) :
-	mdl(0), mdx(0), state(0), texture(t), kotor2(k2) {
+	mdl(0), mdx(0), state(0), texture(t), kotor2(k2), AABBOffset(0) {
 
 	try {
 
@@ -239,6 +240,16 @@ void Model_KotOR::load(ParserContext &ctx) {
 
 		addState(ctx);
 	}
+
+	// AABB
+	if (ctx.AABBOffset > 0) {
+		Common::AABBNode *aabbTree = readAABBNode(ctx, ctx.AABBOffset);
+		float x, y, z;
+		getNode(ctx.AABBName)->getPosition(x, y, z);
+		aabbTree->translate(x, y, z);
+		aabbTree->absolutize();
+		_walkmesh = new Walkmesh(ctx.AABBName, aabbTree, ctx.smooth);
+	}
 }
 
 void Model_KotOR::readAnim(ParserContext &ctx, uint32 offset) {
@@ -358,6 +369,38 @@ void Model_KotOR::addState(ParserContext &ctx) {
 	ctx.nodes.clear();
 }
 
+Common::AABBNode *Model_KotOR::readAABBNode(ParserContext &ctx, uint32 offset) {
+	ctx.mdl->seek(offset + ctx.offModelData);
+
+	float min[3];
+	min[0] = ctx.mdl->readIEEEFloatLE();
+	min[1] = ctx.mdl->readIEEEFloatLE();
+	min[2] = ctx.mdl->readIEEEFloatLE();
+
+	float max[3];
+	max[0] = ctx.mdl->readIEEEFloatLE();
+	max[1] = ctx.mdl->readIEEEFloatLE();
+	max[2] = ctx.mdl->readIEEEFloatLE();
+
+	uint32 leftOffset = ctx.mdl->readUint32LE();
+	uint32 rightOffset = ctx.mdl->readUint32LE();
+
+	int32 leafFace = ctx.mdl->readSint32LE();
+	uint32 plane = ctx.mdl->readUint32LE();
+
+	Common::AABBNode *node = new Common::AABBNode(min, max);
+	node->setProperty(leafFace);
+
+	if (leftOffset == 0 && rightOffset == 0)
+		return node;
+
+	Common::AABBNode *leftChild = readAABBNode(ctx, leftOffset);
+	Common::AABBNode *rightChild = readAABBNode(ctx, rightOffset);
+
+	node->setChildren(leftChild, rightChild);
+
+	return node;
+}
 
 ModelNode_KotOR::ModelNode_KotOR(Model &model) : ModelNode(model) {
 	_envMapMode = kModeEnvironmentBlendedOver;
@@ -441,8 +484,7 @@ void ModelNode_KotOR::load(Model_KotOR::ParserContext &ctx) {
 	}
 
 	if (flags & kNodeFlagHasAABB) {
-		// TODO: AABB
-		ctx.mdl->skip(0x4);
+		readAABB(ctx);
 	}
 
 	for (std::vector<uint32>::const_iterator child = children.begin(); child != children.end(); ++child) {
@@ -628,6 +670,11 @@ void ModelNode_KotOR::readMesh(Model_KotOR::ParserContext &ctx) {
 	createBound();
 
 	ctx.mdl->seek(endPos);
+}
+
+void ModelNode_KotOR::readAABB(Model_KotOR::ParserContext &ctx) {
+	ctx.AABBName = _name;
+	ctx.AABBOffset = ctx.mdl->readUint32LE();
 }
 
 } // End of namespace Aurora
