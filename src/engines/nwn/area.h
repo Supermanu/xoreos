@@ -47,6 +47,8 @@
 
 namespace Engines {
 
+class Pathfinder;
+
 namespace NWN {
 
 class Module;
@@ -151,6 +153,8 @@ private:
 
 
 	Module *_module; ///< The module this area is in.
+
+	Pathfinder *_pathfinder;
 
 	Common::UString _resRef; ///< The area's resref (resource ID).
 

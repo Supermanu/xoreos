@@ -59,6 +59,8 @@
 #include "src/graphics/shader/surfaceman.h"
 #include "src/graphics/mesh/meshman.h"
 
+#include "src/engines/aurora/pathfinder.h"
+
 DECLARE_SINGLETON(Graphics::GraphicsManager)
 
 namespace Graphics {
@@ -117,6 +119,8 @@ GraphicsManager::GraphicsManager() {
 	_lastSampled = 0;
 
 	glCompressedTexImage2D = 0;
+
+	_pathfinder = 0;
 }
 
 GraphicsManager::~GraphicsManager() {
@@ -1156,6 +1160,11 @@ bool GraphicsManager::renderWorld() {
 	}
 
 	QueueMan.unlockQueue(kQueueVisibleWorldObject);
+
+	if (_pathfinder) {
+		_pathfinder->drawNavMesh();
+	}
+
 	return true;
 }
 
@@ -1309,6 +1318,10 @@ Common::TransformationMatrix &GraphicsManager::getModelviewMatrix() {
 
 const Common::TransformationMatrix &GraphicsManager::getModelviewInverseMatrix() const {
 	return _modelviewInv;
+}
+
+void GraphicsManager::setPathfinder(Engines::Pathfinder *pf) {
+	_pathfinder = pf;
 }
 
 int GraphicsManager::getScreenWidth() const {

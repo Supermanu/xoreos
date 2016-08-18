@@ -39,6 +39,10 @@
 #include "src/common/vector3.h"
 #include "src/common/ustring.h"
 
+namespace Engines {
+class Pathfinder;
+}
+
 namespace Graphics {
 
 class FPSCounter;
@@ -174,6 +178,7 @@ public:
 	/** Return the inverse modelview matrix (camera view). */
 	const Common::TransformationMatrix &getModelviewInverseMatrix() const;
 
+	void setPathfinder(Engines::Pathfinder *pf);
 private:
 	enum CursorState {
 		kCursorStateStay,
@@ -216,6 +221,8 @@ private:
 	float _viewAngle;
 	float _clipNear;
 	float _clipFar;
+
+	Engines::Pathfinder *_pathfinder;
 
 	Common::UString _windowTitle; ///< The current window title.
 

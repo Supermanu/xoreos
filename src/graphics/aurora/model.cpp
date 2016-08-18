@@ -525,17 +525,19 @@ void Model::render(RenderPass pass) {
 	doDrawBound();
 
 	// AABB
-	if (_walkmesh)
-		_walkmesh->drawAABBs();
+	if (_walkmesh) {
+//		_walkmesh->drawAABBs();
+//		_walkmesh->drawNavMesh();
+	}
 
 	// Draw the nodes
-	for (NodeList::iterator n = _currentState->rootNodes.begin();
-	     n != _currentState->rootNodes.end(); ++n) {
+//	for (NodeList::iterator n = _currentState->rootNodes.begin();
+//	     n != _currentState->rootNodes.end(); ++n) {
 
-		glPushMatrix();
-		(*n)->render(pass);
-		glPopMatrix();
-	}
+//		glPushMatrix();
+//		(*n)->render(pass);
+//		glPopMatrix();
+//	}
 
 	// Reset the first texture units
 	TextureMan.reset();

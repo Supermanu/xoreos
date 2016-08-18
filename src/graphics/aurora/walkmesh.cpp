@@ -29,13 +29,139 @@
 #include "src/common/util.h"
 
 #include "src/graphics/aurora/walkmesh.h"
+#include "src/graphics/detour/DetourNavMesh.h"
+#include "src/graphics/detour/DebugDraw.h"
+#include "src/graphics/detour/DetourDebugDraw.h"
+
+
+class GLCheckerTextureB
+{
+	unsigned int m_texId;
+public:
+	GLCheckerTextureB() : m_texId(0)
+	{
+	}
+	
+	~GLCheckerTextureB()
+	{
+		if (m_texId != 0)
+			glDeleteTextures(1, &m_texId);
+	}
+	void bind()
+	{
+		if (m_texId == 0)
+		{
+			// Create checker pattern.
+			const unsigned int col0 = duRGBA(215,215,215,255);
+			const unsigned int col1 = duRGBA(255,255,255,255);
+			static const int TSIZE = 64;
+			unsigned int data[TSIZE*TSIZE];
+			
+			glGenTextures(1, &m_texId);
+			glBindTexture(GL_TEXTURE_2D, m_texId);
+
+			int level = 0;
+			int size = TSIZE;
+			while (size > 0)
+			{
+				for (int y = 0; y < size; ++y)
+					for (int x = 0; x < size; ++x)
+						data[x+y*size] = (x==0 || y==0) ? col0 : col1;
+				glTexImage2D(GL_TEXTURE_2D, level, GL_RGBA, size,size, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+				size /= 2;
+				level++;
+			}
+			
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_NEAREST);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		}
+		else
+		{
+			glBindTexture(GL_TEXTURE_2D, m_texId);
+		}
+	}
+};
+GLCheckerTextureB g_texa;
+
+void DebugDrawGLB::depthMask(bool state)
+{
+	glDepthMask(state ? GL_TRUE : GL_FALSE);
+}
+
+void DebugDrawGLB::texture(bool state)
+{
+	if (state)
+	{
+		glEnable(GL_TEXTURE_2D);
+		g_texa.bind();
+	}
+	else
+	{
+		glDisable(GL_TEXTURE_2D);
+	}
+}
+
+void DebugDrawGLB::begin(duDebugDrawPrimitives prim, float size)
+{
+	switch (prim)
+	{
+		case DU_DRAW_POINTS:
+			glPointSize(size);
+			glBegin(GL_POINTS);
+			break;
+		case DU_DRAW_LINES:
+			glLineWidth(size);
+			glBegin(GL_LINES);
+			break;
+		case DU_DRAW_TRIS:
+			glBegin(GL_TRIANGLES);
+			break;
+		case DU_DRAW_QUADS:
+			glBegin(GL_QUADS);
+			break;
+	};
+}
+
+void DebugDrawGLB::vertex(const float* pos, unsigned int color)
+{
+//	warning("vertex: %f, %f, %f", pos[0], pos[1], pos[2]);
+	glColor4ubv((GLubyte*)&color);
+	glVertex3fv(pos);
+}
+
+void DebugDrawGLB::vertex(const float x, const float y, const float z, unsigned int color)
+{
+	glColor4ubv((GLubyte*)&color);
+	glVertex3f(x,y,z);
+}
+
+void DebugDrawGLB::vertex(const float* pos, unsigned int color, const float* uv)
+{
+	glColor4ubv((GLubyte*)&color);
+	glTexCoord2fv(uv);
+	glVertex3fv(pos);
+}
+
+void DebugDrawGLB::vertex(const float x, const float y, const float z, unsigned int color, const float u, const float v)
+{
+	glColor4ubv((GLubyte*)&color);
+	glTexCoord2f(u,v);
+	glVertex3f(x,y,z);
+}
+
+void DebugDrawGLB::end()
+{
+	glEnd();
+	glLineWidth(1.0f);
+	glPointSize(1.0f);
+}
 
 namespace Graphics {
 
 namespace Aurora {
 
-Walkmesh::Walkmesh(const Common::UString &nodeName, Common::AABBNode *aabb, std::vector<uint32> &faceProperty) :
-    _nodeName(nodeName), _aabbTree(aabb), _facePropertyMap(faceProperty) {
+Walkmesh::Walkmesh(const Common::UString &nodeName, Common::AABBNode *aabb, std::vector<uint32> &faceProperty, dtNavMesh *navMesh) :
+    _nodeName(nodeName), _aabbTree(aabb), _facePropertyMap(faceProperty), _navMesh(navMesh) {
 }
 
 Walkmesh::~Walkmesh() {
@@ -97,6 +223,15 @@ bool Walkmesh::isWalkable(float x1, float y1, float z1, float x2, float y2, floa
 
 void Walkmesh::drawAABBs() {
 	drawAABB(_aabbTree);
+}
+
+void Walkmesh::drawNavMesh() {
+	if (!_navMesh)
+		return;
+
+	DebugDrawGLB dd;
+//	glScalef(0.01, 0.01, 0.01);
+	duDebugDrawNavMesh(&dd, *_navMesh, 0);
 }
 
 void Walkmesh::drawAABB(Common::AABBNode *aabbNode) {

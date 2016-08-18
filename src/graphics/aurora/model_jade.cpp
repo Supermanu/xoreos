@@ -226,6 +226,8 @@ void Model_Jade::load(ParserContext &ctx) {
 	rootNode->load(ctx);
 
 	addState(ctx);
+
+	warning("model: %s", _name.c_str());
 }
 
 void Model_Jade::readStrings(Common::SeekableReadStream &mdl,
@@ -318,6 +320,10 @@ void ModelNode_Jade::load(Model_Jade::ParserContext &ctx) {
 
 	if (type & kNodeTypeHasMesh) {
 		readMesh(ctx);
+	}
+
+	if (type & kNodeTypeHasAABB) {
+		warning("aabb pos: %i,", ctx.mdl->pos() + ctx.offModelData);
 	}
 
 	createMesh(ctx);

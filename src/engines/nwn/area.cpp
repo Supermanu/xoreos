@@ -36,10 +36,13 @@
 #include "src/graphics/aurora/cursorman.h"
 #include "src/graphics/aurora/model.h"
 
+#include "src/graphics/detour/DetourNavMeshQuery.h"
+
 #include "src/sound/sound.h"
 
 #include "src/engines/aurora/util.h"
 #include "src/engines/aurora/model.h"
+#include "src/engines/aurora/pathfinder.h"
 
 #include "src/engines/nwn/area.h"
 #include "src/engines/nwn/module.h"
@@ -53,7 +56,7 @@ namespace Engines {
 namespace NWN {
 
 Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeArea),
-	_module(&module), _resRef(resRef), _visible(false), _tileset(0),
+	_module(&module), _pathfinder(0), _resRef(resRef), _visible(false), _tileset(0),
 	_activeObject(0), _highlightAll(false) {
 
 	try {
@@ -103,6 +106,9 @@ void Area::clear() {
 
 	delete _tileset;
 	_tileset = 0;
+
+	delete _pathfinder;
+	_pathfinder = 0;
 }
 
 Common::UString Area::getName(const Common::UString &resRef) {
@@ -225,6 +231,9 @@ void Area::playAmbientSound(Common::UString sound) {
 void Area::show() {
 	if (_visible)
 		return;
+
+	_pathfinder = new Pathfinder();
+	GfxMan.setPathfinder(_pathfinder);
 
 	loadModels();
 
@@ -475,6 +484,13 @@ void Area::loadTiles() {
 			t.model->setPosition(tileX, tileY, tileZ);
 			t.model->setOrientation(0.0f, 0.0f, 1.0f, ((int) t.orientation) * 90.0f);
 
+//			NWNWokFile testfile = NWNWokFile(t.tile->model);
+//			if (t.tile->model.equalsIgnoreCase("TIN01_A15_01")) {
+				warning("pathfinder");
+				_pathfinder->addTile(t.tile->model, x, y, t.orientation);
+				
+//			}
+
 			Graphics::Aurora::Walkmesh *walkmesh = t.model->getWalkmesh();
 			if (walkmesh) {
 				walkmesh->setPosition(tileX, tileY, tileZ);
@@ -553,7 +569,39 @@ void Area::processEventQueue() {
 			hasMove = true;
 		} else if (e->type == Events::kEventMouseDown) { // Clicking
 			if (e->button.button == SDL_BUTTON_LMASK) {
-				checkActive(e->button.x, e->button.y);
+				if (!checkActive(e->button.x, e->button.y)) {
+					dtQueryFilter filter;
+					filter.setExcludeFlags(0x02);
+
+					dtPolyRef *poly1 = new dtPolyRef();
+					float near[3];
+					float pos[3] = { 36.f, 0.f, 31.f };
+					float ext[3] = { 5.f, 5.f, 5.f };
+//					_module->getPC()->getPosition(pos[0], pos[2], pos[1]);
+					dtStatus status = 0;
+					status = _pathfinder->_navQuery->findNearestPoly(pos, ext, &filter, poly1, near);
+					warning("status %u, query succeed %u, input error %u", dtStatusSucceed(status), dtStatusDetail(status, 3));
+
+					warning("coucou");
+					_pathfinder->clearPoly();
+					if (poly1)
+						_pathfinder->addPoly(*poly1);
+
+					dtPolyRef *poly2 = new dtPolyRef();
+					float pos2[3];
+					pos2[0] = 21.f;
+					pos2[1] = 0.f;
+					pos2[2] = 21.f;
+					status = _pathfinder->_navQuery->findNearestPoly(pos2, ext, &filter, poly2, near);
+					if (poly2)
+						_pathfinder->addPoly(*poly2);
+
+					dtPolyRef path[20];
+					int pathCount;
+					_pathfinder->_navQuery->findPath(*poly1, *poly2, pos, pos2, &filter, path, &pathCount, 20);
+					for (uint8 p = 0; p < pathCount; ++p)
+						_pathfinder->addPoly(path[p]);
+				}
 				click(e->button.x, e->button.y);
 			}
 		} else if (e->type == Events::kEventKeyDown) { // Holding down TAB

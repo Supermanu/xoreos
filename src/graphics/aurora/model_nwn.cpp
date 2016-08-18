@@ -51,6 +51,10 @@
 #include "src/graphics/aurora/animnode.h"
 #include "src/graphics/aurora/walkmesh.h"
 
+#include "src/graphics/detour/DetourNavMesh.h"
+#include "src/graphics/detour/DetourNavMeshBuilder.h"
+//#include "src/graphics/detour/DetourNavMeshQuery.h"
+
 // Disable the "unused variable" warnings while most stuff is still stubbed
 IGNORE_UNUSED_VARIABLES
 
@@ -122,7 +126,7 @@ namespace Aurora {
 
 Model_NWN::ParserContext::ParserContext(const Common::UString &name,
                                         const Common::UString &t) :
-	mdl(0), state(0), texture(t), AABBOffset(0) {
+	mdl(0), state(0), texture(t), AABBOffset(0), m_navMesh(0) {
 
 	mdl = ResMan.getResource(name, ::Aurora::kFileTypeMDL);
 	if (!mdl)
@@ -194,7 +198,7 @@ Model_NWN::Model_NWN(const Common::UString &name, ModelType type,
 
 	if (ctx.isASCII)
 		loadASCII(ctx);
-	else
+	else 
 		loadBinary(ctx);
 
 	loadSuperModel(modelCache);
@@ -286,7 +290,7 @@ void Model_NWN::loadBinary(ParserContext &ctx) {
 		getNode(ctx.AABBName)->getPosition(x, y, z);
 		aabbTree->translate(x, y, z);
 		aabbTree->absolutize();
-		_walkmesh = new Walkmesh(ctx.AABBName, aabbTree, ctx.smooth);
+		_walkmesh = new Walkmesh(ctx.AABBName, aabbTree, ctx.smooth, ctx.m_navMesh);
 	}
 }
 
@@ -353,6 +357,7 @@ void Model_NWN::loadASCII(ParserContext &ctx) {
 		ctx.mdl->seek(*a);
 		readAnimASCII(ctx);
 	}
+
 }
 void Model_NWN::newState(ParserContext &ctx) {
 	ctx.clear();
@@ -824,10 +829,14 @@ void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx, bool isWalkme
 	for (std::vector<float>::iterator v = vertices.begin(); v != vertices.end(); ++v)
 		*v = ctx.mdl->readIEEEFloatLE();
 
+	std::vector<float> vertices_w = vertices;
 	// Read faces
 
 	std::vector<Face> faces;
 	faces.resize(facesCount);
+
+	std::vector< std::vector<short> > adjFaces;
+//	adjFaces.resize(facesCount);
 
 	std::vector< std::list<Face *> > vFaces;
 	vFaces.resize(vertexCount);
@@ -843,10 +852,20 @@ void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx, bool isWalkme
 		ctx.mdl->skip(4); // Plane distance
 
 		f->smooth = ctx.mdl->readUint32LE();
-		if (isWalkmesh)
+		if (isWalkmesh) {
 			ctx.smooth.push_back(f->smooth);
 
-		ctx.mdl->skip(3 * 2); // Adjacent face number or -1
+//			ctx.mdl->skip(3 * 2); // Adjacent face number or -1
+			std::vector<short> adjF;
+			adjF.resize(3);
+			adjF[0] = ctx.mdl->readUint16LE();
+			adjF[1] = ctx.mdl->readUint16LE();
+			adjF[2] = ctx.mdl->readUint16LE();
+
+			adjFaces.push_back(adjF);
+		} else {
+			ctx.mdl->skip(3 * 2); // Adjacent face number or -1
+		}
 
 		f->index[0] = ctx.mdl->readUint16LE();
 		f->index[1] = ctx.mdl->readUint16LE();
@@ -863,6 +882,7 @@ void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx, bool isWalkme
 					vFaces[j].push_back(&*f);
 		}
 	}
+	std::vector<Face> faces_w = faces;
 
 
 	// Read texture coordinates
@@ -945,6 +965,104 @@ void ModelNode_NWN_Binary::readMesh(Model_NWN::ParserContext &ctx, bool isWalkme
 
 	createBound();
 
+	if (isWalkmesh && ctx.m_navMesh == 0 && _model->getName() == "TIN01_A15_01") {
+//		warning("model: %s", _model->getName().c_str());
+		// Adjust vertices.
+		unsigned short verts[vertexCount * 3];
+		for (size_t i = 0; i < vertexCount; ++i) {
+			verts[i * 3 + 0] = (short) floor((vertices_w[i * 3 + 0] + 5.f) * 100.f);
+			verts[i * 3 + 1] = (short) floor((vertices_w[i * 3 + 1] + 5.f) * 100.f);
+			verts[i * 3 + 2] = (short) floor((vertices_w[i * 3 + 2] + 1.5f) * 100.f);
+//			warning("cr v: %i, %i, %i", verts[i*3], verts[i*3 + 1], verts[i*3+2]);
+		}
+
+		// Adjust faces
+		unsigned short polys[facesCount * 2 * 3];
+		unsigned short polyFlags[facesCount];
+		unsigned char polyAreas[facesCount];
+		for (size_t i = 0; i < facesCount; ++i) {
+			const Face face = faces_w[i];
+			// Vertices.
+			polys[i * 6 + 0 + 0] = face.index[0];
+			polys[i * 6 + 0 + 1] = face.index[1];
+			polys[i * 6 + 0 + 2] = face.index[2];
+//			warning("face %i: %i, %i, %i", i, polys[i*6], polys[i*6+1], polys[i*6+2]);
+			// Adjacent faces.
+			polys[i * 6 + 3 + 0] = adjFaces[i][0] < 1 ? 0xffff : adjFaces[i][0];
+			polys[i * 6 + 3 + 1] = adjFaces[i][1] < 1 ? 0xffff : adjFaces[i][1];
+			polys[i * 6 + 3 + 2] = adjFaces[i][2] < 1 ? 0xffff : adjFaces[i][2];
+//			warning("adjface %i: %i, %i, %i", i, polys[i], polys[i+1], polys[i+2]);
+
+			polyFlags[i] = 0;
+			polyAreas[i] = 63;
+		}
+
+		dtNavMeshCreateParams params;
+		memset(&params, 0, sizeof(params));
+		params.verts = verts;
+		params.vertCount = vertexCount;
+		params.polys = polys;
+		params.polyAreas = polyAreas;
+		params.polyFlags = polyFlags;
+		params.polyCount = facesCount;
+		params.nvp = 3;
+//		params.detailMeshes = m_dmesh->meshes;
+//		params.detailVerts = verts;
+//		params.detailVertsCount = vertexCount;
+//		params.detailTris = m_dmesh->tris;
+//		params.detailTriCount = m_dmesh->ntris;
+//		params.offMeshConVerts = m_geom->getOffMeshConnectionVerts();
+//		params.offMeshConRad = m_geom->getOffMeshConnectionRads();
+//		params.offMeshConDir = m_geom->getOffMeshConnectionDirs();
+//		params.offMeshConAreas = m_geom->getOffMeshConnectionAreas();
+//		params.offMeshConFlags = m_geom->getOffMeshConnectionFlags();
+//		params.offMeshConUserID = m_geom->getOffMeshConnectionId();
+//		params.offMeshConCount = m_geom->getOffMeshConnectionCount();
+//		params.walkableHeight = m_agentHeight;
+//		params.walkableRadius = m_agentRadius;
+//		params.walkableClimb = m_agentMaxClimb;
+		params.bmin[0] = 0.f;
+		params.bmin[1] = 0.f;
+		params.bmin[2] = 0.f;
+		params.bmax[0] = 10.f;
+		params.bmax[1] = 10.f;
+		params.bmax[2] = 3.f;
+		params.cs = 0.01;
+		params.ch = 0.01;
+//		params.buildBvTree = true;
+		
+//		unsigned char* navData = 0;
+//		int navDataSize = 0;
+//		if (!dtCreateNavMeshData(&params, &navData, &navDataSize)) {
+//			error("Could not build Detour navmesh.");
+//		}
+
+
+//		ctx.m_navMesh = dtAllocNavMesh();
+//		if (!ctx.m_navMesh)
+//		{
+//			dtFree(navData);
+//			error("Could not create Detour navmesh");
+//		}
+		
+//		dtStatus status;
+		
+//		status = ctx.m_navMesh->init(navData, navDataSize, DT_TILE_FREE_DATA);
+//		if (dtStatusFailed(status))
+//		{
+//			dtFree(navData);
+//			error("Could not init Detour navmesh");
+//		}
+
+//		dtFreeNavMesh(ctx.m_navMesh);
+//		dtNavMeshQuery* m_navQuery = dtAllocNavMeshQuery();
+//		status = m_navQuery->init(m_navMesh, 2048);
+//		if (dtStatusFailed(status))
+//		{
+//			error("Could not init Detour navmesh query");
+//		}
+	}
+	
 	ctx.mdl->seek(endPos);
 }
 

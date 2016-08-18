@@ -28,6 +28,8 @@
 #include "src/graphics/aurora/model.h"
 #include "src/graphics/aurora/modelnode.h"
 
+class dtNavMesh;
+
 namespace Common {
 	class SeekableReadStream;
 	class StreamTokenizer;
@@ -72,6 +74,7 @@ private:
 		uint32 AABBOffset;
 		Common::UString AABBName;
 		std::vector<uint32> smooth;
+		dtNavMesh *m_navMesh;
 
 		ParserContext(const Common::UString &name, const Common::UString &t);
 		~ParserContext();

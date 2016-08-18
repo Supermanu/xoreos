@@ -19,23 +19,23 @@
  */
 
 /** @file
- *  The walkmesh related to a model.
+ *  Pathfinding handling.
  */
 
-#ifndef GRAPHICS_AURORA_WALKMESH_H
-#define GRAPHICS_AURORA_WALKMESH_H
+#ifndef ENGINES_AURORA_PATHFINDER_H
+#define ENGINES_AURORA_PATHFINDER_H
+
+#include "src/common/ustring.h"
+#include "src/common/readstream.h"
+#include "src/common/streamtokenizer.h"
 
 #include "src/graphics/detour/DebugDraw.h"
+#include "src/graphics/detour/DetourNavMesh.h"
 
 class dtNavMesh;
+class dtNavMeshQuery;
 
-namespace Common {
-class AABBTree;
-class AABBNode;
-class UString;
-}
-
-class DebugDrawGLB : public duDebugDraw {
+class DebugDrawGL : public duDebugDraw {
 public:
 	virtual void depthMask(bool state);
 	virtual void texture(bool state);
@@ -47,45 +47,52 @@ public:
 	virtual void end();
 };
 
-namespace Graphics {
+namespace Engines {
 
-namespace Aurora {
-
-class Walkmesh {
-
+class NWNWokFile {
 public:
-	Walkmesh(const Common::UString &nodeName, Common::AABBNode *aabb, std::vector<uint32> &faceProperty,
-	         dtNavMesh *navMesh = 0);
-	~Walkmesh();
+	NWNWokFile(const Common::UString &name);
+	~NWNWokFile();
 
-	void setWalkMap(std::vector<bool> &walkMap);
-
-	void setPosition(float x, float y, float z);
-	void setOrientation(uint8 orientation);
-
-	bool isIn(float x, float y) const;
-	bool isIn(float x1, float y1, float z1, float x2, float y2, float z2) const;
-
-	/** Wether or not a point in the XY plan is walkable. */
-	bool isWalkable(float x, float y) const;
-	/** Check walkability from the intersection between a ray and the walkmesh. */
-	bool isWalkable(float x1, float y1, float z1, float x2, float y2, float z2, float &dist) const;
-
-	void drawAABBs();
-	void drawNavMesh();
+	void readVerts(size_t n, float *position);
+	void readFaces(size_t n);
+	void readFloats(const std::vector<Common::UString> &strings,
+	                                     float *floats, uint32 n, uint32 start);
 
 private:
-	void drawAABB(Common::AABBNode *aabbNode);
+	void computeAdjFaces();
 
-	Common::UString _nodeName;
-	Common::AABBNode *_aabbTree;
-	std::vector<uint32> _facePropertyMap;
-	std::vector<bool>   _walkMap;
-	dtNavMesh *_navMesh;
+	Common::SeekableReadStream *_stream;
+	Common::StreamTokenizer *_tokenize;
+	std::vector<std::vector<float> > _verts;
+	std::vector<std::vector<uint8> > _faces;
+	std::vector<std::vector<short> > _adjFaces;
+	std::vector<uint8> _mat;
+
+friend class Pathfinder;
 };
 
-}
+class Pathfinder {
+public:
+	Pathfinder();
+	~Pathfinder();
 
-}
+	void loadData();
+	void addTile(const Common::UString &modelName, uint8 tX, uint8 tY, uint8 orientation);
+	void drawNavMesh();
+	void addPoly(dtPolyRef poly);
+	void clearPoly();
 
-#endif // GRAPHICS_AURORA_ALKMESH_H
+	dtNavMeshQuery *_navQuery;
+	dtNavMesh *_navMesh;
+
+private:
+	void setOrientation(std::vector<float> &vec, uint8 orientation);
+	
+	std::vector<dtPolyRef> _polysToDraw;
+	
+};
+
+} // End of namespace Engines
+
+#endif // ENGINES_AURORA_PATHFINDER_H

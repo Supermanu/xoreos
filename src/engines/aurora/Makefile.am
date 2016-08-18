@@ -34,6 +34,7 @@ noinst_HEADERS = \
                  console.h \
                  loadprogress.h \
                  camera.h \
+                 pathfinder.h \
                  $(EMPTY)
 
 libaurora_la_SOURCES = \
@@ -47,4 +48,5 @@ libaurora_la_SOURCES = \
                        console.cpp \
                        loadprogress.cpp \
                        camera.cpp \
+                       pathfinder.cpp \
                        $(EMPTY)

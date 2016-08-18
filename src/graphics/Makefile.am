@@ -23,6 +23,7 @@ include $(top_srcdir)/Makefile.common
 
 SUBDIRS = \
           images \
+          detour \
           aurora \
           mesh \
           render \
@@ -74,6 +75,7 @@ libgraphics_la_SOURCES = \
 
 libgraphics_la_LIBADD = \
                         images/libimages.la \
+                        detour/libdetour.la \
                         aurora/libaurora.la \
                         shader/libshader.la \
                         mesh/libmesh.la \
