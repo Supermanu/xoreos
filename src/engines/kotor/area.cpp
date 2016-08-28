@@ -36,9 +36,12 @@
 
 #include "src/graphics/aurora/cursorman.h"
 
+#include "src/graphics/detour/DetourNavMeshQuery.h"
+
 #include "src/sound/sound.h"
 
 #include "src/engines/aurora/util.h"
+#include "src/engines/aurora/pathfinder.h"
 
 #include "src/engines/kotor/area.h"
 #include "src/engines/kotor/room.h"
@@ -54,6 +57,8 @@ namespace KotOR {
 
 Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeArea),
 	_module(&module), _resRef(resRef), _visible(false), _activeObject(0), _highlightAll(false) {
+
+	_pathfinder = new Pathfinder(true);
 
 	try {
 		load();
@@ -74,6 +79,8 @@ Area::~Area() {
 	removeFocus();
 
 	clear();
+
+	delete _pathfinder;
 }
 
 void Area::load() {
@@ -189,6 +196,8 @@ void Area::playAmbientSound(Common::UString sound) {
 void Area::show() {
 	if (_visible)
 		return;
+
+	GfxMan.setPathfinder(_pathfinder);
 
 	GfxMan.lockFrame();
 
@@ -324,8 +333,13 @@ void Area::loadProperties(const Aurora::GFF3Struct &props) {
 
 void Area::loadRooms() {
 	const Aurora::LYTFile::RoomArray &rooms = _lyt.getRooms();
-	for (Aurora::LYTFile::RoomArray::const_iterator r = rooms.begin(); r != rooms.end(); ++r)
+	for (Aurora::LYTFile::RoomArray::const_iterator r = rooms.begin(); r != rooms.end(); ++r) {
 		_rooms.push_back(new Room(r->model, r->x, r->y, r->z));
+		_pathfinder->addPart(r->model, r->x, r->y, r->z);
+	}
+
+//	_pathfinder->addPart(rooms.back().model, 0.f, 0.f);
+	_pathfinder->mergeParts();
 }
 
 void Area::loadObject(KotOR::Object &object) {
@@ -380,6 +394,55 @@ void Area::processEventQueue() {
 	bool hasMove = false;
 	for (std::list<Events::Event>::const_iterator e = _eventQueue.begin();
 	     e != _eventQueue.end(); ++e) {
+		if (e->type == Events::kEventKeyDown) {
+			if (e->key.keysym.sym == SDLK_LALT) {
+				dtQueryFilter filter;
+				filter.setExcludeFlags(0x01);
+
+				dtPolyRef *poly1 = new dtPolyRef();
+				float near[3];
+				float pos[3] = { 18.5f, -1.27f, 17.f };
+				float ext[3] = { 2.f, 2.f, 2.f };
+//					_module->getPC()->getPosition(pos[0], pos[2], pos[1]);
+				dtStatus status = 0;
+				status = _pathfinder->_navQuery->findNearestPoly(pos, ext, &filter, poly1, near);
+				warning("status %u, query succeed %u, input error %u", dtStatusSucceed(status), dtStatusDetail(status, 3));
+				warning("decode poly: %u", _pathfinder->_navMesh->decodePolyIdPoly(*poly1));
+
+//				warning("coucou");
+				_pathfinder->clearPoly();
+				if (poly1)
+					_pathfinder->addPoly(*poly1);
+
+				dtPolyRef *poly2 = new dtPolyRef();
+				float pos2[3];
+				pos2[0] = 11.5f;
+				pos2[1] = -1.27f;
+				pos2[2] = 25.f;
+				status = _pathfinder->_navQuery->findNearestPoly(pos2, ext, &filter, poly2, near);
+				if (poly2)
+					_pathfinder->addPoly(*poly2);
+
+				dtPolyRef path[20];
+				int pathCount;
+				_pathfinder->_navQuery->findPath(*poly1, *poly2, pos, pos2, &filter, path, &pathCount, 20);
+				float straightPath[3 * 100];
+				unsigned char pathFlags[100];
+				dtPolyRef straightPathPoly[100];
+				int straightPathCount;
+				status = _pathfinder->_navQuery->findStraightPath(pos, pos2, path, pathCount, straightPath,
+				                                         pathFlags, straightPathPoly, &straightPathCount, 100, DT_STRAIGHTPATH_ALL_CROSSINGS);
+
+				if (dtStatusFailed(status))
+					warning("Failed");
+
+				for (uint8 p = 0; p < straightPathCount; ++p) {
+					warning("path vert: (%f, %f, %f)", straightPath[p*3], straightPath[p*3 + 1], straightPath[p*3 + 2]);
+				}
+
+				_pathfinder->addPath(pos, pos2, path, pathCount, straightPath, &straightPathCount);
+			}
+		}
 
 		if        (e->type == Events::kEventMouseMove) { // Moving the mouse
 			hasMove = true;
@@ -419,6 +482,9 @@ void Area::setActive(KotOR::Object *object) {
 	if (object == _activeObject)
 		return;
 
+//	float x, y, z;
+//	object->getPosition(x, y, z);
+//	warning("Object at %f, %f, %f", x, y, z);
 	if (_activeObject)
 		_activeObject->leave();
 

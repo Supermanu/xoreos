@@ -1163,6 +1163,7 @@ bool GraphicsManager::renderWorld() {
 
 	if (_pathfinder) {
 		_pathfinder->drawNavMesh();
+		_pathfinder->drawPath();
 	}
 
 	return true;

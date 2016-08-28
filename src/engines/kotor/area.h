@@ -45,6 +45,8 @@
 
 namespace Engines {
 
+class Pathfinder;
+
 namespace KotOR {
 
 class Module;
@@ -157,6 +159,8 @@ private:
 	std::list<Events::Event> _eventQueue; ///< The event queue.
 
 	Common::Mutex _mutex; ///< Mutex securing access to the area.
+
+	Pathfinder *_pathfinder;
 
 
 	// Loading helpers

@@ -49,6 +49,26 @@ public:
 
 namespace Engines {
 
+struct WalkmeshPart {
+	std::vector<std::vector<float> > verts;
+	std::vector<std::vector<uint8> > faces;
+	std::vector<std::vector<unsigned short> > adjFaces;
+	std::vector<uint8> type;
+	std::vector<float> position;
+	std::vector<std::vector<int8> > adjRooms;
+};
+
+class KotORWokFile {
+public:
+	KotORWokFile(const Common::UString &name);
+	~KotORWokFile();
+private:
+	Common::SeekableReadStream *_stream;
+	WalkmeshPart _walkmeshPart;
+
+friend class Pathfinder;
+};
+
 class NWNWokFile {
 public:
 	NWNWokFile(const Common::UString &name);
@@ -72,15 +92,30 @@ private:
 friend class Pathfinder;
 };
 
+struct Path {
+	float *start;
+	float *end;
+	dtPolyRef *polys;
+	uint8 polysCount;
+	float *straightPath;
+	int *straightPathCount;
+	Path();
+};
+
 class Pathfinder {
 public:
-	Pathfinder();
+	Pathfinder(bool tiled = false);
 	~Pathfinder();
 
 	void loadData();
+	void addPart(const Common::UString &partName, float pX, float pY, float pZ);
+	void mergeParts();
 	void addTile(const Common::UString &modelName, uint8 tX, uint8 tY, uint8 orientation);
 	void drawNavMesh();
+	void drawPath();
+	void computeSmoothPath(dtPolyRef corridor[], uint32 corridorSize, std::vector<float> smoothPath);
 	void addPoly(dtPolyRef poly);
+	void addPath(float *start, float *end, dtPolyRef *path, uint8 polysCount, float *straightPath, int *straightPathCount);
 	void clearPoly();
 
 	dtNavMeshQuery *_navQuery;
@@ -90,7 +125,9 @@ private:
 	void setOrientation(std::vector<float> &vec, uint8 orientation);
 	
 	std::vector<dtPolyRef> _polysToDraw;
-	
+	std::vector<WalkmeshPart> _walkmeshParts;
+	Path _path;
+	DebugDrawGL _dd;
 };
 
 } // End of namespace Engines

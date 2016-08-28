@@ -767,22 +767,20 @@ dtStatus dtNavMeshQuery::findNearestPoly(const float* center, const float* exten
 {
 	dtAssert(m_nav);
 
-	warning("coucou1");
 	if (!nearestRef)
 		return DT_FAILURE | DT_INVALID_PARAM;
-	warning("coucou2");
 	dtFindNearestPolyQuery query(this, center);
-warning("coucou3");
+
 	dtStatus status = queryPolygons(center, extents, filter, &query);
 	if (dtStatusFailed(status))
 		return status;
-warning("coucou4");
+
 	*nearestRef = query.nearestRef();
 	// Only override nearestPt if we actually found a poly so the nearest point
 	// is valid.
 	if (nearestPt && *nearestRef)
 		dtVcopy(nearestPt, query.nearestPoint());
-	warning("coucou5");
+
 	return DT_SUCCESS;
 }
 
@@ -987,6 +985,7 @@ dtStatus dtNavMeshQuery::queryPolygons(const float* center, const float* extents
 	m_nav->calcTileLoc(bmin, &minx, &miny);
 	m_nav->calcTileLoc(bmax, &maxx, &maxy);
 
+	warning("min/max: %u, %u / %u, %u", minx, miny, maxx, maxy);
 	static const int MAX_NEIS = 32;
 	const dtMeshTile* neis[MAX_NEIS];
 	
@@ -1823,7 +1822,7 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 										  int* straightPathCount, const int maxStraightPath, const int options) const
 {
 	dtAssert(m_nav);
-	
+	warning("coucou");
 	*straightPathCount = 0;
 	
 	if (!maxStraightPath)
@@ -1839,10 +1838,13 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 	if (dtStatusFailed(closestPointOnPolyBoundary(path[0], startPos, closestStartPos)))
 		return DT_FAILURE | DT_INVALID_PARAM;
 
+	warning("closestStartPos: (%f, %f, %f)", closestStartPos[0], closestStartPos[1], closestStartPos[2]);
+
 	float closestEndPos[3];
 	if (dtStatusFailed(closestPointOnPolyBoundary(path[pathSize-1], endPos, closestEndPos)))
 		return DT_FAILURE | DT_INVALID_PARAM;
-	
+
+	warning("closestEndPos: (%f, %f, %f)", closestEndPos[0], closestEndPos[1], closestEndPos[2]);
 	// Add start point.
 	stat = appendVertex(closestStartPos, DT_STRAIGHTPATH_START, path[0],
 						straightPath, straightPathFlags, straightPathRefs,
@@ -1868,6 +1870,7 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 		
 		for (int i = 0; i < pathSize; ++i)
 		{
+			warning("path section: %u", i);
 			float left[3], right[3];
 			unsigned char toType;
 			
@@ -1904,16 +1907,20 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 					return DT_SUCCESS | DT_PARTIAL_RESULT | ((*straightPathCount >= maxStraightPath) ? DT_BUFFER_TOO_SMALL : 0);
 				}
 				
+				warning("portal points, left: (%f, %f, %f), right: (%f, %f, %f)", left[0], left[1], left[2], right[0], right[1], right[2]);
 				// If starting really close the portal, advance.
 				if (i == 0)
 				{
 					float t;
-					if (dtDistancePtSegSqr2D(portalApex, left, right, t) < dtSqr(0.001f))
+					if (dtDistancePtSegSqr2D(portalApex, left, right, t) < dtSqr(0.001f)) {
+						warning("really close the portal");
 						continue;
+					}
 				}
 			}
 			else
 			{
+				warning("end of the path");
 				// End of the path.
 				dtVcopy(left, closestEndPos);
 				dtVcopy(right, closestEndPos);
@@ -1921,6 +1928,7 @@ dtStatus dtNavMeshQuery::findStraightPath(const float* startPos, const float* en
 				toType = DT_POLYTYPE_GROUND;
 			}
 			
+			warning("right vertex");
 			// Right vertex.
 			if (dtTriArea2D(portalApex, portalRight, right) <= 0.0f)
 			{

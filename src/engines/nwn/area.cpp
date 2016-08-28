@@ -232,7 +232,7 @@ void Area::show() {
 	if (_visible)
 		return;
 
-	_pathfinder = new Pathfinder();
+	_pathfinder = new Pathfinder(true);
 	GfxMan.setPathfinder(_pathfinder);
 
 	loadModels();
