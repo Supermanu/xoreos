@@ -39,6 +39,12 @@
 #include "src/common/vector3.h"
 #include "src/common/ustring.h"
 
+namespace Engines {
+
+class Pathfinding;
+
+}
+
 namespace Graphics {
 
 class FPSCounter;
@@ -174,6 +180,7 @@ public:
 	/** Return the inverse modelview matrix (camera view). */
 	const Common::Matrix4x4 &getModelviewInverseMatrix() const;
 
+	void setPathfinding(Engines::Pathfinding *pf);
 private:
 	enum CursorState {
 		kCursorStateStay,
@@ -248,6 +255,8 @@ private:
 	std::list<ListID>      _abandonLists;    ///< Abandoned lists.
 
 	Common::Mutex _abandonMutex; ///< A mutex protecting abandoned structures.
+
+	Engines::Pathfinding *_pathfinding;
 
 	void initSize(int width, int height, bool fullscreen);
 	void setupScene();

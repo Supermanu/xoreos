@@ -42,6 +42,8 @@
 #include "src/events/events.h"
 #include "src/events/notifications.h"
 
+#include "src/engines/aurora/pathfinding.h"
+
 #include "src/graphics/graphics.h"
 #include "src/graphics/util.h"
 #include "src/graphics/icon.h"
@@ -118,6 +120,8 @@ GraphicsManager::GraphicsManager() {
 	_lastSampled = 0;
 
 	glCompressedTexImage2D = 0;
+
+	_pathfinding = 0;
 }
 
 GraphicsManager::~GraphicsManager() {
@@ -1157,6 +1161,10 @@ bool GraphicsManager::renderWorld() {
 	}
 
 	QueueMan.unlockQueue(kQueueVisibleWorldObject);
+
+	if (_pathfinding)
+		_pathfinding->drawWalkmesh();
+
 	return true;
 }
 
@@ -1310,6 +1318,10 @@ Common::Matrix4x4 &GraphicsManager::getModelviewMatrix() {
 
 const Common::Matrix4x4 &GraphicsManager::getModelviewInverseMatrix() const {
 	return _modelviewInv;
+}
+
+void GraphicsManager::setPathfinding(Engines::Pathfinding *pf) {
+	_pathfinding = pf;
 }
 
 int GraphicsManager::getScreenWidth() const {

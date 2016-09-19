@@ -22,6 +22,8 @@
  *  The context holding a Star Wars: Knights of the Old Republic area.
  */
 
+#include <ctime>
+
 #include "src/common/util.h"
 #include "src/common/error.h"
 #include "src/common/readstream.h"
@@ -47,6 +49,7 @@
 #include "src/engines/kotor/placeable.h"
 #include "src/engines/kotor/door.h"
 #include "src/engines/kotor/creature.h"
+#include "src/engines/kotor/kotorpathfinding.h"
 
 namespace Engines {
 
@@ -54,6 +57,10 @@ namespace KotOR {
 
 Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeArea),
 	_module(&module), _resRef(resRef), _visible(false), _activeObject(0), _highlightAll(false) {
+
+	_pathfinding = new KotORPathfinding();
+	_iter = 40;
+	GfxMan.setPathfinding(_pathfinding);
 
 	try {
 		load();
@@ -74,6 +81,9 @@ Area::~Area() {
 	removeFocus();
 
 	clear();
+
+	GfxMan.setPathfinding(0);
+	delete _pathfinding;
 }
 
 void Area::load() {
@@ -238,6 +248,7 @@ void Area::loadLYT() {
 		if (!(lyt = ResMan.getResource(_resRef, Aurora::kFileTypeLYT)))
 			throw Common::Exception("No such LYT");
 
+		warning("loading lyt file %s", _resRef.c_str());
 		_lyt.load(*lyt);
 
 		delete lyt;
@@ -324,8 +335,12 @@ void Area::loadProperties(const Aurora::GFF3Struct &props) {
 
 void Area::loadRooms() {
 	const Aurora::LYTFile::RoomArray &rooms = _lyt.getRooms();
-	for (Aurora::LYTFile::RoomArray::const_iterator r = rooms.begin(); r != rooms.end(); ++r)
+	for (Aurora::LYTFile::RoomArray::const_iterator r = rooms.begin(); r != rooms.end(); ++r) {
 		_rooms.push_back(new Room(r->model, r->x, r->y, r->z));
+		_pathfinding->addData(r->model);
+	}
+
+	_pathfinding->finalize();
 }
 
 void Area::loadObject(KotOR::Object &object) {
@@ -380,6 +395,38 @@ void Area::processEventQueue() {
 	bool hasMove = false;
 	for (std::list<Events::Event>::const_iterator e = _eventQueue.begin();
 	     e != _eventQueue.end(); ++e) {
+
+		if (e->type == Events::kEventKeyDown) {
+			if (e->key.keysym.sym == SDLK_LALT) {
+// 				float start[3] = { 18.5, 17.f, -1.27 };
+// 				float end[3]   = {11.5f, 25.f, -1.27};
+				float start[3] = { 13.f, 30.2f, -1.27 };
+				float end[3]   = { 28.828587, 20.333252, -1.27 };
+
+
+				std::vector<uint32> path;
+				clock_t startFindPath = std::clock();
+				bool out = _pathfinding->findPath(start[0], start[1], start[2], end[0], end[1], end[2], path);
+				clock_t endFindPath = std::clock();
+				++_iter;
+				warning("Out is %i", out);
+				clock_t startSmooth = std::clock();
+				if (out) {
+					Common::Vector3 sP(start[0], start[1], start[2]);
+					Common::Vector3 eP(end[0], end[1], end[2]);
+					std::vector<Common::Vector3> smoothPath;
+					_pathfinding->smoothPath(sP, eP, path, smoothPath);
+// 					for (std::vector<Common::Vector3>::iterator it = smoothPath.begin(); it != smoothPath.end(); ++it)
+// 						warning("Point: (%f, %f, %f)", (*it)._x, (*it)._y, (*it)._z);
+				}
+				clock_t endSmooth = std::clock();
+				double findPath = double(endFindPath - startFindPath);
+				double smoothing = double(endSmooth - startSmooth);
+				warning("Time spent find path: %f ms", findPath / CLOCKS_PER_SEC * 1000);
+				warning("Time spent smoothing: %f ms", smoothing / CLOCKS_PER_SEC * 1000);
+				warning("Total time: %f ms", (findPath + smoothing) / CLOCKS_PER_SEC * 1000);
+			}
+		}
 
 		if        (e->type == Events::kEventMouseMove) { // Moving the mouse
 			hasMove = true;
