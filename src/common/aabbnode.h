@@ -19,23 +19,44 @@
  */
 
 /** @file
- *  An axis-aligned bounding box.
+ *  An axis-aligned bounding box node.
  */
 
-#ifndef COMMON_AABOUNDINGBOX_H
-#define COMMON_AABOUNDINGBOX_H
+#ifndef COMMON_AABBNODE_H
+#define COMMON_AABBNODE_H
 
+#include <vector>
+
+#include "src/common/types.h"
 #include "src/common/boundingbox.h"
 
 namespace Common {
 
-class AABoundingBox : public BoundingBox {
+class AABBNode : public BoundingBox {
 public:
-	AABoundingBox();
-	~AABoundingBox();
+	AABBNode(float min[], float max[], int32 property = -1);
+	~AABBNode();
 
+	bool hasChildren() const;
+	void setChildren(AABBNode *leftChild, AABBNode *rightChild);
+
+	void rotate(float angle, float x, float y, float z);
+	void setOrientation(uint8 orientation);
+	void translate(float x, float y, float z);
+	void absolutize();
+
+	AABBNode *getNode(float x, float y);
+	AABBNode *getNode(float x1, float y1, float z1, float x2, float y2, float z2);
+	void getNodes(float x1, float y1, float z1, float x2, float y2, float z2, std::vector<AABBNode *> &nodes);
+
+	int32 getProperty() const;
+
+private:
+	AABBNode *_leftChild;
+	AABBNode *_rightChild;
+	int32 _property;
 };
 
 } // End of namespace Common
 
-#endif // COMMON_AABOUNDINGBOX_H
+#endif // COMMON_AABBNODE_H

@@ -69,16 +69,17 @@ public:
 	/** Return a copy with the origin transformations directly applied to the coordinates. */
 	BoundingBox getAbsolute() const;
 
-private:
+protected:
+	float _min[3];
+	float _max[3];
+
 	bool _empty;
+private:
 	bool _absolute;
 
 	Matrix4x4 _origin;
 
 	float _coords[8][3];
-
-	float _min[3];
-	float _max[3];
 
 	inline float getCoordMin(int i) const;
 	inline float getCoordMax(int i) const;
