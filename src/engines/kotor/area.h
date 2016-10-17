@@ -43,6 +43,10 @@
 
 #include "src/engines/kotor/object.h"
 
+namespace Common {
+class Vector3;
+}
+
 namespace Engines {
 
 namespace KotOR {
@@ -162,6 +166,7 @@ private:
 	//Pathfinding
 	KotORPathfinding *_pathfinding;
 	uint32 _iter;
+	std::vector<Common::Vector3> _startEndPoints;
 
 
 	// Loading helpers

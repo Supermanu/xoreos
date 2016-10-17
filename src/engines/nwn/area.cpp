@@ -23,6 +23,7 @@
  */
 
 #include <cassert>
+#include <ctime>
 
 #include "src/common/util.h"
 #include "src/common/error.h"
@@ -47,6 +48,7 @@
 #include "src/engines/nwn/placeable.h"
 #include "src/engines/nwn/door.h"
 #include "src/engines/nwn/creature.h"
+#include "src/engines/nwn/nwnpathfinding.h"
 
 namespace Engines {
 
@@ -56,6 +58,7 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_module(&module), _resRef(resRef), _visible(false), _tileset(0),
 	_activeObject(0), _highlightAll(false) {
 
+	_pathfinding = new NWNPathfinding();
 	try {
 		load();
 	} catch (...) {
@@ -75,6 +78,9 @@ Area::~Area() {
 	removeFocus();
 
 	clear();
+
+	GfxMan.setPathfinding(0);
+	delete _pathfinding;
 }
 
 void Area::load() {
@@ -469,8 +475,15 @@ void Area::loadTiles() {
 
 			t.model->setPosition(tileX, tileY, tileZ);
 			t.model->setOrientation(0.0f, 0.0f, 1.0f, ((int) t.orientation) * 90.0f);
+
+			float position[3] = { tileX, tileY, tileZ };
+			_pathfinding->addData(t.tile->model, t.orientation, position);
 		}
 	}
+
+	_pathfinding->finalize();
+	// Attach pathfinding for debugging purpose.
+	GfxMan.setPathfinding(_pathfinding);
 }
 
 void Area::unloadTiles() {
@@ -486,6 +499,9 @@ void Area::unloadTiles() {
 			t.model = 0;
 		}
 	}
+
+	// Detach pathfinding instance.
+	GfxMan.setPathfinding(0);
 }
 
 void Area::loadObject(NWN::Object &object) {
@@ -542,6 +558,44 @@ void Area::processEventQueue() {
 			if (e->button.button == SDL_BUTTON_LMASK) {
 				checkActive(e->button.x, e->button.y);
 				click(e->button.x, e->button.y);
+
+				float x1, y1, z1, x2, y2, z2;
+				int x, y;
+				CursorMan.getPosition(x, y);
+				GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
+				Common::Vector3 intersect;
+				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, intersect);
+				warning("face found: %u", face);
+
+				if (face != UINT32_MAX && _pathfinding->walkable(face)) {
+					if (_startEndPoints.size() < 2) {
+						_startEndPoints.push_back(intersect);
+					} else {
+						_startEndPoints[0] = _startEndPoints[1];
+						_startEndPoints[1] = intersect;
+					}
+
+					if (_startEndPoints.size() == 2) {
+						std::vector<uint32> path;
+						clock_t startFindPath = std::clock();
+						bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y, _startEndPoints[0]._z,
+														  _startEndPoints[1]._x, _startEndPoints[1]._y, _startEndPoints[1]._z, path);
+						clock_t endFindPath = std::clock();
+// 						++_iter;
+						warning("Out is %i", out);
+						clock_t startSmooth = std::clock();
+						if (out) {
+							std::vector<Common::Vector3> smoothPath;
+							_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath);
+						}
+						clock_t endSmooth = std::clock();
+						double findPath = double(endFindPath - startFindPath);
+						double smoothing = double(endSmooth - startSmooth);
+						warning("Time spent find path: %f ms", findPath / CLOCKS_PER_SEC * 1000);
+						warning("Time spent smoothing: %f ms", smoothing / CLOCKS_PER_SEC * 1000);
+						warning("Total time: %f ms", (findPath + smoothing) / CLOCKS_PER_SEC * 1000);
+					}
+				}
 			}
 		} else if (e->type == Events::kEventKeyDown) { // Holding down TAB
 			if (e->key.keysym.sym == SDLK_TAB)

@@ -26,6 +26,7 @@
 
 #include "src/common/util.h"
 #include "src/common/vector3.h"
+#include "src/common/aabbnode.h"
 
 #include "src/graphics/graphics.h"
 
@@ -39,6 +40,8 @@ bool sortByLenght(Common::Vector3 vec1, Common::Vector3 vec2) {
 }
 
 Pathfinding::Pathfinding() : _verticesCount(0), _facesCount(0) {
+	_creatureWidth = 0.f;
+	_creaturePos = Common::Vector3(0.f, 0.f, 0.f);
 }
 
 Pathfinding::~Pathfinding() {
@@ -59,7 +62,10 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 						   float endX, float endY, float endZ, std::vector<uint32> &facePath, float width, uint32 nbrIt) {
 	// A* algorithm.
 
-// 	warning("finding path...");
+	_facesToDraw.clear();
+	_creaturePos = Common::Vector3(startX, startY, startZ);
+	_creatureWidth = width;
+// 	warning("finding path... with iter %u", nbrIt);
 	facePath.clear();
 
 	// Find faces start and end points belong.
@@ -88,12 +94,18 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 	std::vector<Node> closedList;
 	openList.push_back(startNode);
 
-// 	warning("starting the loob");
+// 	warning("starting the loop");
 	// Searching...
 
 // 	while (!openList.empty()) {
 	for (uint32 it = 0; it < nbrIt; ++it) {
+// 		warning("openlist size %zu", openList.size());
+		if (openList.empty())
+			break;
+
 		Node current = openList.front();
+// 		warning("current face %u", current.face);
+		_facesToDraw.push_back(current.face);
 
 		if (current.face == endNode.face) {
 			reconstructPath(current, closedList, facePath);
@@ -107,9 +119,14 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 
 		std::vector<uint32> adjNodes;
 		getAdjacentNodes(current, adjNodes);
+// 		warning("adjNodes size %zu", adjNodes.size());
 		for (std::vector<uint32>::iterator a = adjNodes.begin(); a != adjNodes.end(); ++a) {
+// 			warning("adj node %u", *a);
 			// Check if it has been already evaluated.
 			if (hasNode(*a, closedList))
+				continue;
+
+			if (!goThrough(current.face, *a, width))
 				continue;
 
 			// Distance from start point to this node.
@@ -117,19 +134,22 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 			float gScore = current.G + getDistance(current, *a, x, y, z);
 
 			// Check if it is a new node.
-			Node adjNode;
-			if (!hasNode(*a, openList, adjNode)) {
-				Node newNode(*a, x, y, z);
-				newNode.parent = current.face;
-				openList.push_back(newNode);
-			} else if (gScore >= adjNode.G) {
+			Node *adjNode = getNode(*a, openList);
+			bool isThere = adjNode > 0;
+			if (!isThere) {
+				adjNode = new Node(*a, x, y, z);
+				adjNode->parent = current.face;
+			} else if (gScore >= adjNode->G) {
 				continue;
 			}
 
-			// adjNode is the best node up to now.
-			adjNode.parent = current.face;
-			adjNode.G = gScore;
-			adjNode.H = getHeuristic(adjNode, endNode);
+			// adjNode is the best node up to now, update/add.
+			adjNode->parent = current.face;
+			adjNode->G = gScore;
+			adjNode->H = getHeuristic(*adjNode, endNode);
+			if (!isThere)
+				openList.push_back(*adjNode);
+
 			std::sort(openList.begin(), openList.end());
 		}
 	}
@@ -137,9 +157,263 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 	return false;
 }
 
+void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width) {
+// 	warning("start point (%f, %f, %f)", start._x, start._y, start._y);
+// 	warning("end point (%f, %f, %f)", end._x, end._y, end._y);
+	_pointsToDraw.clear();
+	// Based on the Simple Stupid Funnel Algorithm from Mikko Mononen (http://digestingduck.blogspot.be)
+	Common::Vector3 apex, left, right, lastLeft, lastRight;
+	Common::Vector3 newLeft, newRight;
+	Common::Vector3 otherVert = start;
+	left = start; lastLeft = start;
+	right = start; lastRight = start;
+	apex = start;
+	uint32 leftIndex = 0;
+	uint32 rightIndex = 0;
+
+	path.clear();
+	path.push_back(start);
+// 	_pointsToDraw.push_back(start);
+
+	for (uint32 f = 0; f < facePath.size(); ++f) {
+// 		warning("Entering side %u", f);
+		// Find next vertex
+		Common::Vector3 vertA, vertB, vertOne, vertTwo, vertThree;
+		if (f == facePath.size() - 1) {
+			// Consider the end point as the last side we need to go.
+			vertA = end;
+			vertB = end;
+		} else {
+			getSharedVertices(facePath[f], facePath[f + 1], vertA, vertB);
+			getVertices(facePath[f], vertOne, vertTwo, vertThree);
+
+			if (vertOne != vertA && vertOne != vertB)
+				otherVert = vertOne;
+			else if (vertTwo != vertA && vertTwo != vertB)
+				otherVert = vertTwo;
+			else
+				otherVert = vertThree;
+		}
+
+		// Move along the funnel.
+// 		warning("vertA(%f, %f, %f), vertB(%f, %f, %f), left(%f, %f, %f), right(%f, %f, %f)",
+// 			vertA[0], vertA[1], vertA[2], vertB[0], vertB[1], vertB[2], left[0], left[1], left[2], right[0], right[1], right[2]
+// 		);
+
+		if (right == left) {
+			// If we start or restart the pulling.
+			if (triangleArea2(apex, vertA, vertB) < 0.f) {
+				newLeft = vertA;
+				newRight = vertB;
+			} else {
+				newLeft = vertB;
+				newRight = vertA;
+			}
+
+			lastLeft = apex;
+			lastRight = apex;
+		} else {
+			lastLeft = newLeft;
+			lastRight = newRight;
+
+			if (triangleArea2(otherVert, vertA, vertB) < 0.f) {
+				newLeft = vertA;
+				newRight = vertB;
+			} else {
+				newLeft = vertB;
+				newRight = vertA;
+			}
+		}
+
+		// Take creature's width
+// 		Common::Vector3 creatureSize(0.f, 0.f, 0.f);
+		if ((newLeft - newRight).length() >= width) {
+
+// 			if (right == left) {
+// 				newRight += getCreatureSizePoint(otherVert, newRight, newLeft, width * 0.5, false);
+// 				newLeft += getCreatureSizePoint(otherVert, newLeft, newRight, width * 0.5, true);
+// 			} else if (lastLeft != newLeft) {
+// 				// Move along the right
+// 				Common::Vector3 widthMove = getCreatureSizePoint(otherVert, newRight, newLeft, width * 0.5, false);
+// 				newRight += widthMove;
+// 				newLeft -= widthMove;
+// 			} else {
+// 				// Move along the left
+// 				Common::Vector3 widthMove = getCreatureSizePoint(otherVert, newLeft, newRight, width * 0.5, true);
+// 				newLeft += widthMove;
+// 				newRight -= widthMove;
+// 			}
+// 			creatureSize = (newRight - newLeft).norm() * width * 0.5f;
+		} else if (f != facePath.size() - 1) {
+			//TODO: Look around the edge
+		}
+
+		// Update right if needed
+		// First, check if the new point tighten the funnel
+		if (triangleArea2(apex, right, newRight) >= 0.f) {
+// 			warning("We're on the good side (right)");
+			// Second, check if we are still in the funnel i.e. we don't cross the other side.
+			if (triangleArea2(apex, left, newRight) < 0.f || apex == right) {
+				right = newRight;
+// 				warning("We're still in the funnel (rightindex %u)", f);
+// 				_pointsToDraw.push_back(right);
+				rightIndex = f;
+			} else {
+// 				warning("We're outside the funnel (right)");
+				// Change apex to current left
+				apex = left;
+				right = apex;
+				// Add it to the path
+				if (path.back() != left)
+					path.push_back(left);
+// 				_pointsToDraw.push_back(left);
+
+				// Restart from that point
+				rightIndex = leftIndex;
+				f = leftIndex;
+				continue;
+			}
+		}
+
+		// Update left if needed
+		// First, check if the new point tighten the funnel
+		if (triangleArea2(apex, left, newLeft) <= 0.f) {
+// 			warning("We're on the good side (left)");
+			// Second, check if we are still in the funnel i.e. we don't cross the other side.
+			if (triangleArea2(apex, right, newLeft) > 0.f || apex == left) {
+// 				warning("We're still in the funnel (leftindex %u)", f);
+				left = newLeft;
+				leftIndex = f;
+// 				_pointsToDraw.push_back(left);
+			} else {
+// 				warning("We're outside the funnel left");
+				// Change apex to current left
+				apex = right;
+				left = apex;
+				// Add it to the path
+				if (path.back() != right)
+					path.push_back(right);
+// 				_pointsToDraw.push_back(right);
+
+				// Restart from that point
+				leftIndex = rightIndex;
+				f = rightIndex;
+				continue;
+			}
+		}
+	}
+
+	if (path.back() != end)
+		path.push_back(end);
+
+	std::vector<Common::Vector3> finalPath;
+	manageCreatureSize(path, width / 2, finalPath);
+	for (uint32 i = 0; i < finalPath.size(); ++i)
+		_pointsToDraw.push_back(finalPath[i]);
+
+// 	_pointsToDraw.push_back(end);
+}
+
+void Pathfinding::manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &finalPath) {
+	if (smoothedPath.size() < 3) {
+		finalPath = smoothedPath;
+		return;
+	}
+
+	finalPath.clear();
+	finalPath.push_back(smoothedPath.front());
+
+	Common::Vector3 middlePoint, segment;
+	Common::Vector3 middleSquare, firstSquare, secondSquare, orthoVec;
+// 	warning("point 0 (%f, %f, %f)", smoothedPath[0][0], smoothedPath[0][1], smoothedPath[0][2]);
+
+	for (uint32 point = 0; point < smoothedPath.size() - 2; ++point) {
+// 		warning("point %u (%f, %f, %f)", point + 1, smoothedPath[point + 1][0], smoothedPath[point + 1][1], smoothedPath[point + 1][2]);
+		if (smoothedPath[point] == smoothedPath[point + 1])
+			continue;
+
+		middlePoint = smoothedPath[point + 1];
+		segment = smoothedPath[point + 2] - smoothedPath[point];
+
+		bool clockwise = !isToTheLeft(smoothedPath[point], smoothedPath[point + 2], middlePoint);
+		orthoVec = getOrthonormalVec(segment, clockwise) * halfWidth;
+		middleSquare = middlePoint + orthoVec;
+		// Check if we are in a small face
+		if (!walkable(middleSquare))
+			middleSquare = middlePoint - orthoVec;
+
+		secondSquare = middleSquare + (segment.norm() * halfWidth);
+		firstSquare = middleSquare + (segment.norm() * (-1) * halfWidth);
+
+// 		finalPath.push_back(middleSquare);
+		finalPath.push_back(firstSquare);
+		finalPath.push_back(secondSquare);
+
+	}
+
+// 	warning("point %lu (%f, %f, %f)", smoothedPath.size() - 1, smoothedPath[smoothedPath.size() - 1][0], smoothedPath[smoothedPath.size() - 1][1], smoothedPath[smoothedPath.size() - 1][2]);
+	finalPath.push_back(smoothedPath.back());
+}
+
+bool Pathfinding::isToTheLeft(Common::Vector3 startSegment, Common::Vector3 endSegment, Common::Vector3 point) const {
+	return (endSegment - startSegment).cross(point - startSegment)._z > 0;
+}
+
+bool Pathfinding::inCircle(Common::Vector3 center, float radius, Common::Vector3 startSegment, Common::Vector3 endSegment) {
+	Common::Vector3 seg = (endSegment - startSegment).norm();
+	// We use scalar projection to find the closest point to the center of the circle.
+	return (startSegment + seg * center.dot(seg) - center).length() < radius;
+}
+
+Common::Vector3 Pathfinding::getOrthonormalVec(Common::Vector3 segment, bool clockwise) const {
+	Common::Vector3 copy = segment;
+	// Sinus of 90 degrees.
+	float sinus = (clockwise ? -1 : 1);
+	copy._x = - segment._y * sinus;
+	copy._y = segment._x * sinus;
+	return copy.norm();
+}
+
+Common::Vector3 Pathfinding::getCreatureSizePoint(Common::Vector3 &from, Common::Vector3 &left, Common::Vector3 &right, float halfWidth, bool alongLeft) {
+	Common::Vector3 impVec = alongLeft ? left : right;
+	Common::Vector3 othVec = alongLeft ? right : left;
+
+	Common::Vector3 height = (impVec - from).norm();
+
+	Common::Matrix4x4 rotMat = Common::Matrix4x4();
+	rotMat.rotateZAxisLocal((alongLeft ? 1.f : -1.f) * 90.f);
+	height = rotMat.vectorRotate(height) * halfWidth;
+
+	return ((othVec - impVec).norm() * height.dot((othVec - impVec).norm()));
+
+// 	float ab = (nearVertex - from).length();
+// 	float bd = (farVertex - nearVertex).length();
+// 	float ad = (farVertex - from).length();
+//
+// 	float beta = acos((ab * ab + bd * bd - ad * ad) / (2 * ab * bd));
+// 	float beta1 = acos(halfWidth / ab);
+// 	float bc = halfWidth / cos(beta - beta1);
+//
+// 	return nearVertex + (farVertex - nearVertex).norm() * bc;
+// 	float abbd = ab.dot(bd);
+//
+// 	// Check orthogonality.
+// 	if (abbd == 0)
+// 		return nearVertex +(bd.norm() * halfWidth);
+//
+// 	float alpha = (sqrt(ab.dot(ab) + halfWidth * halfWidth) - ab.dot(ab)) / ab.dot(bd);
+// 	warning("alpha %f", alpha);
+// 	return nearVertex + (bd * abs(alpha));
+}
+
 void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path) {
 	// Simple smooth path algorithm.
 	path.push_back(start);
+
+	if (facePath.size() < 3) {
+		path.push_back(end);
+		return;
+	}
 
 // 	warning("Total faces: %lu", facePath.size());
 	uint32 endFace = facePath.size() - 1;
@@ -285,7 +559,7 @@ void Pathfinding::getClosestIntersection(Common::Vector3 &start, Common::Vector3
 	intersect = inters.front() + start;
 }
 
-void Pathfinding::getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) {
+void Pathfinding::getVertices(uint32 faceID, Common::Vector3& vA, Common::Vector3& vB, Common::Vector3& vC) const {
 	uint32 vertexIdA = _faces[faceID * 3];
 	uint32 vertexIdB = _faces[faceID * 3 + 1];
 	uint32 vertexIdC = _faces[faceID * 3 + 2];
@@ -379,6 +653,16 @@ bool Pathfinding::hasNode(uint32 face, std::vector<Node> &nodes, Node &node) con
 	}
 
 	return false;
+}
+
+Pathfinding::Node *Pathfinding::getNode(uint32 face, std::vector<Node> &nodes) const {
+	for (std::vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+		if ((*n).face == face) {
+			return &(*n);
+		}
+	}
+
+	return 0;
 }
 
 void Pathfinding::reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path) {
@@ -481,19 +765,144 @@ void Pathfinding::drawWalkmesh() {
 		glEnd();
 		glLineWidth(1.f);
 	}
+
+	if (_creatureWidth > 0.f) {
+		glBegin(GL_LINES);
+		glColor4f(1.f, 0.3, 1.0, 0.8);
+		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
+		glEnd();
+	}
 }
 
 bool Pathfinding::walkable(uint32 faceIndex) const {
-	return _faceProperty[faceIndex] != 2 && _faceProperty[faceIndex] != 7;
+	if (faceIndex == UINT32_MAX)
+		return false;
+
+	return _faceProperty[faceIndex] != 2 && _faceProperty[faceIndex] != 7
+	&& _faceProperty[faceIndex] != 0 && _faceProperty[faceIndex] != 8;
 }
 
-uint32 Pathfinding::findFace(float x, float y, float z) const {
-	for (uint32 f = 0; f < _facesCount; ++f) {
-		if (inFace(f, x, y, z))
-			return f;
+bool Pathfinding::walkable(Common::Vector3 point) {
+	uint32 face = findFace(point[0], point[1], point[2]);
+	return walkable(face);
+}
+
+// uint32 Pathfinding::findFace(float x, float y, float z) const {
+// 	for (uint32 f = 0; f < _facesCount; ++f) {
+// 		if (inFace(f, x, y, z))
+// 			return f;
+// 	}
+//
+// 	return UINT32_MAX;
+// }
+
+uint32 Pathfinding::findFace(float x, float y, float z, bool onlyWalkable) {
+	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+		if (*it == 0)
+			continue;
+
+		if (!(*it)->isIn(x, y, z))
+			continue;
+
+		std::vector<Common::AABBNode *> nodes;
+		(*it)->getNodes(x, y, nodes);
+		for (uint n = 0; n < nodes.size(); ++n) {
+			uint32 face = nodes[n]->getProperty();
+			// Check walkability
+			if (onlyWalkable && !walkable(face))
+				continue;
+
+			if (!inFace(face, x, y, z))
+				continue;
+
+			return face;
+		}
 	}
 
 	return UINT32_MAX;
+}
+
+uint32 Pathfinding::findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect) {
+	warning("Looking for a face");
+	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+		if (*it == 0)
+			continue;
+
+		if (!(*it)->isIn(x1, y1, z1, x2, y2, z2))
+			continue;
+
+// 		Common::AABBNode *node = (*it)->getNode(x1, y1, z1, x2, y2, z2);
+// 		uint32 face = node->getProperty();
+// 		_facesToDraw.clear();
+// 		_facesToDraw.push_back(face);
+// 		inFace(face, Common::Vector3(x1, y1, z1), Common::Vector3(x2, y2, z2), intersect);
+// 		return face;
+		std::vector<Common::AABBNode *> nodes;
+		(*it)->getNodes(x1, y1, z1, x2, y2, z2, nodes);
+		for (uint n = 0; n < nodes.size(); ++n) {
+			uint32 face = nodes[n]->getProperty();
+			if (!inFace(face, Common::Vector3(x1, y1, z1), Common::Vector3(x2, y2, z2), intersect))
+				continue;
+
+			_facesToDraw.clear();
+			_facesToDraw.push_back(face);
+			warning("face found : %u", face);
+			if (_adjFaces[face * 3] != UINT32_MAX)
+				_facesToDraw.push_back(_adjFaces[face * 3]);
+			if (_adjFaces[face * 3 + 1] != UINT32_MAX)
+				_facesToDraw.push_back(_adjFaces[face * 3 + 1]);
+			if (_adjFaces[face * 3 + 2] != UINT32_MAX)
+				_facesToDraw.push_back(_adjFaces[face * 3 + 2]);
+			return face;
+		}
+	}
+
+	// Face not found
+	return UINT32_MAX;
+}
+
+bool Pathfinding::goThrough(uint32 fromFace, uint32 toFace, float width) {
+	if (width <= 0.f)
+		return true;
+
+// 	warning("check (%u -> %u)", fromFace, toFace);
+	Common::Vector3 vec1, vec2;
+	getSharedVertices(fromFace, toFace, vec1, vec2);
+	// Check if the shared side is large enough
+	if ((vec2 - vec1).length() > width)
+		return true;
+
+// 	warning("want to go there");
+	Common::Vector3 center, side1, side2, intersect;
+	center = vec1 + ((vec2 - vec1) * 0.5f);
+	side1 = center + ((vec1 - vec2).norm() * (width / 2));
+	side2 = center - ((vec1 - vec2).norm() * (width / 2));
+	bool test1 = walkable(findFace(side1._x, side1._y, side1._z)) && walkable(findFace(side2._x, side2._y, side2._z));
+	if (test1)
+		return true;
+
+	side1 = vec1;
+	side2 = vec1 + ((vec2 - vec1).norm() * width);
+	bool test2 = walkable(findFace(side1._x, side1._y, side1._z)) && walkable(findFace(side2._x, side2._y, side2._z));
+	if (test2)
+		return true;
+
+	side1 = vec2;
+	side2 = vec2 + ((vec1 - vec2).norm() * width);
+	bool test3 = walkable(findFace(side1._x, side1._y, side1._z)) && walkable(findFace(side2._x, side2._y, side2._z));
+	if (test3)
+		return true;
+
+// 	warning("check (%u -> %u) neighbour %i, %i, %i", fromFace, toFace, test1, test2, test3);
+
+	return false;
 }
 
 void Pathfinding::getAdjacentNodes(Node &node, std::vector<uint32> &adjNodes) {
@@ -503,9 +912,11 @@ void Pathfinding::getAdjacentNodes(Node &node, std::vector<uint32> &adjNodes) {
 	for (uint8 f = 0; f < 3; ++f) {
 		// Get adjacent face.
 		uint32 face = _adjFaces[node.face * 3 + f];
+
 		// Check if it is a border
 		if (face == UINT32_MAX)
 			continue;
+
 		// Check if it is the parent node.
 		if (face != node.parent)
 			adjNodes.push_back(face);
@@ -547,19 +958,18 @@ float Pathfinding::getHeuristic(Node &node, Node &endNode) const {
 	return getDistance(node.x, node.y, node.z, endNode.x, endNode.y, endNode.z);
 }
 
+float Pathfinding::triangleArea2(Common::Vector3 vertA, Common::Vector3 vertB, Common::Vector3 vertC) const {
+	return (vertB - vertA).cross(vertC - vertA)._z;
+}
+
 bool Pathfinding::inFace(uint32 faceID, Common::Vector3 point) const {
 	return inFace(faceID, point._x, point._y, point._z);
 }
 
 bool Pathfinding::inFace(uint32 faceID, float x, float y, float z) const {
 	// Use Barycentric Technique.
-	uint32 vertexIdA = _faces[faceID * 3];
-	uint32 vertexIdB = _faces[faceID * 3 + 1];
-	uint32 vertexIdC = _faces[faceID * 3 + 2];
-
-	Common::Vector3 vA(_vertices[vertexIdA * 3], _vertices[vertexIdA * 3 + 1], _vertices[vertexIdA * 3 + 2]);
-	Common::Vector3 vB(_vertices[vertexIdB * 3], _vertices[vertexIdB * 3 + 1], _vertices[vertexIdB * 3 + 2]);
-	Common::Vector3 vC(_vertices[vertexIdC * 3], _vertices[vertexIdC * 3 + 1], _vertices[vertexIdC * 3 + 2]);
+	Common::Vector3 vA, vB, vC;
+	getVertices(faceID, vA, vB, vC);
 
 	Common::Vector3 v0 = vC - vA;
 	Common::Vector3 v1 = vB - vA;
@@ -579,6 +989,97 @@ bool Pathfinding::inFace(uint32 faceID, float x, float y, float z) const {
 // 	warning("In face %f, %f", u, v);
 	// Check if point is in triangle
 	return (u + 0.0001 >= 0) && (v + 0.0001 >= 0) && (u + v - 0.0001 < 1);
+}
+
+bool Pathfinding::inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd, Common::Vector3 &intersect) {
+	float epsilon = 0.000001;
+
+	Common::Vector3 vA, vB, vC;
+	getVertices(faceID, vA, vB, vC);
+
+	Common::Vector3 D = lineEnd - lineStart;
+	Common::Vector3 e1, e2;  //Edge1, Edge2
+	Common::Vector3 P, Q, T;
+	float det, inv_det, u, v;
+	float t;
+
+	//Find vectors for two edges sharing V1
+	e1 = vB - vA;
+	e2 = vC - vA;
+
+	//Begin calculating determinant - also used to calculate u parameter
+	P = D.cross(e2);
+
+	//if determinant is near zero, ray lies in plane of triangle or ray is parallel to plane of triangle
+	det = e1.dot(P);
+	//NOT CULLING
+	if (det > -epsilon && det < epsilon)
+		return false;
+
+	inv_det = 1.f / det;
+
+	//calculate distance from V1 to ray origin
+	T = lineStart - vA;
+
+	//Calculate u parameter and test bound
+	u = T.dot(P) * inv_det;
+	//The intersection lies outside of the triangle
+	if (u < 0.f || u > 1.f)
+		return false;
+
+	//Prepare to test v parameter
+	Q = T.cross(e1);
+
+	//Calculate V parameter and test bound
+	v = D.dot(Q) * inv_det;
+	//The intersection lies outside of the triangle
+	if (v < 0.f || u + v  > 1.f)
+		return false;
+
+	t = e2.dot(Q) * inv_det;
+
+	if (t > epsilon) { //ray intersection
+		intersect = lineStart + D * t;
+		return true;
+	}
+
+	// No hit, no win
+	return false;
+}
+
+bool Pathfinding::hasVertex(uint32 face, Common::Vector3 vertex) const {
+	Common::Vector3 vert[3];
+	getVertices(face, vert[0], vert[1], vert[2]);
+
+	for (uint8 i = 0; i < 3; ++i) {
+		if (vert[i] == vertex)
+			return true;
+	}
+
+	return false;
+}
+
+bool Pathfinding::getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 &vert1, Common::Vector3 &vert2) const {
+// 	warning("getSharedVertices f1: %u, f2: %u", face1, face2);
+	Common::Vector3 v[3];
+	getVertices(face1, v[0], v[1], v[2]);
+// 	warning("face1: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f)", v[0]._x, v[0]._y, v[0]._z, v[1]._x, v[1]._y, v[1]._z, v[2]._x, v[2]._y, v[2]._z);
+	getVertices(face2, v[0], v[1], v[2]);
+// 	warning("face2: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f)", v[0]._x, v[0]._y, v[0]._z, v[1]._x, v[1]._y, v[1]._z, v[2]._x, v[2]._y, v[2]._z);
+	for (uint8 i = 0; i < 3; ++i) {
+		if (_adjFaces[face1 * 3 + i] == face2) {
+			Common::Vector3 vertices[3];
+			getVertices(face1, vertices[0], vertices[1], vertices[2]);
+			vert1 = vertices[i];
+			vert2 = vertices[(i + 1) % 3];
+// 			warning("vert1: (%f, %f, %f)", vert1._x, vert1._y, vert1._z);
+// 			warning("vert2: (%f, %f, %f)", vert2._x, vert2._y, vert2._z);
+			return true;
+		}
+	}
+
+	// The faces are not adjacent.
+	return false;
 }
 
 } // namespace Engines

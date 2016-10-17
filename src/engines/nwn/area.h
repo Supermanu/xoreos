@@ -45,11 +45,16 @@
 #include "src/engines/nwn/tileset.h"
 #include "src/engines/nwn/object.h"
 
+namespace Common {
+class Vector3;
+}
+
 namespace Engines {
 
 namespace NWN {
 
 class Module;
+class NWNPathfinding;
 
 /** An area in Neverwinter Nights, holding all objects and room tiles within, as
  *  well as general area properties like the current background music and
@@ -198,6 +203,8 @@ private:
 
 	Common::Mutex _mutex; ///< Mutex securing access to the area.
 
+	NWNPathfinding *_pathfinding;
+	std::vector<Common::Vector3> _startEndPoints;
 
 	// Loading helpers
 

@@ -23,6 +23,7 @@
  */
 
 #include "src/common/vector3.h"
+#include "src/common/aabbnode.h"
 
 #include "src/aurora/resman.h"
 
@@ -60,8 +61,13 @@ void KotORPathfinding::addData(const Common::UString &wokFile) {
 	uint32 verticesCount = stream->readUint32LE();
 	warning("Vertices count: %u", verticesCount);
 	if (verticesCount == 0) {
-		_startFace.push_back(_startFace.back());
+		if (_startFace.empty())
+			_startFace.push_back(0);
+		else
+			_startFace.push_back(_startFace.back());
+
 		_adjRooms.push_back(std::map<uint32, uint32>());
+		_AABBTrees.push_back(0);
 		return;
 	}
 
@@ -89,13 +95,13 @@ void KotORPathfinding::addData(const Common::UString &wokFile) {
 		for (uint32 i = 0; i < 3; ++i)
 			_vertices[3 * v + i] = stream->readIEEEFloatLE();
 
-		warning("Vert %u: (%f, %f, %f)", v, _vertices[3 * v], _vertices[3 * v + 1], _vertices[3 * v + 2]);
+// 		warning("Vert %u: (%f, %f, %f)", v, _vertices[3 * v], _vertices[3 * v + 1], _vertices[3 * v + 2]);
 	}
 	_verticesCount += verticesCount;
 
 	// Faces
 	_startFace.push_back(_facesCount);
-	warning("Current room: %lu", _startFace.size() - 1);
+// 	warning("Current room: %lu", _startFace.size() - 1);
 	stream->seek(facesOffset);
 	_faces.resize(3 * (_facesCount + facesCount));
 
@@ -103,7 +109,7 @@ void KotORPathfinding::addData(const Common::UString &wokFile) {
 		for (uint32 i = 0; i < 3; ++i)
 			_faces[3 * f + i] = stream->readUint32LE() + _verticesCount - verticesCount;
 
-		warning("Face %u: (%i, %i, %i)", f, _faces[3 * f], _faces[3 * f + 1], _faces[3 * f + 2]);
+// 		warning("Face %u: (%i, %i, %i)", f, _faces[3 * f], _faces[3 * f + 1], _faces[3 * f + 2]);
 	}
 
 	// Walkmesh type
@@ -117,10 +123,8 @@ void KotORPathfinding::addData(const Common::UString &wokFile) {
 		if (_faceProperty[w] != 2 && _faceProperty[w] != 7)
 			walkableFaces.push_back(w);
 
-		warning("Walktype %u: %u", w, _faceProperty[w]);
+// 		warning("Walktype %u: %u", w, _faceProperty[w]);
 	}
-
-
 
 	// Adjacency
 	_adjFaces.resize(3 * (_facesCount + facesCount));
@@ -139,7 +143,7 @@ void KotORPathfinding::addData(const Common::UString &wokFile) {
 				_adjFaces[walkableFaces[a] * 3 + i] = (edge + (2 - edge % 3)) / 3 + _facesCount;
 		}
 
-		warning("AdjFace %u: (%i, %i, %i)", walkableFaces[a], _adjFaces[walkableFaces[a] * 3], _adjFaces[walkableFaces[a] * 3 + 1], _adjFaces[walkableFaces[a] * 3 + 2]);
+// 		warning("AdjFace %u: (%i, %i, %i)", walkableFaces[a], _adjFaces[walkableFaces[a] * 3], _adjFaces[walkableFaces[a] * 3 + 1], _adjFaces[walkableFaces[a] * 3 + 2]);
 	}
 
 	// Perimetric edges
@@ -149,11 +153,15 @@ void KotORPathfinding::addData(const Common::UString &wokFile) {
 		uint32 perimetricEdge = stream->readUint32LE();
 		adjRooms[perimetricEdge] = stream->readUint32LE();
 
-		warning("Perimetric edge %u: (%u, %i)", pe, perimetricEdge, adjRooms[perimetricEdge]);
+// 		warning("Perimetric edge %u: (%u, %i)", pe, perimetricEdge, adjRooms[perimetricEdge]);
 	}
 	_adjRooms.push_back(adjRooms);
 
 	_facesCount += facesCount;
+
+	// AABB tree.
+	Common::AABBNode * rootNode = getAABB(stream, AABBsOffset, AABBsOffset);
+	_AABBTrees.push_back(rootNode);
 
 //	// Perimetric
 //	_stream->seek(perimetricOffset);
@@ -221,6 +229,36 @@ uint32 KotORPathfinding::getFaceFromEdge(uint32 edge, uint32 room) const {
 		error("Edge is not valid");
 
 	return (edge + (2 - edge % 3)) / 3 +  _startFace[room];
+}
+
+Common::AABBNode *KotORPathfinding::getAABB(Common::SeekableReadStream *stream, uint32 nodeOffset, uint32 AABBsOffset) {
+	stream->seek(nodeOffset);
+
+	float min[3], max[3];
+	for (uint8 m = 0; m < 3; ++m)
+		min[m] = stream->readIEEEFloatLE();
+	for (uint8 m = 0; m < 3; ++m)
+		max[m] = stream->readIEEEFloatLE();
+
+	int32 relatedFace = stream->readSint32LE();
+	stream->skip(4); // Unknown
+	stream->readUint32LE(); // Plane
+	uint32 leftOffset = stream->readUint32LE();
+	uint32 rightOffset = stream->readUint32LE();
+
+// 	warning("AABB node : min(%f, %f, %f) max(%f, %f, %f)", min[0], min[1], min[2], max[0], max[1], max[2]);
+	// Children always come as pair.
+	if (relatedFace >= 0)
+		return new Common::AABBNode(min, max, relatedFace + _startFace.back());
+
+
+	// 44 is the size of an AABBNode.
+	Common::AABBNode *leftNode = getAABB(stream, leftOffset * 44 + AABBsOffset, AABBsOffset);
+	Common::AABBNode *rightNode = getAABB(stream, rightOffset * 44 + AABBsOffset, AABBsOffset);
+	Common::AABBNode *aabb = new Common::AABBNode(min, max);
+	aabb->setChildren(leftNode, rightNode);
+
+	return aabb;
 }
 
 } // namespace KotOR

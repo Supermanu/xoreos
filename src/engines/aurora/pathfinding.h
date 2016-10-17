@@ -29,6 +29,7 @@
 
 namespace Common {
 class Vector3;
+class AABBNode;
 }
 
 namespace Engines {
@@ -40,7 +41,12 @@ public:
 
 	bool findPath(float startX, float startY, float startZ, float endX, float endY, float endZ, std::vector<uint32> &facePath, float width = 0.01, uint32 nbrIt = 100000);
 	void smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path);
+	void SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width);
+	uint32 findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect);
 	void drawWalkmesh();
+
+	bool walkable(uint32 faceIndex) const;
+	bool walkable(Common::Vector3 point);
 
 protected:
 	struct Node {
@@ -64,30 +70,44 @@ protected:
 	std::vector<float> _vertices;
 	std::vector<uint32> _faces;
 	std::vector<uint32> _adjFaces;
-	std::vector<uint8> _faceProperty;
+	std::vector<uint32> _faceProperty;
 
-	bool walkable(uint32 faceIndex) const;
-	uint32 findFace(float x, float y, float z) const;
+	std::vector<Common::AABBNode *> _AABBTrees;
+
+	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
 	bool hasNode(uint32 face, std::vector<Node> &nodes) const;
 	bool hasNode(uint32 face, std::vector<Node> &nodes, Node &node) const;
+	Node *getNode(uint32 face, std::vector<Node> &nodes) const;
 
 	void getAdjacentNodes(Node &node, std::vector<uint32> &adjNodes);
 	float getDistance(Node &fromNode, uint32 toFace, float &toX, float &toY, float &toZ) const;
 	float getDistance(float fX, float fY, float fZ, float tX, float tY, float tZ) const;
 	float getHeuristic(Node &node, Node &endNode) const;
-	void getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC);
+	void getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) const;
 
 private:
+	float triangleArea2(Common::Vector3 vertA, Common::Vector3 vertB, Common::Vector3 vertC) const;
 	bool inFace(uint32 faceID, float x, float y, float z) const;
 	bool inFace(uint32 faceID, Common::Vector3 point) const;
+	bool inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd, Common::Vector3 &intersect);
+	bool hasVertex(uint32 face, Common::Vector3 vertex) const;
+	bool getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 &vert1, Common::Vector3 &vert2) const;
 	bool segmentInFace(uint32 faceID, Common::Vector3 segStart, Common::Vector3 segEnd);
 	bool getIntersection(Common::Vector3 segStart1, Common::Vector3 segEnd1, Common::Vector3 segStart2, Common::Vector3 segEnd2, Common::Vector3 &intersect);
+	bool goThrough(uint32 fromFace, uint32 toFace, float width);
 	void reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path);
 	void getIntersections(Common::Vector3 &start, Common::Vector3 &end, uint32 face, std::vector<Common::Vector3> &intersects);
 	void getClosestIntersection(Common::Vector3 &start, Common::Vector3 &end, uint32 face, Common::Vector3 &intersect);
+	Common::Vector3 getCreatureSizePoint(Common::Vector3 &from, Common::Vector3 &left, Common::Vector3 &right, float halfWidth, bool alongLeft);
+	Common::Vector3 getOrthonormalVec(Common::Vector3 segment, bool clockwise = true) const;
+	void manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &finalPath);
+	bool inCircle(Common::Vector3 center, float radius, Common::Vector3 startSegment, Common::Vector3 endSegment);
+	bool isToTheLeft(Common::Vector3 startSegment, Common::Vector3 endSegment, Common::Vector3 Point) const;
 
 	std::vector<uint32> _facesToDraw;
 	std::vector<Common::Vector3> _pointsToDraw;
+	Common::Vector3 _creaturePos;
+	float _creatureWidth;
 };
 
 } // namespace Engines

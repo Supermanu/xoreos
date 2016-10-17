@@ -72,6 +72,7 @@ src_common_libcommon_la_SOURCES += \
     src/common/vector3.h \
     src/common/matrix4x4.h \
     src/common/boundingbox.h \
+    src/common/aabbnode.h \
     src/common/configfile.h \
     src/common/configman.h \
     src/common/foxpro.h \
@@ -121,6 +122,7 @@ src_common_libcommon_la_SOURCES += \
     src/common/huffman.cpp \
     src/common/matrix4x4.cpp \
     src/common/boundingbox.cpp \
+    src/common/aabbnode.cpp \
     src/common/configfile.cpp \
     src/common/configman.cpp \
     src/common/foxpro.cpp \

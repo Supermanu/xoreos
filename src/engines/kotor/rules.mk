@@ -39,6 +39,7 @@ src_engines_kotor_libkotor_la_SOURCES += \
     src/engines/kotor/room.h \
     src/engines/kotor/objectcontainer.h \
     src/engines/kotor/module.h \
+    src/engines/kotor/kotorpathfinding.h \
     src/engines/kotor/gui/widgets/button.h \
     src/engines/kotor/gui/widgets/checkbox.h \
     src/engines/kotor/gui/widgets/kotorwidget.h \
@@ -84,6 +85,7 @@ src_engines_kotor_libkotor_la_SOURCES += \
     src/engines/kotor/room.cpp \
     src/engines/kotor/objectcontainer.cpp \
     src/engines/kotor/module.cpp \
+    src/engines/kotor/kotorpathfinding.cpp \
     src/engines/kotor/gui/widgets/button.cpp \
     src/engines/kotor/gui/widgets/checkbox.cpp \
     src/engines/kotor/gui/widgets/kotorwidget.cpp \

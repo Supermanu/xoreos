@@ -769,6 +769,8 @@ bool GraphicsManager::unproject(float x, float y,
                                 float &x2, float &y2, float &z2) const {
 
 	try {
+		// Map the screen coordinates to OpenGL world screen coordinates
+		y = _height - y;
 		// Generate the inverse of the model matrix
 
 		Common::Matrix4x4 model;
@@ -994,7 +996,7 @@ Renderable *GraphicsManager::getWorldObjectAt(float x, float y) const {
 		return 0;
 
 		// Map the screen coordinates to OpenGL world screen coordinates
-	y = _height - y;
+// 	y = _height - y;
 
 	float x1, y1, z1, x2, y2, z2;
 	if (!unproject(x, y, x1, y1, z1, x2, y2, z2))

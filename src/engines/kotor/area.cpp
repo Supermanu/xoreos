@@ -59,7 +59,7 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_module(&module), _resRef(resRef), _visible(false), _activeObject(0), _highlightAll(false) {
 
 	_pathfinding = new KotORPathfinding();
-	_iter = 40;
+	_iter = 1;
 	GfxMan.setPathfinding(_pathfinding);
 
 	try {
@@ -397,16 +397,29 @@ void Area::processEventQueue() {
 	     e != _eventQueue.end(); ++e) {
 
 		if (e->type == Events::kEventKeyDown) {
+			if (e->key.keysym.sym == SDLK_F10) {
+// 				float x1, y1, z1, x2, y2, z2;
+// 				int x, y;
+// 				CursorMan.getPosition(x, y);
+// 				warning("cursor (%f, %f)", (float) x, (float) y);
+// 				GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
+// 				warning("line: (%f, %f, %f) (%f, %f, %f)", x1, y1, z1, x2, y2, z2);
+// 				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, Common::Vector3());
+// 				warning("face %u found", face);
+			}
+
 			if (e->key.keysym.sym == SDLK_LALT) {
 // 				float start[3] = { 18.5, 17.f, -1.27 };
 // 				float end[3]   = {11.5f, 25.f, -1.27};
-				float start[3] = { 13.f, 30.2f, -1.27 };
-				float end[3]   = { 28.828587, 20.333252, -1.27 };
+// 				float start[3] = { 13.f, 30.2f, -1.27 };
+// 				float end[3]   = { 28.828587, 20.333252, -1.27 };
+				float start[3] = { 15.730813, 18.152279, -1.275000 };
+				float end[3] = { 15.943871, 19.221325, -1.275001 };
 
 
 				std::vector<uint32> path;
 				clock_t startFindPath = std::clock();
-				bool out = _pathfinding->findPath(start[0], start[1], start[2], end[0], end[1], end[2], path);
+				bool out = _pathfinding->findPath(start[0], start[1], start[2], end[0], end[1], end[2], path, 1.2f, _iter);
 				clock_t endFindPath = std::clock();
 				++_iter;
 				warning("Out is %i", out);
@@ -415,7 +428,7 @@ void Area::processEventQueue() {
 					Common::Vector3 sP(start[0], start[1], start[2]);
 					Common::Vector3 eP(end[0], end[1], end[2]);
 					std::vector<Common::Vector3> smoothPath;
-					_pathfinding->smoothPath(sP, eP, path, smoothPath);
+					_pathfinding->SSFA(sP, eP, path, smoothPath, 1.2f);
 // 					for (std::vector<Common::Vector3>::iterator it = smoothPath.begin(); it != smoothPath.end(); ++it)
 // 						warning("Point: (%f, %f, %f)", (*it)._x, (*it)._y, (*it)._z);
 				}
@@ -434,6 +447,44 @@ void Area::processEventQueue() {
 			if (e->button.button == SDL_BUTTON_LMASK) {
 				checkActive(e->button.x, e->button.y);
 				click(e->button.x, e->button.y);
+
+				float x1, y1, z1, x2, y2, z2;
+				int x, y;
+				CursorMan.getPosition(x, y);
+				GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
+				Common::Vector3 intersect;
+				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, intersect);
+				warning("intersect (%f, %f, %f)", intersect._x, intersect._y, intersect._z);
+
+				if (face != UINT32_MAX && _pathfinding->walkable(face)) {
+					if (_startEndPoints.size() < 2) {
+						_startEndPoints.push_back(intersect);
+					} else {
+						_startEndPoints[0] = _startEndPoints[1];
+						_startEndPoints[1] = intersect;
+					}
+
+					if (_startEndPoints.size() == 2) {
+						std::vector<uint32> path;
+						clock_t startFindPath = std::clock();
+						bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y, _startEndPoints[0]._z,
+						                                  _startEndPoints[1]._x, _startEndPoints[1]._y, _startEndPoints[1]._z, path, 1.2f);
+						clock_t endFindPath = std::clock();
+						++_iter;
+						warning("Out is %i", out);
+						clock_t startSmooth = std::clock();
+						if (out) {
+							std::vector<Common::Vector3> smoothPath;
+							_pathfinding->SSFA(_startEndPoints[0], _startEndPoints[1], path, smoothPath, 1.2f);
+						}
+						clock_t endSmooth = std::clock();
+						double findPath = double(endFindPath - startFindPath);
+						double smoothing = double(endSmooth - startSmooth);
+						warning("Time spent find path: %f ms", findPath / CLOCKS_PER_SEC * 1000);
+						warning("Time spent smoothing: %f ms", smoothing / CLOCKS_PER_SEC * 1000);
+						warning("Total time: %f ms", (findPath + smoothing) / CLOCKS_PER_SEC * 1000);
+					}
+				}
 			}
 		} else if (e->type == Events::kEventKeyDown) { // Holding down TAB
 			if (e->key.keysym.sym == SDLK_TAB)

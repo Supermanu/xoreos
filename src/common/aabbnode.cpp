@@ -142,4 +142,73 @@ int32 AABBNode::getProperty() const {
 	return _property;
 }
 
+void AABBNode::getNodes(float x, float y, std::vector<AABBNode *> &nodes) {
+	if (!isIn(x, y))
+		return;
+
+	if (!hasChildren()) {
+		nodes.push_back(this);
+		return;
+	}
+
+	_leftChild->getNodes(x, y, nodes);
+	_rightChild->getNodes(x, y, nodes);
+}
+
+void AABBNode::getNodes(float x1, float y1, float x2, float y2, std::vector<AABBNode *> &nodes) {
+	if (!isIn(x1, y1, _min[2], x2, y2, _min[2]))
+		return;
+
+	if (!hasChildren()) {
+		nodes.push_back(this);
+		return;
+	}
+
+	_leftChild->getNodes(x1, y1, x2, y2, nodes);
+	_rightChild->getNodes(x1, y1, x2, y2, nodes);
+}
+
+// bool AABBNode::isIn(float x1, float y1, float x2, float y2) const {
+// 	if (_empty)
+// 		return false;
+//
+// 	float minX, minY, minZ;
+// 	getMin(minX, minY, minZ);
+//
+// 	float maxX, maxY, maxZ;
+// 	getMax(maxX, maxY, maxZ);
+//
+// 	if ((x2 < minX) && (x1 < minX)) return false;
+// 	if ((x2 > maxX) && (x1 > maxX)) return false;
+// 	if ((y2 < minY) && (y1 < minY)) return false;
+// 	if ((y2 > maxY) && (y1 > maxY)) return false;
+//
+// 	if ((x1 > minX) && (x1 < maxX) &&
+// 		(y1 > minY) && (y1 < maxY))
+// 		return true;
+//
+// 	float x, y, z;
+//
+// 	if (getIntersection(x1 - minX, x2 - minX, x1, y1, z1, x2, y2, z2, x, y, z) &&
+// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 1))
+// 		return true;
+// 	if (getIntersection(y1 - minY, y2 - minY, x1, y1, z1, x2, y2, z2, x, y, z) &&
+// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 2))
+// 		return true;
+// 	if (getIntersection(z1 - minZ, z2 - minZ, x1, y1, z1, x2, y2, z2, x, y, z) &&
+// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 3))
+// 		return true;
+// 	if (getIntersection(x1 - maxX, x2 - maxX, x1, y1, z1, x2, y2, z2, x, y, z) &&
+// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 1))
+// 		return true;
+// 	if (getIntersection(y1 - maxY, y2 - maxY, x1, y1, z1, x2, y2, z2, x, y, z) &&
+// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 2))
+// 		return true;
+// 	if (getIntersection(z1 - maxZ, z2 - maxZ, x1, y1, z1, x2, y2, z2, x, y, z) &&
+// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 3))
+// 		return true;
+//
+// 	return false;
+// }
+
 } // End of namespace Common

@@ -102,6 +102,26 @@ public:
 		return *this;
 	}
 
+	inline bool operator==(const Vector3 &v) const {
+		if (_x != v._x)
+			return false;
+
+		if (_y != v._y)
+			return false;
+
+		if (_z != v._z)
+			return false;
+
+		if (_w != v._w)
+			return false;
+
+		return true;
+	}
+
+	inline bool operator!=(const Vector3 &v) const {
+		return !(*this == v);
+	}
+
 	/** Component-wise multiply. */
 	inline const Vector3 &multiply(const Vector3 &v) {
 		_x *= v._x; _y *= v._y; _z *= v._z;

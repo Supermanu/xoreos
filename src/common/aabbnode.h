@@ -48,10 +48,13 @@ public:
 	AABBNode *getNode(float x, float y);
 	AABBNode *getNode(float x1, float y1, float z1, float x2, float y2, float z2);
 	void getNodes(float x1, float y1, float z1, float x2, float y2, float z2, std::vector<AABBNode *> &nodes);
+	void getNodes(float x1, float y1, float x2, float y2, std::vector<AABBNode *> &nodes);
+	void getNodes(float x, float y, std::vector<AABBNode *> &nodes);
 
 	int32 getProperty() const;
 
 private:
+// 	bool isIn(float x1, float y1, float x2, float y2) const;
 	AABBNode *_leftChild;
 	AABBNode *_rightChild;
 	int32 _property;
