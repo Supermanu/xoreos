@@ -84,16 +84,14 @@ protected:
 	float getDistance(float fX, float fY, float fZ, float tX, float tY, float tZ) const;
 	float getHeuristic(Node &node, Node &endNode) const;
 	void getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) const;
+	bool walkableCircle(Common::Vector3 center, float radius);
 
 private:
-	float triangleArea2(Common::Vector3 vertA, Common::Vector3 vertB, Common::Vector3 vertC) const;
-	bool inFace(uint32 faceID, float x, float y, float z) const;
 	bool inFace(uint32 faceID, Common::Vector3 point) const;
 	bool inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd, Common::Vector3 &intersect);
 	bool hasVertex(uint32 face, Common::Vector3 vertex) const;
 	bool getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 &vert1, Common::Vector3 &vert2) const;
 	bool segmentInFace(uint32 faceID, Common::Vector3 segStart, Common::Vector3 segEnd);
-	bool getIntersection(Common::Vector3 segStart1, Common::Vector3 segEnd1, Common::Vector3 segStart2, Common::Vector3 segEnd2, Common::Vector3 &intersect);
 	bool goThrough(uint32 fromFace, uint32 toFace, float width);
 	void reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path);
 	void getIntersections(Common::Vector3 &start, Common::Vector3 &end, uint32 face, std::vector<Common::Vector3> &intersects);
@@ -101,7 +99,6 @@ private:
 	Common::Vector3 getCreatureSizePoint(Common::Vector3 &from, Common::Vector3 &left, Common::Vector3 &right, float halfWidth, bool alongLeft);
 	Common::Vector3 getOrthonormalVec(Common::Vector3 segment, bool clockwise = true) const;
 	void manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &finalPath);
-	bool inCircle(Common::Vector3 center, float radius, Common::Vector3 startSegment, Common::Vector3 endSegment);
 	bool isToTheLeft(Common::Vector3 startSegment, Common::Vector3 endSegment, Common::Vector3 Point) const;
 
 	std::vector<uint32> _facesToDraw;

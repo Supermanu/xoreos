@@ -42,7 +42,7 @@ src_engines_nwn_libnwn_la_SOURCES += \
     src/engines/nwn/door.h \
     src/engines/nwn/creature.h \
     src/engines/nwn/item.h \
-    src/engines/nwn/nwnpathfinding.h \
+    src/engines/nwn/pathfinding.h \
     src/engines/nwn/gui/gui.h \
     src/engines/nwn/gui/legal.h \
     src/engines/nwn/gui/widgets/tooltip.h \
@@ -140,7 +140,7 @@ src_engines_nwn_libnwn_la_SOURCES += \
     src/engines/nwn/door.cpp \
     src/engines/nwn/item.cpp \
     src/engines/nwn/location.cpp \
-    src/engines/nwn/nwnpathfinding.cpp \
+    src/engines/nwn/pathfinding.cpp \
     src/engines/nwn/gui/gui.cpp \
     src/engines/nwn/gui/legal.cpp \
     src/engines/nwn/gui/widgets/tooltip.cpp \

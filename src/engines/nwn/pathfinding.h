@@ -24,8 +24,8 @@
  *  Pathfinding for NWN.
  */
 
-#ifndef ENGINES_NWN_NWNPATHFINDING_H
-#define ENGINES_NWN_NWNPATHFINDING_H
+#ifndef ENGINES_NWN_PATHFINDING_H
+#define ENGINES_NWN_PATHFINDING_H
 
 #include "src/engines/aurora/pathfinding.h"
 
@@ -39,10 +39,10 @@ namespace Engines {
 
 namespace NWN {
 
-class NWNPathfinding : public Pathfinding {
+class Pathfinding : public Engines::Pathfinding {
 public:
-	NWNPathfinding();
-	~NWNPathfinding();
+	Pathfinding();
+	~Pathfinding();
 
 	void addData(const Common::UString &wokFile, uint8 orientation, float *position);
 	void finalize();
@@ -63,4 +63,4 @@ private:
 
 }
 
-#endif // ENGINES_NWN_NWNPATHFINDING_H
+#endif // ENGINES_NWN_PATHFINDING_H

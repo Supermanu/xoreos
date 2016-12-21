@@ -30,19 +30,19 @@
 
 #include "src/aurora/resman.h"
 
-#include "src/engines/nwn/nwnpathfinding.h"
+#include "src/engines/nwn/pathfinding.h"
 
 namespace Engines {
 
 namespace NWN {
 
-NWNPathfinding::NWNPathfinding() : Pathfinding() {
+Pathfinding::Pathfinding() : Engines::Pathfinding() {
 }
 
-NWNPathfinding::~NWNPathfinding() {
+Pathfinding::~Pathfinding() {
 }
 
-void NWNPathfinding::addData(const Common::UString &wokFile, uint8 orientation, float *position) {
+void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, float *position) {
 	Common::SeekableReadStream *stream = ResMan.getResource(wokFile, ::Aurora::kFileTypeWOK);
 	warning("loading wok:  %s.wok", wokFile.c_str());
 	if (!stream)
@@ -109,7 +109,7 @@ void NWNPathfinding::addData(const Common::UString &wokFile, uint8 orientation, 
 	}
 }
 
-Common::AABBNode *NWNPathfinding::readAABB(float *position, uint8 orientation, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
+Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
 	std::vector<Common::UString> line;
 	tokenize->getTokens(*stream, line, 7);
 	tokenize->nextChunk(*stream);
@@ -144,7 +144,7 @@ Common::AABBNode *NWNPathfinding::readAABB(float *position, uint8 orientation, C
 	return node;
 }
 
-void NWNPathfinding::finalize() {
+void Pathfinding::finalize() {
 	_adjFaces.resize(_faces.size());
 
 	_startFace.push_back(_facesCount);
@@ -190,7 +190,7 @@ void NWNPathfinding::finalize() {
 	}
 }
 
-void NWNPathfinding::readFloats(const std::vector<Common::UString> &strings,
+void Pathfinding::readFloats(const std::vector<Common::UString> &strings,
                                 float *floats, uint32 n, uint32 start) {
 
 	if (strings.size() < (start + n))
@@ -201,7 +201,7 @@ void NWNPathfinding::readFloats(const std::vector<Common::UString> &strings,
 }
 
 
-void NWNPathfinding::readVerts(size_t n, float *position, Common::SeekableReadStream *stream,
+void Pathfinding::readVerts(size_t n, float *position, Common::SeekableReadStream *stream,
 							   Common::StreamTokenizer *tokenize, uint8 orientation) {
 
 	_vertices.resize(3 * (_verticesCount + n));
@@ -235,7 +235,7 @@ void NWNPathfinding::readVerts(size_t n, float *position, Common::SeekableReadSt
 	_verticesCount += n;
 }
 
-void NWNPathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
+void Pathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
 	_faces.resize(3 * (_facesCount + n));
 	_adjFaces.resize(3 * (_facesCount + n));
 	_faceProperty.resize((_facesCount + n));
@@ -269,7 +269,7 @@ void NWNPathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Com
 	_facesCount += n;
 }
 
-void NWNPathfinding::changeOrientation(uint8 orientation, float *position) {
+void Pathfinding::changeOrientation(uint8 orientation, float *position) {
 	for (uint8 o = 0; o < orientation; ++o) {
 		float temp = position[0];
 		position[0] = - position[1];

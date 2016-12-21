@@ -168,6 +168,29 @@ void AABBNode::getNodes(float x1, float y1, float x2, float y2, std::vector<AABB
 	_rightChild->getNodes(x1, y1, x2, y2, nodes);
 }
 
+void AABBNode::getNodesInCircle(Common::Vector3 center, float radius, std::vector<AABBNode *> &nodes) {
+	// Use of Vector3 can be avoidable but is it necessary?
+	Common::Vector3 vec1(_max[0], _max[1], center[2]);
+	Common::Vector3 vec2(_max[0], _min[1], center[2]);
+	Common::Vector3 vec3(_min[0], _max[1], center[2]);
+	Common::Vector3 vec4(_min[0], _min[1], center[2]);
+
+	if ((center - vec1).length() >= radius
+		&& (center - vec2).length() >= radius
+		&& (center - vec3).length() >= radius
+		&& (center - vec4).length() >= radius
+	)
+		return;
+
+	if (!hasChildren()) {
+		nodes.push_back(this);
+		return;
+	}
+
+	_leftChild->getNodesInCircle(center, radius, nodes);
+	_rightChild->getNodesInCircle(center, radius, nodes);
+}
+
 // bool AABBNode::isIn(float x1, float y1, float x2, float y2) const {
 // 	if (_empty)
 // 		return false;

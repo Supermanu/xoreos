@@ -26,6 +26,7 @@
 
 #include "src/common/util.h"
 #include "src/common/vector3.h"
+#include "src/common/vec3util.h"
 #include "src/common/aabbnode.h"
 
 #include "src/graphics/graphics.h"
@@ -165,6 +166,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 	Common::Vector3 apex, left, right, lastLeft, lastRight;
 	Common::Vector3 newLeft, newRight;
 	Common::Vector3 otherVert = start;
+	bool apexIsLeft = false;
 	left = start; lastLeft = start;
 	right = start; lastRight = start;
 	apex = start;
@@ -173,7 +175,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 
 	path.clear();
 	path.push_back(start);
-// 	_pointsToDraw.push_back(start);
+	_pointsToDraw.push_back(start);
 
 	for (uint32 f = 0; f < facePath.size(); ++f) {
 // 		warning("Entering side %u", f);
@@ -225,35 +227,85 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 			}
 		}
 
+		Common::Vector3 adjLeft = newLeft;
+		Common::Vector3 adjRight = newRight;
+		Common::Vector3 leftApex = apex;
+		Common::Vector3 rightApex = apex;
 		// Take creature's width
 // 		Common::Vector3 creatureSize(0.f, 0.f, 0.f);
-		if ((newLeft - newRight).length() >= width) {
-
-// 			if (right == left) {
-// 				newRight += getCreatureSizePoint(otherVert, newRight, newLeft, width * 0.5, false);
-// 				newLeft += getCreatureSizePoint(otherVert, newLeft, newRight, width * 0.5, true);
-// 			} else if (lastLeft != newLeft) {
-// 				// Move along the right
-// 				Common::Vector3 widthMove = getCreatureSizePoint(otherVert, newRight, newLeft, width * 0.5, false);
-// 				newRight += widthMove;
-// 				newLeft -= widthMove;
-// 			} else {
-// 				// Move along the left
-// 				Common::Vector3 widthMove = getCreatureSizePoint(otherVert, newLeft, newRight, width * 0.5, true);
-// 				newLeft += widthMove;
-// 				newRight -= widthMove;
+		if (/*f != facePath.size() - 1 && */(newLeft - newRight).length() >= width) {
+			float halfWidth = width / 2.f;
+			// Check if the newright/left needs to be adjusted.
+// 			if (!walkableCircle(newLeft, halfWidth)) {
+				Common::Vector3 segment = newLeft - apex;
+				if (apex == start) {
+					if (f != facePath.size() - 1)
+						adjLeft = newLeft + getOrthonormalVec(segment, true) * (halfWidth);
+					// Otherwise f is the end point and we don't want to adjust.
+				} else {
+					if (apexIsLeft) {
+						// Apex and left side are on the same side.
+						Common::Vector3 adj = getOrthonormalVec(segment, true) * (halfWidth);
+						adjLeft += adj;
+						leftApex += adj;
+					} else {
+						// Apex and left side are on the opposite side.
+						// Compute from where the tangent goes.
+						float halfLength = segment.length() / 2;
+						float sin = sqrt(halfLength * halfLength - halfWidth * halfWidth) / halfLength;
+						float cos = halfWidth / halfLength;
+						Common::Vector3 startTan = segment.norm() * halfWidth;
+						// Rotate anti-clockwise to the start of the tangent.
+						float x = startTan._x * cos - startTan._y * sin;
+						float y = startTan._x * sin + startTan._y * cos;
+						startTan._x = x;
+						startTan._y = y;
+						leftApex += startTan;
+						adjLeft -= startTan;
+					}
+				}
 // 			}
-// 			creatureSize = (newRight - newLeft).norm() * width * 0.5f;
-		} else if (f != facePath.size() - 1) {
-			//TODO: Look around the edge
+
+// 			if (!walkableCircle(newRight, halfWidth)) {
+				/*Common::Vector3 */segment = newRight - apex;
+				if (apex == start) {
+					if (f != facePath.size() - 1)
+						adjRight = newRight + getOrthonormalVec(segment, false) * (halfWidth);
+					// Apex and left side are on the same side.
+				} else {
+					if (!apexIsLeft) {
+						// Apex and right side are on the same side.
+						Common::Vector3 adj = getOrthonormalVec(segment, false) * (halfWidth);
+						adjRight += adj;
+						rightApex += adj;
+					} else {
+						// Apex and right side are on the opposite side.
+						// Compute from where the tangent goes.
+						float halfLength = segment.length() / 2;
+						float sin = sqrt(halfLength * halfLength - halfWidth * halfWidth) / halfLength;
+						float cos = halfWidth / halfLength;
+						Common::Vector3 startTan = segment.norm() * halfWidth;
+						// Rotate clockwise to the start of the tangent.
+						float x = startTan._x * cos + startTan._y * sin;
+						float y = startTan._y * cos - startTan._x * sin;
+						startTan._x = x;
+						startTan._y = y;
+						rightApex += startTan;
+						adjRight -= startTan;
+					}
+				}
+// 			}
 		}
+
+// 		_pointsToDraw.push_back(adjLeft);
+// 		_pointsToDraw.push_back(adjRight);
 
 		// Update right if needed
 		// First, check if the new point tighten the funnel
-		if (triangleArea2(apex, right, newRight) >= 0.f) {
+		if (triangleArea2(apex, right, adjRight) >= 0.f) {
 // 			warning("We're on the good side (right)");
 			// Second, check if we are still in the funnel i.e. we don't cross the other side.
-			if (triangleArea2(apex, left, newRight) < 0.f || apex == right) {
+			if (triangleArea2(apex, left, adjRight) < 0.f || apex == right) {
 				right = newRight;
 // 				warning("We're still in the funnel (rightindex %u)", f);
 // 				_pointsToDraw.push_back(right);
@@ -263,10 +315,15 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 				// Change apex to current left
 				apex = left;
 				right = apex;
+				apexIsLeft = true;
 				// Add it to the path
-				if (path.back() != left)
+				if (path.back() != left) {
 					path.push_back(left);
-// 				_pointsToDraw.push_back(left);
+				}
+// 					_pointsToDraw.push_back(apex);
+// 					_pointsToDraw.push_back(adjLeft);
+				_pointsToDraw.push_back(left);
+
 
 				// Restart from that point
 				rightIndex = leftIndex;
@@ -277,23 +334,28 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 
 		// Update left if needed
 		// First, check if the new point tighten the funnel
-		if (triangleArea2(apex, left, newLeft) <= 0.f) {
+		if (triangleArea2(apex, left, adjLeft) <= 0.f) {
 // 			warning("We're on the good side (left)");
 			// Second, check if we are still in the funnel i.e. we don't cross the other side.
-			if (triangleArea2(apex, right, newLeft) > 0.f || apex == left) {
+			if (triangleArea2(apex, right, adjLeft) > 0.f || apex == left) {
 // 				warning("We're still in the funnel (leftindex %u)", f);
 				left = newLeft;
 				leftIndex = f;
-// 				_pointsToDraw.push_back(left);
+// 				_pointsToDraw.push_back(adjLeft);
 			} else {
 // 				warning("We're outside the funnel left");
 				// Change apex to current left
 				apex = right;
 				left = apex;
+				apexIsLeft = false;
 				// Add it to the path
-				if (path.back() != right)
+				if (path.back() != right) {
 					path.push_back(right);
-// 				_pointsToDraw.push_back(right);
+				}
+// 					_pointsToDraw.push_back(apex);
+// 					_pointsToDraw.push_back(adjRight);
+				_pointsToDraw.push_back(right);
+
 
 				// Restart from that point
 				leftIndex = rightIndex;
@@ -307,11 +369,11 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 		path.push_back(end);
 
 	std::vector<Common::Vector3> finalPath;
-	manageCreatureSize(path, width / 2, finalPath);
-	for (uint32 i = 0; i < finalPath.size(); ++i)
-		_pointsToDraw.push_back(finalPath[i]);
+// 	manageCreatureSize(path, width / 2, finalPath);
+// 	for (uint32 i = 0; i < finalPath.size(); ++i)
+// 		_pointsToDraw.push_back(finalPath[i]);
 
-// 	_pointsToDraw.push_back(end);
+	_pointsToDraw.push_back(end);
 }
 
 void Pathfinding::manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &finalPath) {
@@ -357,12 +419,6 @@ void Pathfinding::manageCreatureSize(std::vector<Common::Vector3> &smoothedPath,
 
 bool Pathfinding::isToTheLeft(Common::Vector3 startSegment, Common::Vector3 endSegment, Common::Vector3 point) const {
 	return (endSegment - startSegment).cross(point - startSegment)._z > 0;
-}
-
-bool Pathfinding::inCircle(Common::Vector3 center, float radius, Common::Vector3 startSegment, Common::Vector3 endSegment) {
-	Common::Vector3 seg = (endSegment - startSegment).norm();
-	// We use scalar projection to find the closest point to the center of the circle.
-	return (startSegment + seg * center.dot(seg) - center).length() < radius;
 }
 
 Common::Vector3 Pathfinding::getOrthonormalVec(Common::Vector3 segment, bool clockwise) const {
@@ -569,6 +625,31 @@ void Pathfinding::getVertices(uint32 faceID, Common::Vector3& vA, Common::Vector
 	vC = Common::Vector3(_vertices[vertexIdC * 3], _vertices[vertexIdC * 3 + 1], _vertices[vertexIdC * 3 + 2]);
 }
 
+bool Pathfinding::walkableCircle(Common::Vector3 center, float radius) {
+	std::vector<Common::AABBNode *> nodesIn;
+	for (std::vector<Common::AABBNode *>::iterator n = _AABBTrees.begin(); n != _AABBTrees.end(); ++n) {
+		if (*n)
+			(*n)->getNodesInCircle(center, radius, nodesIn);
+	}
+
+	Common::Vector3 vertices[3];
+	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
+		// Check that at least one vertex is inside the circle.
+		getVertices((*n)->getProperty(), vertices[0], vertices[1], vertices[2]);
+		for (uint8 v = 0; v < 3; ++v)
+			if (inCircle(center, radius, vertices[v], vertices[(v + 1) % 3])) {
+				// The face is in the circle.
+				if (!walkable((*n)->getProperty()))
+					return false;
+
+				// The face is inside the circle but is walkable.
+				break;
+			}
+	}
+
+	return true;
+}
+
 bool Pathfinding::segmentInFace(uint32 faceID, Common::Vector3 segStart, Common::Vector3 segEnd) {
 	Common::Vector3 vA, vB, vC, inter;
 	getVertices(faceID, vA, vB, vC);
@@ -581,60 +662,6 @@ bool Pathfinding::segmentInFace(uint32 faceID, Common::Vector3 segStart, Common:
 
 	if (getIntersection(segStart, segEnd, vC, vB, inter))
 		return true;
-
-	return false;
-}
-
-bool Pathfinding::getIntersection(Common::Vector3 segStart1, Common::Vector3 segEnd1, Common::Vector3 segStart2, Common::Vector3 segEnd2, Common::Vector3 &intersect) {
-
-// 	warning("getIntersection: segStart1(%f, %f), segEnd1(%f, %f), segStart2(%f, %f), segEnd2(%f, %f)",
-// 			segStart1._x, segStart1._y, segEnd1._x, segEnd1._y, segStart2._x, segStart2._y, segEnd2._x, segEnd2._y
-// 	);
-	Common::Vector3 r = segEnd1 - segStart1;
-	Common::Vector3 s = segEnd2 - segStart2;
-// 	warning("r: (%f, %f)", r._x, r._y);
-// 	warning("s: (%f, %f)", s._x, s._y);
-	float rs = (r * s)._z;
-// 	warning("rs: %f", rs);
-	float qpr = ((segStart2 - segStart1) * r)._z;
-// 	warning("qpr: %f", qpr);
-
-	if (rs == 0 && qpr == 0) {
-		// The two segments are parallel
-		if (qpr == 0) {
-			// The two segments are colinear.
-			float t0 = (segStart2 - segStart1).dot(r) / r.dot(r);
-			float t1 = t0 + s.dot(r) / (r.dot(r));
-
-			if ((t0 <= 1 && t0 >= 0) || (t1 <= 1.f && t1 >= 0.f)) {
-				// Segments are overlaping.
-				float lenghtS1 = segStart1.length();
-// 				float lenghtE1 = segEnd1.length();
-				float lenghtS2 = segStart2.length();
-				float lenghtE2 = segEnd2.length();
-
-				// segStart1 or segEnd2 must be in seg2.
-				if (lenghtS1 <= MAX(lenghtS2, lenghtE2) && lenghtS1 >= MIN(lenghtS2, lenghtE2)) {
-					intersect = segStart1;
-				} else {
-					intersect = segEnd1;
-				}
-				return true;
-			}
-		}
-		return false;
-	}
-
-	float u = qpr / rs;
-	float t = ((segStart2 - segStart1) * s)._z / rs;
-
-// 	warning("u: %f, t: %f", u, t);
-	if (u <= 1 && u >= 0 && t <= 1 && t >= 0) {
-		// The segments are intersecting.
-		intersect = segStart1 + (segEnd1 - segStart1) * t;
-// 		warning("Intersect: (%f, %f)", intersect._x, intersect._y);
-		return true;
-	}
 
 	return false;
 }
@@ -764,6 +791,7 @@ void Pathfinding::drawWalkmesh() {
 		glVertex3f(_pointsToDraw[p + 1]._x, _pointsToDraw[p + 1]._y, _pointsToDraw[p + 1]._z + 0.05);
 		glEnd();
 		glLineWidth(1.f);
+
 	}
 
 	if (_creatureWidth > 0.f) {
@@ -819,7 +847,7 @@ uint32 Pathfinding::findFace(float x, float y, float z, bool onlyWalkable) {
 			if (onlyWalkable && !walkable(face))
 				continue;
 
-			if (!inFace(face, x, y, z))
+			if (!inFace(face, Common::Vector3(x, y, z)))
 				continue;
 
 			return face;
@@ -958,93 +986,18 @@ float Pathfinding::getHeuristic(Node &node, Node &endNode) const {
 	return getDistance(node.x, node.y, node.z, endNode.x, endNode.y, endNode.z);
 }
 
-float Pathfinding::triangleArea2(Common::Vector3 vertA, Common::Vector3 vertB, Common::Vector3 vertC) const {
-	return (vertB - vertA).cross(vertC - vertA)._z;
-}
-
 bool Pathfinding::inFace(uint32 faceID, Common::Vector3 point) const {
-	return inFace(faceID, point._x, point._y, point._z);
-}
-
-bool Pathfinding::inFace(uint32 faceID, float x, float y, float z) const {
-	// Use Barycentric Technique.
 	Common::Vector3 vA, vB, vC;
 	getVertices(faceID, vA, vB, vC);
 
-	Common::Vector3 v0 = vC - vA;
-	Common::Vector3 v1 = vB - vA;
-	Common::Vector3 v2 = Common::Vector3(x, y, z) - vA;
-
-	float dot00 = v0.dot(v0);
-	float dot01 = v0.dot(v1);
-	float dot02 = v0.dot(v2);
-	float dot11 = v1.dot(v1);
-	float dot12 = v1.dot(v2);
-
-	// Compute barycentric coordinates
-	float denom = 1.f / (dot00 * dot11 - dot01 * dot01);
-	float u = (dot11 * dot02 - dot01 * dot12) * denom;
-	float v = (dot00 * dot12 - dot01 * dot02) * denom;
-
-// 	warning("In face %f, %f", u, v);
-	// Check if point is in triangle
-	return (u + 0.0001 >= 0) && (v + 0.0001 >= 0) && (u + v - 0.0001 < 1);
+	return Common::inFace(point, vA, vB, vC);
 }
 
 bool Pathfinding::inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd, Common::Vector3 &intersect) {
-	float epsilon = 0.000001;
-
 	Common::Vector3 vA, vB, vC;
 	getVertices(faceID, vA, vB, vC);
 
-	Common::Vector3 D = lineEnd - lineStart;
-	Common::Vector3 e1, e2;  //Edge1, Edge2
-	Common::Vector3 P, Q, T;
-	float det, inv_det, u, v;
-	float t;
-
-	//Find vectors for two edges sharing V1
-	e1 = vB - vA;
-	e2 = vC - vA;
-
-	//Begin calculating determinant - also used to calculate u parameter
-	P = D.cross(e2);
-
-	//if determinant is near zero, ray lies in plane of triangle or ray is parallel to plane of triangle
-	det = e1.dot(P);
-	//NOT CULLING
-	if (det > -epsilon && det < epsilon)
-		return false;
-
-	inv_det = 1.f / det;
-
-	//calculate distance from V1 to ray origin
-	T = lineStart - vA;
-
-	//Calculate u parameter and test bound
-	u = T.dot(P) * inv_det;
-	//The intersection lies outside of the triangle
-	if (u < 0.f || u > 1.f)
-		return false;
-
-	//Prepare to test v parameter
-	Q = T.cross(e1);
-
-	//Calculate V parameter and test bound
-	v = D.dot(Q) * inv_det;
-	//The intersection lies outside of the triangle
-	if (v < 0.f || u + v  > 1.f)
-		return false;
-
-	t = e2.dot(Q) * inv_det;
-
-	if (t > epsilon) { //ray intersection
-		intersect = lineStart + D * t;
-		return true;
-	}
-
-	// No hit, no win
-	return false;
+	return Common::inFace(vA, vB, vC, lineStart, lineEnd, intersect);
 }
 
 bool Pathfinding::hasVertex(uint32 face, Common::Vector3 vertex) const {
