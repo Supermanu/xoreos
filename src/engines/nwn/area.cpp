@@ -48,7 +48,7 @@
 #include "src/engines/nwn/placeable.h"
 #include "src/engines/nwn/door.h"
 #include "src/engines/nwn/creature.h"
-#include "src/engines/nwn/nwnpathfinding.h"
+#include "src/engines/nwn/pathfinding.h"
 
 namespace Engines {
 
@@ -58,7 +58,7 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_module(&module), _resRef(resRef), _visible(false), _tileset(0),
 	_activeObject(0), _highlightAll(false) {
 
-	_pathfinding = new NWNPathfinding();
+	_pathfinding = new Pathfinding();
 	try {
 		load();
 	} catch (...) {

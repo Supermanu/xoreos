@@ -24,11 +24,24 @@
 
 #include "src/common/util.h"
 #include "src/common/vector3.h"
+#include "src/common/vec3util.h"
 
 namespace Common {
 
 float triangleArea2(Common::Vector3 vertA, Common::Vector3 vertB, Common::Vector3 vertC) {
 	return (vertB - vertA).cross(vertC - vertA)._z;
+}
+
+Vector3 getOrthoVec(Common::Vector3 segment, bool clockwise, bool normed) {
+	Common::Vector3 copy = segment;
+	// Sinus of 90 degrees.
+	float sinus = (clockwise ? -1 : 1);
+	copy._x = - segment._y * sinus;
+	copy._y = segment._x * sinus;
+	if (normed)
+		return copy.norm();
+
+	return copy;
 }
 
 bool getIntersection(Common::Vector3 segStart1, Common::Vector3 segEnd1, Common::Vector3 segStart2, Common::Vector3 segEnd2, Common::Vector3 &intersect) {
@@ -86,9 +99,83 @@ bool getIntersection(Common::Vector3 segStart1, Common::Vector3 segEnd1, Common:
 }
 
 bool inCircle(Vector3 center, float radius, Vector3 startSegment, Vector3 endSegment) {
-	Vector3 seg = (endSegment - startSegment).norm();
+	Vector3 seg = endSegment - startSegment;
+
+	// Find out if the center of the circle is outside of the band formed by the segment.
+	Vector3 orthoVec = getOrthoVec(seg);
+	float areaStart = triangleArea2(startSegment, startSegment + orthoVec, center);
+	float areaEnd = triangleArea2(endSegment, endSegment + orthoVec, center);
+// 	warning("Area start %f", areaStart);
+// 	warning("Area end %f", areaEnd);
+
+	// The two areas must have the same sign.
+	if (areaStart * areaEnd > 0) {
+// 		warning("inCircle: outside of the band");
+		// It is outside, we just need to check the distance between the endpoints of the segment
+		// and the center.
+		float startCenterLength = (center - startSegment).length();
+		float endCenterLength = (center - endSegment).length();
+// 		warning("start length: %f", startCenterLength);
+// 		warning("end length: %f", endCenterLength);
+		return startCenterLength < radius || endCenterLength < radius;
+	}
+
+// 	warning("inCircle: Compute projection");
+	seg.norm();
 	// We use scalar projection to find the closest point to the center of the circle.
-	return (startSegment + seg * center.dot(seg) - center).length() < radius;
+	return (startSegment + seg * (center - startSegment).dot(seg) - center).length() < radius;
+}
+
+void inCircleTest() {
+	warning("######inCircleTest#######");
+	Vector3 center(2.5f, 1.f, 0.f);
+	Vector3 startSeg(0.f, 0.f, 0.f);
+	Vector3 endSeg(1.f, 0.f, 0.f);
+	float radius = 0.5f;
+	// Outside of the band
+	bool testOutOfBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testOutOfBand should be == 0, result: %i", testOutOfBand);
+	center[0] = -2.5; center[1] = -1.f;
+	testOutOfBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testOutOfBand should be == 0, result: %i", testOutOfBand);
+	center[0] = 1.2f; center[1] = 0.f;
+	testOutOfBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testOutOfBand should be == 1, result: %i", testOutOfBand);
+	center[0] = -0.2; center[1] = 0.f;
+	testOutOfBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testOutOfBand should be == 1, result: %i", testOutOfBand);
+
+	// Inside of the band.
+	center[0] = 0.5; center[1] = 1.f;
+	bool testInBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testInBand should be == 0, result: %i", testInBand);
+	center[1] = 0.f;
+	testInBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testInBand should be == 1, result: %i", testInBand);
+	center[1] = -0.3;
+	testInBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testInBand should be == 1, result: %i", testInBand);
+	center[1] = -0.6;
+	testInBand = inCircle(center, radius, startSeg, endSeg);
+	warning("testInBand should be == 0, result: %i", testInBand);
+
+	warning("#############");
+}
+
+void getOrthoVecTest() {
+	warning("######getOrthoVecTest#######");
+	Vector3 seg(0.f, 1.f, 0.f);
+	Vector3 cwVec, acwVec;
+	cwVec = getOrthoVec(seg, true);
+	acwVec = getOrthoVec(seg, false);
+	warning("Clockwise orthoVec of (0, 1, 0), result: (%f, %f, %f)", cwVec[0], cwVec[1], cwVec[2]);
+	warning("AntiClockwise orthoVec of (0, 1, 0), result: (%f, %f, %f)", acwVec[0], acwVec[1], acwVec[2]);
+	seg[0] = -0.5f; seg[1] = -0.5f;
+	cwVec = getOrthoVec(seg, true);
+	acwVec = getOrthoVec(seg, false);
+	warning("Clockwise orthoVec of (-0.5, -0.5, 0), result: (%f, %f, %f)", cwVec[0], cwVec[1], cwVec[2]);
+	warning("AntiClockwise orthoVec of (-0.5, -0.5, 0), result: (%f, %f, %f)", acwVec[0], acwVec[1], acwVec[2]);
+	warning("#############");
 }
 
 bool inCircle(Vector3 center, float radius, Vector3 point) {

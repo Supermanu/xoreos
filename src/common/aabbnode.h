@@ -51,6 +51,7 @@ public:
 	void getNodes(float x1, float y1, float x2, float y2, std::vector<AABBNode *> &nodes);
 	void getNodes(float x, float y, std::vector<AABBNode *> &nodes);
 	void getNodesInCircle(Common::Vector3 center, float radius, std::vector<AABBNode *> &nodes);
+	void getNodesInBox2D(Common::Vector3 min, Common::Vector3 max, std::vector<AABBNode *> &nodes);
 
 	int32 getProperty() const;
 

@@ -456,7 +456,7 @@ void Area::processEventQueue() {
 				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, intersect);
 				warning("intersect (%f, %f, %f)", intersect._x, intersect._y, intersect._z);
 
-				float width = 0.6f;
+				float width = 1.f;
 				if (face != UINT32_MAX && _pathfinding->walkable(face)) {
 					if (_startEndPoints.size() < 2) {
 						_startEndPoints.push_back(intersect);
@@ -476,7 +476,8 @@ void Area::processEventQueue() {
 						clock_t startSmooth = std::clock();
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
-							_pathfinding->SSFA(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
+// 							_pathfinding->SSFA(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
+							_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
 						}
 						clock_t endSmooth = std::clock();
 						double findPath = double(endFindPath - startFindPath);

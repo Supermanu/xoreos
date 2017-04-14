@@ -23,8 +23,17 @@
  *  An axis-aligned bounding box node.
  */
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/box.hpp>
+#include <boost/geometry/algorithms/intersects.hpp>
+
+#include "src/common/vec3util.h"
 #include "src/common/util.h"
 #include "src/common/aabbnode.h"
+
+
+typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
 
 namespace Common {
 
@@ -169,18 +178,30 @@ void AABBNode::getNodes(float x1, float y1, float x2, float y2, std::vector<AABB
 }
 
 void AABBNode::getNodesInCircle(Common::Vector3 center, float radius, std::vector<AABBNode *> &nodes) {
-	// Use of Vector3 can be avoidable but is it necessary?
-	Common::Vector3 vec1(_max[0], _max[1], center[2]);
-	Common::Vector3 vec2(_max[0], _min[1], center[2]);
-	Common::Vector3 vec3(_min[0], _max[1], center[2]);
-	Common::Vector3 vec4(_min[0], _min[1], center[2]);
+	Common::Vector3 rightTop(_max[0], _max[1], center[2]);
+	Common::Vector3 rightBottom(_max[0], _min[1], center[2]);
+	Common::Vector3 leftTop(_min[0], _max[1], center[2]);
+	Common::Vector3 leftBottom(_min[0], _min[1], center[2]);
 
+	// Check if the circle is inside the node
+	bool insideNode = triangleArea2(leftBottom, leftTop, center) <= 0
+	                  && triangleArea2(leftTop, rightTop, center) <= 0
+	                  && triangleArea2(rightTop, rightBottom, center) <= 0
+	                  && triangleArea2(rightBottom, leftBottom, center) <= 0;
+
+	if (!insideNode
+	    && !inCircle(center, radius, rightTop, rightBottom)
+	    && !inCircle(center, radius, rightTop, leftTop)
+	    && !inCircle(center, radius, leftTop, leftBottom)
+	    && !inCircle(center, radius, leftBottom, rightBottom))
+		return;
+/*
 	if ((center - vec1).length() >= radius
 		&& (center - vec2).length() >= radius
 		&& (center - vec3).length() >= radius
 		&& (center - vec4).length() >= radius
 	)
-		return;
+		return;*/
 
 	if (!hasChildren()) {
 		nodes.push_back(this);
@@ -189,6 +210,24 @@ void AABBNode::getNodesInCircle(Common::Vector3 center, float radius, std::vecto
 
 	_leftChild->getNodesInCircle(center, radius, nodes);
 	_rightChild->getNodesInCircle(center, radius, nodes);
+}
+
+void AABBNode::getNodesInBox2D(Common::Vector3 min, Common::Vector3 max, std::vector<AABBNode *> &nodes) {
+	boost::geometry::model::box<boostPoint2d> box(boostPoint2d(min[0], min[1]), boostPoint2d(max[0], max[1]));
+	boost::geometry::model::box<boostPoint2d> currentNode(boostPoint2d(_min[0], _min[1]), boostPoint2d(_max[0], _max[1]));
+
+	if (!boost::geometry::intersects(box, currentNode))
+		return;
+
+	if (!hasChildren()) {
+		nodes.push_back(this);
+		return;
+	}
+
+	_leftChild->getNodesInBox2D(min, max, nodes);
+	_rightChild->getNodesInBox2D(min, max, nodes);
+
+	return;
 }
 
 // bool AABBNode::isIn(float x1, float y1, float x2, float y2) const {

@@ -24,6 +24,12 @@
 
 #include <algorithm>
 
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/box.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/algorithms/intersects.hpp>
+
 #include "src/common/util.h"
 #include "src/common/vector3.h"
 #include "src/common/vec3util.h"
@@ -33,6 +39,7 @@
 
 #include "src/engines/aurora/pathfinding.h"
 
+typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
 
 namespace Engines {
 
@@ -110,7 +117,7 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 
 		if (current.face == endNode.face) {
 			reconstructPath(current, closedList, facePath);
-			_pointsToDraw.push_back(Common::Vector3(endX, endY, endZ));
+// 			_pointsToDraw.push_back(Common::Vector3(endX, endY, endZ));
 			_facesToDraw = facePath;
 			return true;
 		}
@@ -159,9 +166,10 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 }
 
 void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width) {
+	warning("SSFA");
 // 	warning("start point (%f, %f, %f)", start._x, start._y, start._y);
 // 	warning("end point (%f, %f, %f)", end._x, end._y, end._y);
-	_pointsToDraw.clear();
+// 	_pointsToDraw.clear();
 	// Based on the Simple Stupid Funnel Algorithm from Mikko Mononen (http://digestingduck.blogspot.be)
 	Common::Vector3 apex, left, right, lastLeft, lastRight;
 	Common::Vector3 newLeft, newRight;
@@ -175,7 +183,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 
 	path.clear();
 	path.push_back(start);
-	_pointsToDraw.push_back(start);
+// 	_pointsToDraw.push_back(start);
 
 	for (uint32 f = 0; f < facePath.size(); ++f) {
 // 		warning("Entering side %u", f);
@@ -227,6 +235,9 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 			}
 		}
 
+// 		warning("left (%f, %f, %f)", newLeft[0], newLeft[1], newLeft[2]);
+// 		warning("right (%f, %f, %f)", newRight[0], newRight[1], newRight[2]);
+
 		Common::Vector3 adjLeft = newLeft;
 		Common::Vector3 adjRight = newRight;
 		Common::Vector3 leftApex = apex;
@@ -237,6 +248,8 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 			float halfWidth = width / 2.f;
 			// Check if the newright/left needs to be adjusted.
 // 			if (!walkableCircle(newLeft, halfWidth)) {
+
+			warning("Walkable box ? %i", walkableBox(newLeft, halfWidth));
 				Common::Vector3 segment = newLeft - apex;
 				if (apex == start) {
 					if (f != facePath.size() - 1)
@@ -266,6 +279,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 				}
 // 			}
 
+			warning("Walkable box ? %i", walkableBox(newRight, halfWidth));
 // 			if (!walkableCircle(newRight, halfWidth)) {
 				/*Common::Vector3 */segment = newRight - apex;
 				if (apex == start) {
@@ -322,7 +336,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 				}
 // 					_pointsToDraw.push_back(apex);
 // 					_pointsToDraw.push_back(adjLeft);
-				_pointsToDraw.push_back(left);
+// 				_pointsToDraw.push_back(left);
 
 
 				// Restart from that point
@@ -354,7 +368,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 				}
 // 					_pointsToDraw.push_back(apex);
 // 					_pointsToDraw.push_back(adjRight);
-				_pointsToDraw.push_back(right);
+// 				_pointsToDraw.push_back(right);
 
 
 				// Restart from that point
@@ -373,10 +387,11 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 // 	for (uint32 i = 0; i < finalPath.size(); ++i)
 // 		_pointsToDraw.push_back(finalPath[i]);
 
-	_pointsToDraw.push_back(end);
+	_linesToDraw.push_back(end);
 }
 
-void Pathfinding::manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &finalPath) {
+void Pathfinding::manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &ignoredPoints,
+	                                 std::vector<Common::Vector3> &finalPath) {
 	if (smoothedPath.size() < 3) {
 		finalPath = smoothedPath;
 		return;
@@ -389,15 +404,29 @@ void Pathfinding::manageCreatureSize(std::vector<Common::Vector3> &smoothedPath,
 	Common::Vector3 middleSquare, firstSquare, secondSquare, orthoVec;
 // 	warning("point 0 (%f, %f, %f)", smoothedPath[0][0], smoothedPath[0][1], smoothedPath[0][2]);
 
-	for (uint32 point = 0; point < smoothedPath.size() - 2; ++point) {
+    warning("squaring");
+	for (uint32 point = 1; point < smoothedPath.size() - 1; ++point) {
 // 		warning("point %u (%f, %f, %f)", point + 1, smoothedPath[point + 1][0], smoothedPath[point + 1][1], smoothedPath[point + 1][2]);
 		if (smoothedPath[point] == smoothedPath[point + 1])
 			continue;
 
-		middlePoint = smoothedPath[point + 1];
-		segment = smoothedPath[point + 2] - smoothedPath[point];
+		bool toIgnore = false;
+		for (std::vector<Common::Vector3>::iterator p = ignoredPoints.begin(); p != ignoredPoints.end(); ++p) {
+			if (*p != smoothedPath[point])
+				continue;
 
-		bool clockwise = !isToTheLeft(smoothedPath[point], smoothedPath[point + 2], middlePoint);
+			toIgnore = true;
+			finalPath.push_back(smoothedPath[point]);
+			break;
+		}
+
+		if (toIgnore)
+			continue;
+
+		middlePoint = smoothedPath[point];
+		segment = smoothedPath[point + 1] - finalPath.back();
+
+		bool clockwise = !isToTheLeft(smoothedPath[point], smoothedPath[point + 1], middlePoint);
 		orthoVec = getOrthonormalVec(segment, clockwise) * halfWidth;
 		middleSquare = middlePoint + orthoVec;
 		// Check if we are in a small face
@@ -462,119 +491,292 @@ Common::Vector3 Pathfinding::getCreatureSizePoint(Common::Vector3 &from, Common:
 // 	return nearVertex + (bd * abs(alpha));
 }
 
-void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path) {
-	// Simple smooth path algorithm.
-	path.push_back(start);
+void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width) {
+// 	Common::getOrthoVecTest();
+// 	Common::inCircleTest();
 
-	if (facePath.size() < 3) {
-		path.push_back(end);
+	warning("SmoothPath");
+	std::vector<Common::Vector3> tunnel;
+	std::vector<Common::Vector3> smoothedPath, finalPath;
+	std::vector<bool> tunnelLeftRight, tunnelFree;
+	std::vector<uint32> funnelIdx;
+	float halfWidth = width / 2.f;
+
+	tunnel.push_back(start);
+	tunnelLeftRight.push_back(true);
+
+	getVerticesTunnel(facePath, tunnel, tunnelLeftRight);
+	tunnel.push_back(end);
+	tunnel.push_back(end);
+	tunnelLeftRight.push_back(true);
+	tunnelLeftRight.push_back(false);
+	tunnelFree.resize(tunnel.size());
+
+	uint32 apex = 0;
+	// Ignore the start point
+	uint32 feeler[ 2 ] = { 0, 0 }; //ie left/right
+
+	Common::Vector3 feeler_v[ 2 ]; //We store the vector from the apex to the feelers,
+	//which is a simple optimization that stops us from having to recalculate
+	//them each step
+
+	_pointsToDraw.clear();
+	for( uint32 c = 1; c < tunnel.size(); c++ ) {
+		Common::Vector3 v = tunnel[c] - tunnel [apex];
+
+		bool wB = walkableBox(tunnel[c], halfWidth);
+		warning("Is left ? %i | walkable in box ? %i", (bool) tunnelLeftRight[c], wB);
+
+		warning("iteration %u", c);
+// 		bool isLeft = tunnelLeftRight[c];
+// 		warning("Is Left ? %u", isLeft);
+		warning("v before any treatment (%f, %f, %f)", v[0], v[1], v[2]);
+		warning("apex: %u", apex);
+		warning("feeler (%u, %u)", feeler[0], feeler[1]);
+		warning("feeler_v (%f, %f, %f) and (%f, %f, %f)", feeler_v[0][0], feeler_v[0][1], feeler_v[0][2], feeler_v[1][0], feeler_v[1][1], feeler_v[1][2]);
+
+		bool nextToWall = !wB; //!walkableCircle(tunnel[c], halfWidth);
+		tunnelFree[c] = !nextToWall;
+// 		warning("Next to wall %i", nextToWall);
+
+		if( v.length() > halfWidth && nextToWall) { //if v.length is below halfwidth, then the vertices are too close together
+			//to form meaningful tangent calculations. This is not the case for vertices on the same side of funnel,
+			//but they get straight-line calculations anyway, and no two vertices on opposite sides of funnel should be this close
+			//because that would make path invalid (only start and end)
+
+			if (apex == 0) { //Apex is start point
+				if (c < tunnel.size() - 2) { //If not true, the current
+					//element is the end point, so we actually want straight line between the apex and it after all
+					float len = v.length();
+					float fsin = halfWidth / len * (tunnelLeftRight[c] ? -1.f : 1.0f);
+					float fcos = sqrt(len * len - halfWidth * halfWidth) / len;
+					float vX = v._x * fcos - v._y * fsin;
+					float vY = v._x * fsin + v._y * fcos;
+					v._x = vX;
+					v._y = vY;
+				}
+			} else if ( c >= tunnel.size() - 2 ) { //Current point is end point
+				float len = v.length();
+				float fsin = halfWidth / len * (tunnelLeftRight[apex] ? 1.0f : -1.f);
+				float fcos = sqrt(abs(len * len - halfWidth * halfWidth)) / len;
+				float vX = v._x * fcos - v._y * fsin;
+				float vY = v._x * fsin + v._y * fcos;
+				v._x = vX;
+				v._y = vY;
+			} else if ( tunnelLeftRight[c] != tunnelLeftRight[apex]) { // Opposite sides of list
+				warning("Opposite sides of list");
+				float len = v.length() * 0.5f;
+				float fsin = halfWidth / len * (tunnelLeftRight[c] ? -1.f : 1.0f);
+				float fcos = sqrt(abs(len * len - halfWidth * halfWidth)) / len;
+				float vX = v._x * fcos - v._y * fsin;
+				float vY = v._x * fsin + v._y * fcos;
+				v._x = vX;
+				v._y = vY;
+				warning("len %f, fsin %f, fcos %f", len, fsin, fcos);
+			}
+		}
+
+		warning("v after (%f, %f, %f)", v[0], v[1], v[2]);
+
+		_pointsToDraw.push_back(v + tunnel[apex]);
+		//Is in on the ‘outside’ of the corresponding feeler? (or is the first
+		//iteration after advancing the apex)?
+		if (apex == feeler[tunnelLeftRight[c]] || (v.cross(feeler_v[tunnelLeftRight[c]])._z < 0.0f ) != tunnelLeftRight[c]) {
+			warning("It's inside or is first iteration (%i)", apex == feeler[tunnelLeftRight[c]]);
+			feeler[tunnelLeftRight[c]] = c;
+			feeler_v[tunnelLeftRight[c]] = v;
+
+			//Does it cross the opposite feeler?
+			//Here we must first establish that the opposite feeler is not the apex, else there will be no meaningful calculation
+			//Also, we need to account for our end position, which is the last two elements on the tunnel list
+			if (apex != feeler[!tunnelLeftRight[c]] && (tunnel[c] == tunnel[feeler[!tunnelLeftRight[c]]]
+			   || (v.cross(feeler_v[!tunnelLeftRight[ c ] ] )._z < 0.0f) != tunnelLeftRight[c])) {
+				warning("It's crossing opposite feeler");
+				funnelIdx.push_back(apex);
+
+				apex = feeler[!tunnelLeftRight[c]];
+
+
+				//There is occasionaly an instance whereby the current vertex is actually closer
+				//than the one on the oposite left/right list
+				//If this is the case, SWAP them, because we want to move to apex to the closest one
+				if (v.length() < feeler_v[ !tunnelLeftRight[ c ] ].length()) {
+					Common::Vector3 tmpV = tunnel[c];
+					tunnel[c] = tunnel[feeler[!tunnelLeftRight[c]]];
+					tunnel[feeler[!tunnelLeftRight[c]]] = tmpV;
+					bool tmpB = tunnelLeftRight[c];
+					tunnelLeftRight[c] = tunnelLeftRight[feeler[!tunnelLeftRight[c]]];
+					tunnelLeftRight[feeler[!tunnelLeftRight[c]]] = tmpB;
+				}
+
+				c = apex; //ie apex + 1 on next itteration
+				feeler[0] = apex;
+				feeler[1] = apex;
+			}
+		}
+	}
+
+// 	for (std::vector<uint32>::iterator f = funnelIdx.begin(); f != funnelIdx.end(); ++f)
+// 		finalPath.push_back(tunnel[*f]);
+// 	for (std::vector<uint32>::iterator f = funnelIdx.begin(); f != funnelIdx.end(); ++f) {
+// 		smoothedPath.push_back(tunnel[*f]);
+// 		if (tunnelFree[*f]) {
+// 			freePoints.push_back(tunnel[*f]);
+// 			warning("ignoring (%f, %f, %f)", tunnel[*f]._x, tunnel[*f]._y, tunnel[*f]._z);
+// 		}
+// 		warning("point to be smoothed (%f, %f, %f)", tunnel[*f]._x, tunnel[*f]._y, tunnel[*f]._z);
+// 	}
+// 	smoothedPath.push_back(end);
+
+// 	manageCreatureSize(smoothedPath, halfWidth, freePoints, finalPath);
+
+	finalPath.push_back(start);
+	if (funnelIdx.size() < 2) {
+		finalPath.push_back(end);
+		_linesToDraw.clear();
+		_linesToDraw.push_back(start);
+		_linesToDraw.push_back(end);
 		return;
 	}
 
-// 	warning("Total faces: %lu", facePath.size());
-	uint32 endFace = facePath.size() - 1;
-	for (uint32 currFace = 0; currFace < facePath.size() - 2; ++currFace) {
-		bool isIn = segmentInFace(facePath[currFace + 1], path.back(), end);
-		if (isIn && segmentInFace(facePath[currFace + 2], path.back(), end)) {
-			std::vector<Common::Vector3> inters;
-			getIntersections(path.back(), end, facePath[currFace + 1], inters);
-// 			warning("Intersection size: %lu", inters.size());
-			for (uint32 in = 0; in < inters.size(); ++in) {
-// 				warning("Intersect: (%f, %f)", inters[in]._x, inters[in]._y);
-				// Check if the segment doesn't go outside.
-				bool isInPrevious = inFace(facePath[currFace], inters[in]);
-				bool isInNext = inFace(facePath[currFace + 2], inters[in]);
-// 				warning("Check intersection, previous: %u, next: %u", isInPrevious, isInNext);
-				if ((!isInPrevious && !isInNext)) {
-// 					warning("segment outside(main) of %u", currFace +2);
-					std::vector<Common::Vector3> vertices;
-					vertices.resize(3);
-					getVertices(facePath[currFace + 1], vertices[0], vertices[1], vertices[2]);
-					for (uint32 v = 0; v < 3; ++v)
-						vertices[v] = vertices[v] - path.back();
-					std::sort(vertices.begin(), vertices.end(), sortByLenght);
+	Common::Vector3 middlePoint, segment;
+	Common::Vector3 middleSquare, firstSquare, secondSquare, orthoVec;
+	// 	warning("point 0 (%f, %f, %f)", smoothedPath[0][0], smoothedPath[0][1], smoothedPath[0][2]);
 
-					path.push_back(vertices[0] + path.back());
-// 					warning("PUSHING-closest vertices: (%f, %f)", path.back()._x, path.back()._y);
-					break;
-				}
-			}
+	funnelIdx.push_back(tunnel.size() - 1);
+	warning("funnelIdx size %zu", funnelIdx.size());
+	for (uint32 point = 1; point < funnelIdx.size() - 1; ++point) {
+		// 		warning("point %u (%f, %f, %f)", point + 1, smoothedPath[point + 1][0], smoothedPath[point + 1][1], smoothedPath[point + 1][2]);
+// 		if (smoothedPath[point] == smoothedPath[point + 1])
+// 			continue;
+
+		uint32 pos = funnelIdx[point];
+		uint32 nextPos = funnelIdx[point + 1];
+		if (tunnelFree[pos]) {
+			finalPath.push_back(tunnel[pos]);
+			continue;
 		}
 
 
-		if (!isIn) {
-			if (endFace < currFace)
-				throw;
+		middlePoint = tunnel[pos];
+		segment = tunnel[nextPos] - finalPath.back();
 
-// 			warning("Segment not in face %u", currFace + 1);
-			// Compute the intersection with the last face within the path.
-			Common::Vector3 inter;
-			getClosestIntersection(path.back(), end, facePath[currFace], inter);
-// 			warning("PUSHING-get closest intersect to the start: (%f, %f)", inter._x, inter._y);
-			path.push_back(inter);
+		bool clockwise = tunnelLeftRight[pos];
+		orthoVec = getOrthonormalVec(segment, clockwise) * halfWidth;
+		middleSquare = middlePoint + orthoVec;
+		// Check if we still are in a walkable surface (right side)
+		if (!walkable(middleSquare))
+			middleSquare = middlePoint - orthoVec;
 
-// 			warning("looping back");
-			for (uint32 f = endFace - 1; f > currFace; --f) {
-// 				warning("Endface: %u", f);
-				Common::Vector3 vA, vB, vC;
-				getVertices(facePath[f], vA, vB, vC);
-				std::vector<Common::Vector3> verts;
-				verts.push_back(vA - path.back());
-				verts.push_back(vB - path.back());
-				verts.push_back(vC - path.back());
-				std::sort(verts.begin(), verts.end(), sortByLenght);
-				if (!segmentInFace(facePath[currFace + 1], path.back(), verts.front() + path.back()))
+		secondSquare = middleSquare + (segment.norm() * halfWidth);
+		firstSquare = middleSquare + (segment.norm() * (-1) * halfWidth);
+
+        finalPath.push_back(firstSquare);
+        // If the two position are too close, avoid "z" path (going backward) except for last point.
+		if ((tunnel[nextPos] - tunnel[pos]).length() > width || ((tunnel[nextPos] - tunnel[pos]).length() <= width && point + 2 == funnelIdx.size())) {
+            finalPath.push_back(secondSquare);
+		} else {
+			warning("Don't add last square. FunnelIdx position %i", point);
+		}
+
+	}
+
+	// 	warning("point %lu (%f, %f, %f)", smoothedPath.size() - 1, smoothedPath[smoothedPath.size() - 1][0], smoothedPath[smoothedPath.size() - 1][1], smoothedPath[smoothedPath.size() - 1][2]);
+	finalPath.push_back(end);
+
+	_linesToDraw.clear();
+	for (std::vector<Common::Vector3>::iterator f = finalPath.begin(); f != finalPath.end(); ++f)
+		_linesToDraw.push_back(*f);
+
+// 	warning("size : %zu", funnelIdx.size());
+
+	_pointsToDraw.clear();
+	_pointsToDraw.push_back(start);
+	for (std::vector<uint32>::iterator f = funnelIdx.begin(); f != funnelIdx.end(); ++f)
+		_pointsToDraw.push_back(tunnel[*f]);
+
+	_pointsToDraw.push_back(end);
+
+    for (uint32 p = 0; p < _pointsToDraw.size() - 1; ++p) {
+        float l = (_pointsToDraw[p + 1] - _pointsToDraw[p]).length();
+        warning("Length between %i and %i : %f", p, p+1, l);
+    }
+}
+
+void Pathfinding::getVerticesTunnel(std::vector<uint32> &facePath, std::vector<Common::Vector3> &tunnel, std::vector<bool> &tunnelLeftRight) {
+	if (facePath.size() < 2)
+		return;
+
+	Common::Vector3 cVert[3], pVert[3];
+
+
+	for (uint32 face = 1; face < facePath.size(); ++face) {
+		getVertices(facePath[face], cVert[0], cVert[1], cVert[2]);
+		getVertices(facePath[face - 1], pVert[0], pVert[1], pVert[2]);
+// 		warning("vertices from face %u (%f, %f, %f), (%f, %f, %f), (%f, %f, %f)", face,
+// 		  cVert[0][0], cVert[0][1], cVert[0][2],
+// 		  cVert[1][0], cVert[1][1], cVert[1][2],
+// 		  cVert[2][0], cVert[2][1], cVert[2][2]
+// 		);
+//
+// 		warning("vertices from face %u (%f, %f, %f), (%f, %f, %f), (%f, %f, %f)", face - 1,
+// 				pVert[0][0], pVert[0][1], pVert[0][2],
+// 		  pVert[1][0], pVert[1][1], pVert[1][2],
+// 		  pVert[2][0], pVert[2][1], pVert[2][2]
+// 		);
+
+// 		warning("face %u", face);
+		if (face == 1) {
+			// Find the first left and right by comparing to the next face.
+			uint8 startVert = 3;
+			for (uint8 v = 0; v < 3; ++v) {
+				if (pVert[v] == cVert[0] || pVert[v] == cVert[1] || pVert[v] == cVert[2])
 					continue;
 
-// 				std::vector<Common::Vector3> inters;
-				Common::Vector3 goodEndVert = verts.front() + path.back();
-// 				warning("Good endface?: %u", f);
-				if (segmentInFace(facePath[currFace + 2], path.back(), goodEndVert)) {
-					std::vector<Common::Vector3> inters;
-					getIntersections(path.back(), goodEndVert, facePath[currFace + 1], inters);
-// 					warning("Intersection size: %lu", inters.size());
-					for (uint32 in = 0; in < inters.size(); ++in) {
-// 						warning("Intersect: (%f, %f)", inters[in]._x, inters[in]._y);
-						// Check if the segment doesn't go outside.
-						bool isInPrevious = inFace(facePath[currFace], inters[in]);
-						bool isInNext = inFace(facePath[currFace + 2], inters[in]);
-// 						warning("Check intersection, previous: %u, next: %u", isInPrevious, isInNext);
-						if ((!isInPrevious && !isInNext)) {
-// 							warning("segment outside of %u", currFace +2);
-							std::vector<Common::Vector3> vertices;
-							vertices.resize(3);
-							getVertices(facePath[currFace + 1], vertices[0], vertices[1], vertices[2]);
-							for (uint32 v = 0; v < 3; ++v)
-								vertices[v] = vertices[v] - path.back();
-							std::sort(vertices.begin(), vertices.end(), sortByLenght);
+				startVert = v;
+				break;
+			}
 
-							path.push_back(vertices.front() + path.back());
-// 							warning("PUSHING-closest vertices: (%f, %f)", path.back()._x, path.back()._y);
+			if (startVert == 3)
+				error("No different vertices found");
+
+			tunnel.push_back(pVert[(startVert + 1) % 3]);
+			tunnel.push_back(pVert[(startVert + 2) % 3]);
+
+			// Check if it is clockwise (to the left).
+			bool orderedVert = triangleArea2(pVert[startVert], pVert[(startVert + 1) % 3], pVert[(startVert + 2) % 3]) > 0;
+			// We are looking backward.
+			tunnelLeftRight.push_back(!orderedVert);
+			tunnelLeftRight.push_back(orderedVert);
+		} else {
+			bool otherVertSide = true;
+			for (uint8 v = 0; v < 3; ++v) {
+				if (cVert[v] == pVert[0] || cVert[v] == pVert[1] || cVert[v] == pVert[2]) {
+					// Check if it is a new vertex or an already added vertex.
+					bool alreadyThere = false;
+					for (uint32 t = tunnel.size() - 1; t != UINT32_MAX;--t) {
+						if (cVert[v] == tunnel[t]) {
+							// The new vertex has to be the vertex from the previous face which we hadn't added last time.
+							// So if we know on which side the vertex we previously added, we can deduce the side of the new added vertex.
+							otherVertSide = tunnelLeftRight[t];
+							alreadyThere = true;
 							break;
 						}
 					}
+
+					if (!alreadyThere)
+						tunnel.push_back(cVert[v]);
 				}
-
-
-				getVertices(facePath[currFace + 1], vA, vB, vC);
-				Common::Vector3 intersect;
-				getClosestIntersection(goodEndVert, path.back(), facePath[currFace + 1], intersect);
-// 				warning("PUSHING-Next intersection: (%f, %f)", intersect._x, intersect._y);
-				path.push_back(intersect);
-				break;
 			}
-		} else {
-// 			warning("Face %u in the line", currFace + 1);
+			tunnelLeftRight.push_back(!otherVertSide);
 		}
 	}
-
-	path.push_back(end);
-
-	if (inFace(facePath[0], path[1]))
-		path.erase(++path.begin());
-
-	_pointsToDraw.clear();
-	_pointsToDraw = path;
+// 	for (uint32 t = 0; t < tunnel.size(); ++t) {
+// 		if (tunnelLeftRight[t])
+// 			warning("Left (%f, %f, %f)", tunnel[t][0], tunnel[t][1], tunnel[t][2]);
+// 		else
+// 			warning("Right (%f, %f, %f)", tunnel[t][0], tunnel[t][1], tunnel[t][2]);
+// 	}
 }
 
 void Pathfinding::getIntersections(Common::Vector3 &start, Common::Vector3 &end, uint32 face, std::vector<Common::Vector3> &intersects) {
@@ -632,21 +834,59 @@ bool Pathfinding::walkableCircle(Common::Vector3 center, float radius) {
 			(*n)->getNodesInCircle(center, radius, nodesIn);
 	}
 
+// 	warning("nodes in circle size: %zu", nodesIn.size());
+
 	Common::Vector3 vertices[3];
 	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
-		// Check that at least one vertex is inside the circle.
+		// Check that at least one edge is inside the circle.
+		uint32 face = (*n)->getProperty();
+		bool isWalkable = walkable(face);
+// 		warning("node walkability %i", isWalkable);
+		if (isWalkable)
+			continue;
+
 		getVertices((*n)->getProperty(), vertices[0], vertices[1], vertices[2]);
-		for (uint8 v = 0; v < 3; ++v)
-			if (inCircle(center, radius, vertices[v], vertices[(v + 1) % 3])) {
-				// The face is in the circle.
-				if (!walkable((*n)->getProperty()))
+		for (uint8 v = 0; v < 3; ++v) {
+			if (inCircle(center, radius, vertices[v], vertices[(v + 1) % 3]))
+				// The unwalkable face is in the circle.
 					return false;
 
-				// The face is inside the circle but is walkable.
-				break;
-			}
+		}
 	}
 
+	return true;
+}
+
+bool Pathfinding::walkableBox(Common::Vector3 center, float halfWidth) {
+	Common::Vector3 min(center[0] - halfWidth, center[1] - halfWidth, 0.f);
+	Common::Vector3 max(center[0] + halfWidth, center[1] + halfWidth, 0.f);
+
+	std::vector<Common::AABBNode *> nodesIn;
+	for (std::vector<Common::AABBNode *>::iterator n = _AABBTrees.begin(); n != _AABBTrees.end(); ++n) {
+		if (*n)
+			(*n)->getNodesInBox2D(min, max, nodesIn);
+	}
+
+	boost::geometry::model::box<boostPoint2d> box(boostPoint2d(min[0], min[1]), boostPoint2d(max[0], max[1]));
+	Common::Vector3 vertices[3];
+	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
+
+		uint32 face = (*n)->getProperty();
+		getVertices(face, vertices[0], vertices[1], vertices[2]);
+		boostPoint2d v_1(vertices[0][0], vertices[0][1]);
+		boostPoint2d v_2(vertices[1][0], vertices[1][1]);
+		boostPoint2d v_3(vertices[2][0], vertices[2][1]);
+		boost::geometry::model::polygon<boostPoint2d> boostFace;
+		boost::geometry::append(boostFace.outer(), v_1);
+		boost::geometry::append(boostFace.outer(), v_2);
+		boost::geometry::append(boostFace.outer(), v_3);
+
+		if (!boost::geometry::intersects(box, boostFace))
+			continue;
+
+		if (!walkable(face))
+			return false;
+	}
 	return true;
 }
 
@@ -697,8 +937,8 @@ void Pathfinding::reconstructPath(Node &endNode, std::vector<Node> &closedList, 
 	path.push_back(endNode.face);
 	path.push_back(endNode.parent);
 
-	_pointsToDraw.clear();
-	_pointsToDraw.push_back(Common::Vector3(cNode.x, cNode.y, cNode.z));
+// 	_pointsToDraw.clear();
+// 	_pointsToDraw.push_back(Common::Vector3(cNode.x, cNode.y, cNode.z));
 
 	while (cNode.parent != UINT32_MAX) {
 		for (std::vector<Node>::iterator n = closedList.begin(); n != closedList.end(); ++n) {
@@ -706,7 +946,7 @@ void Pathfinding::reconstructPath(Node &endNode, std::vector<Node> &closedList, 
 				continue;
 
 			cNode = (*n);
-			_pointsToDraw.push_back(Common::Vector3(cNode.x, cNode.y, cNode.z));
+			_linesToDraw.push_back(Common::Vector3(cNode.x, cNode.y, cNode.z));
 			if (cNode.parent != UINT32_MAX)
 				path.push_back(cNode.parent);
 
@@ -716,8 +956,8 @@ void Pathfinding::reconstructPath(Node &endNode, std::vector<Node> &closedList, 
 
 	std::reverse(path.begin(), path.end());
 
-	std::reverse(_pointsToDraw.begin(), _pointsToDraw.end());
-	for (uint32 p = 0; p < _pointsToDraw.size(); ++p) {
+	std::reverse(_linesToDraw.begin(), _linesToDraw.end());
+	for (uint32 p = 0; p < _linesToDraw.size(); ++p) {
 // 		warning("path %u: (%f, %f, %f)", p, _pointsToDraw[p]._x, _pointsToDraw[p]._y, _pointsToDraw[p]._z);
 	}
 }
@@ -780,15 +1020,15 @@ void Pathfinding::drawWalkmesh() {
 // 	glEnd();
 // 	glLineWidth(1.f);
 
-	if (_pointsToDraw.size() < 1)
+	if (_linesToDraw.size() < 1)
 		return;
 
-	for (uint32 p = 0; p < _pointsToDraw.size() - 1; ++p) {
+	for (uint32 p = 0; p < _linesToDraw.size() - 1; ++p) {
 		glLineWidth(3.f);
 		glBegin(GL_LINES);
 		glColor4f(1.f, 0.0, 1.0, 0.5);
-		glVertex3f(_pointsToDraw[p]._x, _pointsToDraw[p]._y, _pointsToDraw[p]._z + 0.05);
-		glVertex3f(_pointsToDraw[p + 1]._x, _pointsToDraw[p + 1]._y, _pointsToDraw[p + 1]._z + 0.05);
+		glVertex3f(_linesToDraw[p]._x, _linesToDraw[p]._y, _linesToDraw[p]._z + 0.05);
+		glVertex3f(_linesToDraw[p + 1]._x, _linesToDraw[p + 1]._y, _linesToDraw[p + 1]._z + 0.05);
 		glEnd();
 		glLineWidth(1.f);
 
@@ -807,6 +1047,15 @@ void Pathfinding::drawWalkmesh() {
 		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
 		glEnd();
 	}
+
+	if (_pointsToDraw.size() > 0) {
+		glColor3f(1.0f,1.0f,1.0f);
+		glPointSize(10.0f);
+		glBegin(GL_POINTS);
+		for (std::vector<Common::Vector3>::iterator p = _pointsToDraw.begin(); p != _pointsToDraw.end(); ++p)
+			glVertex3f((*p)._x, (*p)._y, (*p)._z + 0.05);
+		glEnd();
+	}
 }
 
 bool Pathfinding::walkable(uint32 faceIndex) const {
@@ -818,7 +1067,10 @@ bool Pathfinding::walkable(uint32 faceIndex) const {
 }
 
 bool Pathfinding::walkable(Common::Vector3 point) {
-	uint32 face = findFace(point[0], point[1], point[2]);
+	uint32 face = findFace(point[0], point[1]);
+    if (face == UINT32_MAX)
+        warning("face not found");
+
 	return walkable(face);
 }
 
@@ -857,8 +1109,34 @@ uint32 Pathfinding::findFace(float x, float y, float z, bool onlyWalkable) {
 	return UINT32_MAX;
 }
 
+uint32 Pathfinding::findFace(float x, float y, bool onlyWalkable) {
+    for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+        if (*it == 0)
+            continue;
+
+        if (!(*it)->isIn(x, y))
+            continue;
+
+        std::vector<Common::AABBNode *> nodes;
+        (*it)->getNodes(x, y, nodes);
+        for (uint n = 0; n < nodes.size(); ++n) {
+            uint32 face = nodes[n]->getProperty();
+            // Check walkability
+            if (onlyWalkable && !walkable(face))
+                continue;
+
+            if (!inFace(face, Common::Vector3(x, y, 0.f)))
+                continue;
+
+            return face;
+        }
+    }
+
+    return UINT32_MAX;
+}
+
 uint32 Pathfinding::findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect) {
-	warning("Looking for a face");
+// 	warning("Looking for a face");
 	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
 		if (*it == 0)
 			continue;
@@ -881,7 +1159,7 @@ uint32 Pathfinding::findFace(float x1, float y1, float z1, float x2, float y2, f
 
 			_facesToDraw.clear();
 			_facesToDraw.push_back(face);
-			warning("face found : %u", face);
+// 			warning("face found : %u", face);
 			if (_adjFaces[face * 3] != UINT32_MAX)
 				_facesToDraw.push_back(_adjFaces[face * 3]);
 			if (_adjFaces[face * 3 + 1] != UINT32_MAX)

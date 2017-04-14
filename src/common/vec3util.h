@@ -44,6 +44,9 @@ bool inCircle(Common::Vector3 center, float radius, Common::Vector3 startSegment
 bool inCircle(Common::Vector3 center, float radius, Common::Vector3 point);
 bool inFace(Vector3 point, Vector3 vertA, Vector3 vertB, Vector3 vertC);
 bool inFace(Vector3 vA, Vector3 vB, Vector3 vC, Vector3 lineStart, Vector3 lineEnd, Vector3 &intersect);
+Vector3 getOrthoVec(Common::Vector3 segment, bool clockwise = true, bool normed = false);
+void inCircleTest();
+void getOrthoVecTest();
 
 } // End of namespace Common
 

@@ -72,7 +72,7 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 			changeOrientation(orientation, localPosition);
 			for (uint8 i = 0; i < 3; ++i)
 				position[i] += localPosition[i];
-			warning("Position: (%f, %f, %f)", position[0], position[1], position[2]);
+// 			warning("Position: (%f, %f, %f)", position[0], position[1], position[2]);
 		} else if (line[0] == "verts") {
 			size_t vertsCount;
 			Common::parseString(line[1], vertsCount);
@@ -107,6 +107,43 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 			break;
 		}
 	}
+
+	// Find Adjacent tiles
+	warning("Finding adjacents tiles...");
+	warning("Current position (%f, %f, %f)", position[0], position[1], position[2]);
+	Common::Vector3 leftMax(position[0] - 5.f, position[1] + 5.f, 0.f);
+	Common::Vector3 topMin(leftMax);
+	Common::Vector3 bottomMax(position[0] + 5.f, position[1] - 5.f, 0.f);
+	Common::Vector3 rightMin(bottomMax);
+
+	for (uint32 n = 0; n < _AABBTrees.size(); ++n) {
+		float x, y, z;
+		_AABBTrees[n]->getMax(x, y, z);
+// 		warning("Tile max (%f, %f, %f)", x, y, z);
+		if (x == leftMax._x && y == leftMax._y) {
+			warning("left tile found");
+			connectTiles(n, _AABBTrees.size() - 1, false, x);
+			continue;
+		}
+		if (x == bottomMax._x && y == bottomMax._y) {
+			warning("bottom tile found");
+			connectTiles(n, _AABBTrees.size() - 1, true, y);
+			continue;
+		}
+
+		_AABBTrees[n]->getMin(x, y, z);
+// 		warning("Tile min (%f, %f, %f)", x, y, z);
+		if (x == rightMin._x && y == rightMin._y) {
+			warning("right tile found");
+			connectTiles(n, _AABBTrees.size() - 1, false, x);
+			continue;
+		}
+		if (x == topMin._x && y == topMin._y) {
+			warning("top tile found");
+			connectTiles(n, _AABBTrees.size() - 1, true, y);
+			continue;
+		}
+	}
 }
 
 Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
@@ -132,7 +169,7 @@ Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Comm
 	if (face >= 0)
 		face += _startFace.back();
 
-	warning("AABB: min(%f, %f, %f), max(%f, %f, %f), face: %i", min[0], min[1], min[2], max[0], max[1], max[2], face);
+// 	warning("AABB: min(%f, %f, %f), max(%f, %f, %f), face: %i", min[0], min[1], min[2], max[0], max[1], max[2], face);
 
 	Common::AABBNode *node = new Common::AABBNode(min, max, face);
 	if (face < 0) {
@@ -185,7 +222,7 @@ void Pathfinding::finalize() {
 				}
 
 			}
-			warning("For face %u, adj (%i, %i, %i)", f, _adjFaces[f * 3], _adjFaces[f * 3 + 1], _adjFaces[f * 3 + 2]);
+// 			warning("For face %u, adj (%i, %i, %i)", f, _adjFaces[f * 3], _adjFaces[f * 3 + 1], _adjFaces[f * 3 + 2]);
 		}
 	}
 }
@@ -228,7 +265,7 @@ void Pathfinding::readVerts(size_t n, float *position, Common::SeekableReadStrea
 		for (uint32 vi = 0; vi < 3; ++vi)
 			_vertices[3 * i + vi] += position[vi];
 
-		warning("v(%u): %f, %f, %f", i, _vertices[3 * i], _vertices[3 * i + 1], _vertices[3 * i + 2]);
+// 		warning("v(%u): %f, %f, %f", i, _vertices[3 * i], _vertices[3 * i + 1], _vertices[3 * i + 2]);
 	}
 
 	// Update total vertices count.
@@ -263,7 +300,7 @@ void Pathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Common
 		// Walktype
 		Common::parseString(line[7], _faceProperty[i]);
 
-		warning("f(%u): %i, %i, %i with mat: %i", i,  _faces[3 * i + 0], _faces[3 * i + 1], _faces[3 * i + 2], _faceProperty[i]);
+// 		warning("f(%u): %i, %i, %i with mat: %i", i,  _faces[3 * i + 0], _faces[3 * i + 1], _faces[3 * i + 2], _faceProperty[i]);
 	}
 
 	_facesCount += n;
@@ -275,6 +312,11 @@ void Pathfinding::changeOrientation(uint8 orientation, float *position) {
 		position[0] = - position[1];
 		position[1] = temp;
 	}
+}
+
+void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axisPosition) {
+// 	for (uint32 f)
+    return;
 }
 
 } // namespace NWN

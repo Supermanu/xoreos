@@ -54,6 +54,7 @@ private:
 	                float *floats, uint32 n, uint32 start);
 	Common::AABBNode *readAABB(float *position, uint8 orientation, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize);
 	void changeOrientation(uint8 orientation, float *position);
+	void connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axisPosition);
 
 	std::vector<uint32> _startFace;
 	std::vector<uint32> _startVertex;
