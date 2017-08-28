@@ -630,10 +630,10 @@ void Model::render(RenderPass pass) {
 	// Draw the bounding box, if requested
 	doDrawBound();
 
-// 	// Draw the nodes
+	// Draw the nodes
 // 	for (NodeList::iterator n = _currentState->rootNodes.begin();
 // 	     n != _currentState->rootNodes.end(); ++n) {
-// 
+//
 // 		glPushMatrix();
 // 		(*n)->render(pass);
 // 		glPopMatrix();

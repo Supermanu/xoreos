@@ -59,6 +59,7 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_activeObject(0), _highlightAll(false) {
 
 	_pathfinding = new Pathfinding();
+	_iter = 1000;
 	try {
 		load();
 	} catch (...) {
@@ -552,6 +553,34 @@ void Area::processEventQueue() {
 	for (std::list<Events::Event>::const_iterator e = _eventQueue.begin();
 	     e != _eventQueue.end(); ++e) {
 
+		float width = 1.f;
+		if (e->type == Events::kEventKeyDown) {
+			if (e->key.keysym.sym == SDLK_F10) {
+				if (_startEndPoints.size() == 2) {
+					std::vector<uint32> path;
+					clock_t startFindPath = std::clock();
+					bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y, _startEndPoints[0]._z,
+													  _startEndPoints[1]._x, _startEndPoints[1]._y, _startEndPoints[1]._z, path, width, _iter);
+					clock_t endFindPath = std::clock();
+					++_iter;
+					warning("Out is %i", out);
+					clock_t startSmooth = std::clock();
+					if (out) {
+						std::vector<Common::Vector3> smoothPath;
+						_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
+						_iter = 0;
+						_startEndPoints.clear();
+					}
+					clock_t endSmooth = std::clock();
+					double findPath = double(endFindPath - startFindPath);
+					double smoothing = double(endSmooth - startSmooth);
+					warning("Time spent find path: %f ms", findPath / CLOCKS_PER_SEC * 1000);
+					warning("Time spent smoothing: %f ms", smoothing / CLOCKS_PER_SEC * 1000);
+					warning("Total time: %f ms", (findPath + smoothing) / CLOCKS_PER_SEC * 1000);
+				}
+			}
+		}
+
 		if        (e->type == Events::kEventMouseMove) { // Moving the mouse
 			hasMove = true;
 		} else if (e->type == Events::kEventMouseDown) { // Clicking
@@ -567,6 +596,7 @@ void Area::processEventQueue() {
 				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, intersect);
 				warning("face found: %u", face);
 
+
 				if (face != UINT32_MAX && _pathfinding->walkable(face)) {
 					if (_startEndPoints.size() < 2) {
 						_startEndPoints.push_back(intersect);
@@ -579,14 +609,16 @@ void Area::processEventQueue() {
 						std::vector<uint32> path;
 						clock_t startFindPath = std::clock();
 						bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y, _startEndPoints[0]._z,
-														  _startEndPoints[1]._x, _startEndPoints[1]._y, _startEndPoints[1]._z, path);
+														  _startEndPoints[1]._x, _startEndPoints[1]._y, _startEndPoints[1]._z, path, width, _iter);
 						clock_t endFindPath = std::clock();
-// 						++_iter;
+						++_iter;
 						warning("Out is %i", out);
 						clock_t startSmooth = std::clock();
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
-							_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath);
+							_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
+							_iter = 1000;
+							_startEndPoints.clear();
 						}
 						clock_t endSmooth = std::clock();
 						double findPath = double(endFindPath - startFindPath);

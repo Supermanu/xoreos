@@ -46,8 +46,42 @@ public:
 
 	void addData(const Common::UString &wokFile, uint8 orientation, float *position);
 	void finalize();
+	bool walkable(uint32 face) const;
 
 private:
+	struct Face {
+		uint32 faceId;
+		uint32 adjacentTile;
+		uint32 adjacentFace;
+		Common::Vector3 vert[3];
+		bool yAxis;
+		float axisPosition;
+		float epsilon;
+		std::vector<uint8> axisVert;
+		uint8 oppositeVert;
+		uint8 minVert;
+		uint8 maxVert;
+		float min;
+		float max;
+
+		Face(): adjacentTile(UINT32_MAX), adjacentFace(UINT32_MAX) {};
+		void computeMinOnAxis();
+		bool operator<(const Face &face) const;
+	};
+
+	struct Tile {
+		uint32 tileId;
+		uint32 xPosition;
+		uint32 yPosition;
+		std::vector<uint32> faces;
+		std::vector<uint32> adjFaces;
+		std::vector<uint32> facesProperty;
+		std::vector<Face> borderBottom;
+		std::vector<Face> borderRight;
+		std::vector<Face> borderLeft;
+		std::vector<Face> borderTop;
+	};
+
 	void readVerts(size_t n, float *position, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize, uint8 orientation);
 	void readFaces(size_t n, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize);
 	void readFloats(const std::vector<Common::UString> &strings,
@@ -55,9 +89,16 @@ private:
 	Common::AABBNode *readAABB(float *position, uint8 orientation, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize);
 	void changeOrientation(uint8 orientation, float *position);
 	void connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axisPosition);
+	void connectInnerFaces(uint32 tile);
+	uint32 getAdjPosition(uint32 vertA, uint32 vertB) const;
+	void getBorderface(std::vector<Face> &border, uint32 tile, bool yAxis, float axisPosition, float epsilon);
+	void getMinMaxFromFace(Face &face, float min[], float max[]);
 
-	std::vector<uint32> _startFace;
+	bool walkable(uint32 tile, uint32 face) const;
+
+// 	std::vector<uint32> _startFace;
 	std::vector<uint32> _startVertex;
+	std::vector<Tile> _tiles;
 };
 
 }

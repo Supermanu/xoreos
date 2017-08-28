@@ -205,6 +205,7 @@ private:
 
 	Pathfinding *_pathfinding;
 	std::vector<Common::Vector3> _startEndPoints;
+	uint32 _iter;
 
 	// Loading helpers
 

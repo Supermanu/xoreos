@@ -36,7 +36,7 @@ namespace Engines {
 
 class Pathfinding {
 public:
-	Pathfinding();
+	Pathfinding(uint32 polygonEdges = 3);
 	~Pathfinding();
 
 	bool findPath(float startX, float startY, float startZ, float endX, float endY, float endZ, std::vector<uint32> &facePath, float width = 0.01, uint32 nbrIt = 100000);
@@ -64,6 +64,7 @@ protected:
 		bool operator<(const Node &node) const;
 	};
 
+	uint32 _polygonEdges;
 	uint32 _verticesCount;
 	uint32 _facesCount;
 
@@ -85,8 +86,10 @@ protected:
 	float getDistance(float fX, float fY, float fZ, float tX, float tY, float tZ) const;
 	float getHeuristic(Node &node, Node &endNode) const;
 	void getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) const;
+	void getVertex(uint32 vertexID, Common::Vector3 &vertex) const;
 	bool walkableCircle(Common::Vector3 center, float radius);
-	bool walkableBox(Common::Vector3 center, float halfWidth);
+	bool walkableAASquare(Common::Vector3 center, float halfWidth);
+	bool walkablePolygon(Common::Vector3 vertices[], uint32 vertexCount);
 
 private:
 	bool inFace(uint32 faceID, Common::Vector3 point) const;

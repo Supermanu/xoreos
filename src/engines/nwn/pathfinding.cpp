@@ -23,6 +23,14 @@
  *  Pathfinding for NWN.
  */
 
+
+#include <boost/geometry.hpp>
+#include <boost/geometry/geometries/point_xy.hpp>
+#include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/algorithms/centroid.hpp>
+
+#include <algorithm>
+
 #include "src/common/ustring.h"
 #include "src/common/streamtokenizer.h"
 #include "src/common/strutil.h"
@@ -31,6 +39,8 @@
 #include "src/aurora/resman.h"
 
 #include "src/engines/nwn/pathfinding.h"
+
+typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
 
 namespace Engines {
 
@@ -57,6 +67,9 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 
 	float localPosition[3];
 
+	Tile tile = Tile();
+	tile.tileId = _tiles.size();
+	_tiles.push_back(tile);
 	while (!stream->eos()) {
 		std::vector<Common::UString> line;
 		size_t count = tokenize->getTokens(*stream, line, 3);
@@ -111,6 +124,7 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 	// Find Adjacent tiles
 	warning("Finding adjacents tiles...");
 	warning("Current position (%f, %f, %f)", position[0], position[1], position[2]);
+	float epsilon = 0.001;
 	Common::Vector3 leftMax(position[0] - 5.f, position[1] + 5.f, 0.f);
 	Common::Vector3 topMin(leftMax);
 	Common::Vector3 bottomMax(position[0] + 5.f, position[1] - 5.f, 0.f);
@@ -120,30 +134,19 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 		float x, y, z;
 		_AABBTrees[n]->getMax(x, y, z);
 // 		warning("Tile max (%f, %f, %f)", x, y, z);
-		if (x == leftMax._x && y == leftMax._y) {
+		if (fabs(x - leftMax._x) < epsilon && fabs(y - leftMax._y) < epsilon) {
 			warning("left tile found");
 			connectTiles(n, _AABBTrees.size() - 1, false, x);
 			continue;
 		}
-		if (x == bottomMax._x && y == bottomMax._y) {
+		if (fabs(x - bottomMax._x) < epsilon && fabs(y - bottomMax._y) < epsilon) {
 			warning("bottom tile found");
 			connectTiles(n, _AABBTrees.size() - 1, true, y);
 			continue;
 		}
-
-		_AABBTrees[n]->getMin(x, y, z);
-// 		warning("Tile min (%f, %f, %f)", x, y, z);
-		if (x == rightMin._x && y == rightMin._y) {
-			warning("right tile found");
-			connectTiles(n, _AABBTrees.size() - 1, false, x);
-			continue;
-		}
-		if (x == topMin._x && y == topMin._y) {
-			warning("top tile found");
-			connectTiles(n, _AABBTrees.size() - 1, true, y);
-			continue;
-		}
 	}
+
+// 	connectInnerFaces(_tiles.size() - 1);
 }
 
 Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
@@ -164,10 +167,11 @@ Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Comm
 		max[i] = MAX(raw_min[i], raw_max[i]);
 	}
 
+	// If it's a child node, record the related face.
 	int32 face;
 	Common::parseString(line[6], face);
-	if (face >= 0)
-		face += _startFace.back();
+// 	if (face >= 0)
+// 		face += _startFace.back();
 
 // 	warning("AABB: min(%f, %f, %f), max(%f, %f, %f), face: %i", min[0], min[1], min[2], max[0], max[1], max[2], face);
 
@@ -182,49 +186,69 @@ Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Comm
 }
 
 void Pathfinding::finalize() {
-	_adjFaces.resize(_faces.size());
+	// Merge all faces, adjacency and property included.
+	_faces.clear();
+	std::vector<uint32> startIndex;
 
-	_startFace.push_back(_facesCount);
+	// Connect faces inside the tile.
+	for (uint32 t = 0; t < _tiles.size(); ++t)
+		connectInnerFaces(t);
 
-	for (uint32 t = 0; t < _startFace.size() - 1; ++t) {
-		for (size_t f = _startFace[t]; f < _startFace[t + 1]; ++f) {
-			for (uint32 i = _startFace[t]; i < _startFace[t + 1]; ++i) {
-				if (f == i)
-					continue;
+	// Adjust face indices.
+	for (uint32 t = 0; t < _tiles.size(); ++t) {
+		startIndex.push_back(_faceProperty.size());
+		uint32 prevFacesCount = startIndex.back();
 
-				// Avoid unwalkable face
-				if (!walkable(f) || !walkable(i))
-					continue;
+		// Append faces from the tiles.
+		_faces.insert(_faces.end(), _tiles[t].faces.begin(), _tiles[t].faces.end());
 
-				uint8 count = 0;
-				std::vector<uint8> edges;
-				for (uint32 c = 0; c < 3; ++c) {
-					if (_faces[f * 3] == _faces[i * 3 + c]) {
-						++count;
-						edges.push_back(0);
-					} else if (_faces[f * 3 + 1] == _faces[i * 3 + c]) {
-						++count;
-						edges.push_back(1);
-					} else if (_faces[f * 3 + 2] == _faces[i * 3 + c]) {
-						++count;
-						edges.push_back(2);
-					}
-				}
+		// Append adjacency. Adjust face index.
+		_adjFaces.resize(_faces.size());
+		for (uint32 aF = 0; aF < _tiles[t].adjFaces.size(); ++aF)
+			_adjFaces[prevFacesCount * 3 + aF] = prevFacesCount + _tiles[t].adjFaces[aF];
 
-				if (count > 1) {
-					if ((edges[0] == 0 && edges[1] == 1) || (edges[1] == 0 && edges[0] == 1)) {
-						_adjFaces[f * 3] = i;
-					} else if ((edges[0] == 1 && edges[1] == 2) || (edges[1] == 1 && edges[0] == 2)) {
-						_adjFaces[f * 3 + 1] = i;
-					} else if ((edges[0] == 0 && edges[1] == 2) || (edges[1] == 0 && edges[0] == 2) ) {
-						_adjFaces[f * 3 + 2] = i;
-					}
-				}
+		// Append face property.
+		_faceProperty.insert(_faceProperty.end(), _tiles[t].facesProperty.begin(), _tiles[t].facesProperty.end());
 
-			}
-// 			warning("For face %u, adj (%i, %i, %i)", f, _adjFaces[f * 3], _adjFaces[f * 3 + 1], _adjFaces[f * 3 + 2]);
+		// Adjust AABB.
+		_AABBTrees[t]->adjustChildrenProperty(prevFacesCount);
+	}
+
+	// Set adjacency between tiles.
+	for (uint32 t = 0; t < _tiles.size(); ++t) {
+		for (uint32 f = 0; f < _tiles[t].borderBottom.size(); ++f) {
+			// Check if there is an adjacent face.
+			if (_tiles[t].borderBottom[f].adjacentFace == UINT32_MAX)
+				continue;
+
+			// Set adjacent face.
+			Face &face = _tiles[t].borderBottom[f];
+			uint32 faceID = face.faceId + startIndex[t];
+			uint32 adjacentFaceID = face.adjacentFace + startIndex[face.adjacentTile];
+			_adjFaces[faceID * 3 + getAdjPosition(face.minVert, face.maxVert)] = adjacentFaceID;
+
+			// Do the same for the opposite face.
+			Face &oppositeFace = _tiles[face.adjacentTile].borderTop[f];
+			_adjFaces[adjacentFaceID * 3 + getAdjPosition(oppositeFace.minVert, oppositeFace.maxVert)] = faceID;
+		}
+
+		for (uint32 f = 0; f < _tiles[t].borderLeft.size(); ++f) {
+			// Check if there is an adjacent face.
+			if (_tiles[t].borderLeft[f].adjacentFace == UINT32_MAX)
+				continue;
+
+			// Set adjacent face.
+			Face &face = _tiles[t].borderLeft[f];
+			uint32 faceID = face.faceId + startIndex[t];
+			uint32 adjacentFaceID = face.adjacentFace + startIndex[face.adjacentTile];
+			_adjFaces[faceID * 3 + getAdjPosition(face.minVert, face.maxVert)] = adjacentFaceID;
+
+			// Do the same for the opposite face.
+			Face &oppositeFace = _tiles[face.adjacentTile].borderRight[f];
+			_adjFaces[adjacentFaceID * 3 + getAdjPosition(oppositeFace.minVert, oppositeFace.maxVert)] = faceID;
 		}
 	}
+
 }
 
 void Pathfinding::readFloats(const std::vector<Common::UString> &strings,
@@ -273,13 +297,16 @@ void Pathfinding::readVerts(size_t n, float *position, Common::SeekableReadStrea
 }
 
 void Pathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
-	_faces.resize(3 * (_facesCount + n));
-	_adjFaces.resize(3 * (_facesCount + n));
-	_faceProperty.resize((_facesCount + n));
+// 	_faces.resize(3 * (_facesCount + n));
+// 	_adjFaces.resize(3 * (_facesCount + n));
+// 	_faceProperty.resize((_facesCount + n));
+	_tiles.back().faces.resize(n * 3);
+	_tiles.back().adjFaces.resize(n * 3);
+	_tiles.back().facesProperty.resize(n);
 
-	_startFace.push_back(_facesCount);
+// 	_startFace.push_back(_facesCount);
 
-	for (size_t i = _facesCount; i < _facesCount + n; ++i) {
+	for (size_t i = 0; i < n; ++i) {
 		std::vector<Common::UString> line;
 		size_t count = tokenize->getTokens(*stream, line, 3);
 		tokenize->nextChunk(*stream);
@@ -293,12 +320,12 @@ void Pathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Common
 		for (uint32 vi = 0; vi < 3; ++vi) {
 			float val;
 			Common::parseString(line[vi], val);
-			_faces[3 * i + vi] = val + _startVertex[_startFace.size() - 1];
-			_adjFaces[3 * i + vi] = UINT32_MAX;
+			_tiles.back().faces[3 * i + vi] = val + _startVertex[_tiles.size() - 1];;
+			_tiles.back().adjFaces[3 * i + vi] = UINT32_MAX;
 		}
 
 		// Walktype
-		Common::parseString(line[7], _faceProperty[i]);
+		Common::parseString(line[7], _tiles.back().facesProperty[i]);
 
 // 		warning("f(%u): %i, %i, %i with mat: %i", i,  _faces[3 * i + 0], _faces[3 * i + 1], _faces[3 * i + 2], _faceProperty[i]);
 	}
@@ -314,10 +341,278 @@ void Pathfinding::changeOrientation(uint8 orientation, float *position) {
 	}
 }
 
-void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axisPosition) {
-// 	for (uint32 f)
-    return;
+void Pathfinding::connectInnerFaces(uint32 tile) {
+	for (uint32 f = 0; f < _tiles[tile].faces.size() / 3; ++f) {
+		for (uint32 i = 0; i < _tiles[tile].faces.size() / 3; ++i) {
+			if (f == i)
+				continue;
+
+			// Avoid unwalkable face
+			if (!walkable(tile, f) || !walkable(tile, i))
+				continue;
+
+			uint8 count = 0;
+			std::vector<uint8> edges;
+			for (uint32 c = 0; c < 3; ++c) {
+				if (_tiles[tile].faces[f * 3] == _tiles[tile].faces[i * 3 + c]) {
+					++count;
+					edges.push_back(0);
+				} else if (_tiles[tile].faces[f * 3 + 1] == _tiles[tile].faces[i * 3 + c]) {
+					++count;
+					edges.push_back(1);
+				} else if (_tiles[tile].faces[f * 3 + 2] == _tiles[tile].faces[i * 3 + c]) {
+					++count;
+					edges.push_back(2);
+				}
+			}
+
+			if (count > 1) {
+				if ((edges[0] == 0 && edges[1] == 1) || (edges[1] == 0 && edges[0] == 1)) {
+					_tiles[tile].adjFaces[f * 3] = i;
+				} else if ((edges[0] == 1 && edges[1] == 2) || (edges[1] == 1 && edges[0] == 2)) {
+					_tiles[tile].adjFaces[f * 3 + 1] = i;
+				} else if ((edges[0] == 0 && edges[1] == 2) || (edges[1] == 0 && edges[0] == 2) ) {
+					_tiles[tile].adjFaces[f * 3 + 2] = i;
+				}
+			}
+
+		}
+	}
 }
+
+void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axisPosition) {
+	warning("Connecting tiles (%u, %u), yAxis: %i, axisPosition: %f", tileA, tileB,yAxis, axisPosition);
+	// First, collect faces on the border of the new tile (tileB) and the other tile (tileA).
+	// Second, match to the (almost) exact faces of the other tile (which should already have collect border faces).
+	// Finally, split faces as needed.
+
+	// Collect faces on the border.
+	// How close two vertices should be to be stated as the same.
+	float epsilon = 0.2;
+	// If yAxis is true the border is bottom/top (tileB/tileA), left/right (tileB/tileA) otherwise.
+	std::vector<Face> &borderB = yAxis ? _tiles[tileB].borderBottom : _tiles[tileB].borderLeft;
+	std::vector<Face> &borderA = yAxis ? _tiles[tileA].borderTop : _tiles[tileA].borderRight;
+
+	getBorderface(borderA, tileA, yAxis, axisPosition, epsilon);
+	getBorderface(borderB, tileB, yAxis, axisPosition, epsilon);
+
+	warning("Border size, A(%zu), B(%zu)", borderA.size(), borderB.size());
+
+	// Sort faces along the axis.
+	std::sort(borderA.begin(), borderA.end());
+	std::sort(borderB.begin(), borderB.end());
+
+	if (borderA.size() != borderB.size())
+		warning("Faces from tileA: %zu, faces from tileB: %zu", borderA.size(), borderB.size());
+
+	uint32 posA = 0;
+	uint32 posB = 0;
+	while (posA < borderA.size() && posB < borderB.size()) {
+		// Ensure both faces start (the min) at the same point.
+		if (fabs(borderA[posA].min - borderB[posB].min) > epsilon) {
+			error("The left vertex (min) from both faces should be the same");
+		} else if (posA == 0 && posB == 0) {
+			// Adjust the vertex.
+			uint32 vertexToMove = _tiles[tileB].faces[borderB[posB].faceId * 3 + borderB[posB].minVert];
+			for (uint32 v = 0; v < 3; ++v)
+				_vertices[vertexToMove * 3 + v] = borderA[posA].vert[borderA[posA].minVert][v];
+		}
+
+		// Check if the faces fit.
+		if (fabs(borderA[posA].max - borderB[posB].max) < epsilon) {
+			// Set adjacency properties.
+			borderA[posA].adjacentTile = tileB;
+			borderA[posA].adjacentFace = borderB[posB].faceId;
+			borderB[posB].adjacentTile = tileA;
+			borderB[posB].adjacentFace = borderA[posA].faceId;
+
+			// Adjust vertex.
+			uint32 vertexToMove = _tiles[tileB].faces[borderB[posB].faceId * 3 + borderB[posB].maxVert];
+			for (uint32 v = 0; v < 3; ++v)
+				_vertices[vertexToMove * 3 + v] = borderA[posA].vert[borderA[posA].maxVert][v];
+
+			++posA; ++posB;
+		} else {
+			bool isBToCut = borderA[posA].max < borderB[posB].max;
+			Face &faceToCut = isBToCut ? borderB[posB] : borderA[posA];
+			Tile &tileToCut = isBToCut ? _tiles[tileB] : _tiles[tileA];
+			Face &faceGood = isBToCut ? borderA[posA] : borderB[posB];
+			Tile &tileGood = isBToCut ? _tiles[tileA] : _tiles[tileB];
+
+			// Get center of the face to be cut.
+			boostPoint2d v_1(faceToCut.vert[0][0], faceToCut.vert[0][1]);
+			boostPoint2d v_2(faceToCut.vert[1][0], faceToCut.vert[1][1]);
+			boostPoint2d v_3(faceToCut.vert[2][0], faceToCut.vert[2][1]);
+			boost::geometry::model::polygon<boostPoint2d> boostFace;
+			boost::geometry::append(boostFace.outer(), v_1);
+			boost::geometry::append(boostFace.outer(), v_2);
+			boost::geometry::append(boostFace.outer(), v_3);
+			boostPoint2d center(0.f, 0.f);
+			boost::geometry::centroid(boostFace, center);
+
+			// Create a new face.
+			Face newFace = faceToCut;
+			newFace.faceId = tileToCut.facesProperty.size();
+			newFace.min = faceGood.max;
+			newFace.vert[newFace.minVert] = faceGood.vert[faceGood.maxVert];
+			// Add vertex indices from the cut face.
+			for (uint32 v = 0; v < 3; ++v) {
+				tileToCut.faces.push_back(tileToCut.faces[faceToCut.faceId * 3 + v]);
+				tileToCut.adjFaces.push_back(UINT32_MAX);
+			}
+			// Use the max vertex from the good face as the min vertex for the new face.
+			tileToCut.faces[newFace.faceId * 3 + newFace.minVert] = tileGood.faces[faceGood.faceId * 3 + faceGood.maxVert];
+			// Set face property.
+			tileToCut.facesProperty.push_back(tileToCut.facesProperty[faceToCut.faceId]);
+
+			// Change max vertex for the cut face.
+			faceToCut.vert[faceToCut.maxVert] = faceGood.vert[faceGood.maxVert];
+			faceToCut.max = faceGood.max;
+			tileToCut.faces[faceToCut.faceId * 3 + faceToCut.maxVert] = tileGood.faces[faceGood.faceId * 3 + faceGood.maxVert];
+
+			// Set adjacency properties.
+			faceGood.adjacentTile = isBToCut ? tileB : tileA;
+			faceGood.adjacentFace = faceToCut.faceId;
+			faceToCut.adjacentTile = isBToCut ? tileA : tileB;
+			faceToCut.adjacentFace = faceGood.faceId;
+
+			warning("faceToCutID %u", faceToCut.faceId);
+			// Create two new AABB nodes.
+			float min[3], max[3];
+			getMinMaxFromFace(faceToCut, min, max);
+			Common::AABBNode *cutNode = new Common::AABBNode(min, max, faceToCut.faceId);
+			getMinMaxFromFace(newFace, min, max);
+			Common::AABBNode *newNode = new Common::AABBNode(min, max, newFace.faceId);
+
+			// Get AABB from cut face.
+			std::vector<Common::AABBNode *> nodes;
+			_AABBTrees[isBToCut ? tileB : tileA]->getNodes(center.x(), center.y(), nodes);
+			Common::AABBNode *parentNode = 0;
+			for (std::vector<Common::AABBNode *>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
+				warning("node %i, faceID %u", (*it)->getProperty(), faceToCut.faceId);
+				if ((uint32) (*it)->getProperty() == faceToCut.faceId) {
+					parentNode = *it;
+					break;
+				}
+			}
+
+			if (!parentNode)
+				error("Parent node not found");
+
+			// Set property to -1 i.e. has children.
+			parentNode->adjustChildrenProperty(-1 - (int32) faceToCut.faceId);
+			parentNode->setChildren(cutNode, newNode);
+
+			// Add the new face to the border after the current one.
+			if (isBToCut)
+				borderB.insert(borderB.begin() + posB + 1, newFace);
+			else
+				borderA.insert(borderA.begin() + posA + 1, newFace);
+
+			++posA; ++posB;
+		}
+	}
+}
+
+void Pathfinding::Face::computeMinOnAxis() {
+	bool onAxis = false;
+	for (uint32 v = 0; v < 3; ++v) {
+		if (fabs(vert[v][(uint32) yAxis] - axisPosition) < epsilon) {
+			axisVert.push_back(v);
+			onAxis = true;
+		} else {
+			oppositeVert = v;
+		}
+	}
+
+	if (!onAxis) {
+		error("No vertex on the axis");
+	}
+
+	if (axisVert.size() > 1) {
+		if (vert[axisVert[0]][(uint32) !yAxis] < vert[axisVert[1]][(uint32) !yAxis]) {
+			minVert = axisVert[0];
+			maxVert = axisVert[1];
+		} else {
+			minVert = axisVert[1];
+			maxVert = axisVert[0];
+		}
+	} else {
+		error("At least two vertices should be on the axis");
+	}
+
+	min = vert[minVert][(uint32) !yAxis];
+	max = vert[maxVert][(uint32) !yAxis];
+}
+
+bool Pathfinding::Face::operator<(const Face &face) const {
+	return this->min < face.min;
+}
+
+uint32 Pathfinding::getAdjPosition(uint32 vertA, uint32 vertB) const {
+	uint32 pos = vertA + vertB;
+	if (pos == 3) {
+		return 1;
+	} else if (pos == 1) {
+		return 0;
+	}
+	return pos;
+}
+
+void Pathfinding::getBorderface(std::vector<Face> &border, uint32 tile, bool yAxis, float axisPosition, float epsilon) {
+	warning("Getting border faces on tile %u", tile);
+	Common::Vector3 vert[3];
+	for (uint32 f = 0; f < _tiles[tile].facesProperty.size(); ++f) {
+		// Avoid unwalkable face.
+		if (!walkable(tile, f))
+			continue;
+
+		getVertex(_tiles[tile].faces[f * 3], vert[0]);
+		getVertex(_tiles[tile].faces[f * 3 + 1], vert[1]);
+		getVertex(_tiles[tile].faces[f * 3 + 2], vert[2]);
+		for (uint32 v = 0; v < 3; ++v) {
+			if (fabs(vert[v][(int32) yAxis] - axisPosition) < epsilon && fabs(vert[(v + 1) % 3][(int32) yAxis] - axisPosition) < epsilon) {
+				Face face = Face();
+				face.faceId = f;
+				face.axisPosition = axisPosition;
+				face.yAxis = yAxis;
+				face.vert[0] = vert[0]; face.vert[1] = vert[1]; face.vert[2] = vert[2];
+				face.epsilon = epsilon;
+				face.computeMinOnAxis();
+
+				border.push_back(face);
+
+				warning("good face %u", f);
+				break;
+			}
+		}
+	}
+}
+
+void Pathfinding::getMinMaxFromFace(Face &face, float min[], float max[]) {
+	min[0] = face.vert[0][0]; min[1] = face.vert[0][1]; min[2] = face.vert[0][2];
+	max[0] = face.vert[0][0]; max[1] = face.vert[0][1]; max[2] = face.vert[0][2];
+
+	for (uint32 i = 1; i < 3; ++i) {
+		for (uint32 j = 0; j < 2; ++j) {
+			if (face.vert[i][j] < min[j])
+				min[j] = face.vert[i][j];
+
+			if (face.vert[i][j] > max[j])
+				max[j] = face.vert[i][j];
+		}
+	}
+}
+
+bool Pathfinding::walkable(uint32 tile, uint32 face) const {
+	const uint32 &property = _tiles[tile].facesProperty[face];
+	return property != 0 && property != 2 && property != 7 && property != 8;
+}
+
+bool Pathfinding::walkable(uint32 face) const {
+	return Engines::Pathfinding::walkable(face);
+}
+
 
 } // namespace NWN
 

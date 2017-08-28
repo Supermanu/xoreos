@@ -47,7 +47,7 @@ bool sortByLenght(Common::Vector3 vec1, Common::Vector3 vec2) {
 	return vec1.length() < vec2.length();
 }
 
-Pathfinding::Pathfinding() : _verticesCount(0), _facesCount(0) {
+Pathfinding::Pathfinding(uint32 polygonEdges) : _polygonEdges(polygonEdges), _verticesCount(0), _facesCount(0) {
 	_creatureWidth = 0.f;
 	_creaturePos = Common::Vector3(0.f, 0.f, 0.f);
 }
@@ -73,20 +73,22 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 	_facesToDraw.clear();
 	_creaturePos = Common::Vector3(startX, startY, startZ);
 	_creatureWidth = width;
-// 	warning("finding path... with iter %u", nbrIt);
+	warning("finding path... with iter %u", nbrIt);
 	facePath.clear();
 
 	// Find faces start and end points belong.
-	uint32 startFace = findFace(startX, startY, startZ);
-	uint32 endFace = findFace(endX, endY, endZ);
+	uint32 startFace = findFace(startX, startY);
+	uint32 endFace = findFace(endX, endY);
 
 	// Check if start and end points are in the walkmesh.
-	if (startFace == UINT32_MAX || endFace == UINT32_MAX)
+	if (startFace == UINT32_MAX || endFace == UINT32_MAX) {
+		warning("One face is not on the walkmesh");
 		return false;
+	}
 
 	// Check if start and end points are in the same face.
 	if (startFace == endFace) {
-// 		warning("start face == end face");
+		warning("start face == end face");
 		facePath.push_back(startFace);
 		return true;
 	}
@@ -102,17 +104,17 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 	std::vector<Node> closedList;
 	openList.push_back(startNode);
 
-// 	warning("starting the loop");
+	warning("starting the loop");
 	// Searching...
 
 // 	while (!openList.empty()) {
 	for (uint32 it = 0; it < nbrIt; ++it) {
-// 		warning("openlist size %zu", openList.size());
+		warning("openlist size %zu", openList.size());
 		if (openList.empty())
 			break;
 
 		Node current = openList.front();
-// 		warning("current face %u", current.face);
+		warning("current face %u", current.face);
 		_facesToDraw.push_back(current.face);
 
 		if (current.face == endNode.face) {
@@ -127,7 +129,7 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 
 		std::vector<uint32> adjNodes;
 		getAdjacentNodes(current, adjNodes);
-// 		warning("adjNodes size %zu", adjNodes.size());
+		warning("adjNodes size %zu", adjNodes.size());
 		for (std::vector<uint32>::iterator a = adjNodes.begin(); a != adjNodes.end(); ++a) {
 // 			warning("adj node %u", *a);
 			// Check if it has been already evaluated.
@@ -143,7 +145,7 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 
 			// Check if it is a new node.
 			Node *adjNode = getNode(*a, openList);
-			bool isThere = adjNode > 0;
+			bool isThere = adjNode != 0;
 			if (!isThere) {
 				adjNode = new Node(*a, x, y, z);
 				adjNode->parent = current.face;
@@ -249,7 +251,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 			// Check if the newright/left needs to be adjusted.
 // 			if (!walkableCircle(newLeft, halfWidth)) {
 
-			warning("Walkable box ? %i", walkableBox(newLeft, halfWidth));
+			warning("Walkable box ? %i", walkableAASquare(newLeft, halfWidth));
 				Common::Vector3 segment = newLeft - apex;
 				if (apex == start) {
 					if (f != facePath.size() - 1)
@@ -279,7 +281,7 @@ void Pathfinding::SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<u
 				}
 // 			}
 
-			warning("Walkable box ? %i", walkableBox(newRight, halfWidth));
+			warning("Walkable box ? %i", walkableAASquare(newRight, halfWidth));
 // 			if (!walkableCircle(newRight, halfWidth)) {
 				/*Common::Vector3 */segment = newRight - apex;
 				if (apex == start) {
@@ -524,7 +526,7 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 	for( uint32 c = 1; c < tunnel.size(); c++ ) {
 		Common::Vector3 v = tunnel[c] - tunnel [apex];
 
-		bool wB = walkableBox(tunnel[c], halfWidth);
+		bool wB = walkableAASquare(tunnel[c], halfWidth);
 		warning("Is left ? %i | walkable in box ? %i", (bool) tunnelLeftRight[c], wB);
 
 		warning("iteration %u", c);
@@ -817,14 +819,22 @@ void Pathfinding::getClosestIntersection(Common::Vector3 &start, Common::Vector3
 	intersect = inters.front() + start;
 }
 
-void Pathfinding::getVertices(uint32 faceID, Common::Vector3& vA, Common::Vector3& vB, Common::Vector3& vC) const {
-	uint32 vertexIdA = _faces[faceID * 3];
-	uint32 vertexIdB = _faces[faceID * 3 + 1];
-	uint32 vertexIdC = _faces[faceID * 3 + 2];
+void Pathfinding::getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) const {
+	getVertex(_faces[faceID * 3], vA);
+	getVertex(_faces[faceID * 3 + 1], vB);
+	getVertex(_faces[faceID * 3 + 2], vC);
 
-	vA = Common::Vector3(_vertices[vertexIdA * 3], _vertices[vertexIdA * 3 + 1], _vertices[vertexIdA * 3 + 2]);
-	vB = Common::Vector3(_vertices[vertexIdB * 3], _vertices[vertexIdB * 3 + 1], _vertices[vertexIdB * 3 + 2]);
-	vC = Common::Vector3(_vertices[vertexIdC * 3], _vertices[vertexIdC * 3 + 1], _vertices[vertexIdC * 3 + 2]);
+// 	uint32 vertexIdA = _faces[faceID * 3];
+// 	uint32 vertexIdB = _faces[faceID * 3 + 1];
+// 	uint32 vertexIdC = _faces[faceID * 3 + 2];
+//
+// 	vA = Common::Vector3(_vertices[vertexIdA * 3], _vertices[vertexIdA * 3 + 1], _vertices[vertexIdA * 3 + 2]);
+// 	vB = Common::Vector3(_vertices[vertexIdB * 3], _vertices[vertexIdB * 3 + 1], _vertices[vertexIdB * 3 + 2]);
+// 	vC = Common::Vector3(_vertices[vertexIdC * 3], _vertices[vertexIdC * 3 + 1], _vertices[vertexIdC * 3 + 2]);
+}
+
+void Pathfinding::getVertex(uint32 vertexID, Common::Vector3 &vertex) const {
+	vertex = Common::Vector3(_vertices[vertexID * 3], _vertices[vertexID * 3 + 1], _vertices[vertexID * 3 + 2]);
 }
 
 bool Pathfinding::walkableCircle(Common::Vector3 center, float radius) {
@@ -857,31 +867,61 @@ bool Pathfinding::walkableCircle(Common::Vector3 center, float radius) {
 	return true;
 }
 
-bool Pathfinding::walkableBox(Common::Vector3 center, float halfWidth) {
+bool Pathfinding::walkableAASquare(Common::Vector3 center, float halfWidth) {
 	Common::Vector3 min(center[0] - halfWidth, center[1] - halfWidth, 0.f);
 	Common::Vector3 max(center[0] + halfWidth, center[1] + halfWidth, 0.f);
 
 	std::vector<Common::AABBNode *> nodesIn;
 	for (std::vector<Common::AABBNode *>::iterator n = _AABBTrees.begin(); n != _AABBTrees.end(); ++n) {
 		if (*n)
-			(*n)->getNodesInBox2D(min, max, nodesIn);
+			(*n)->getNodesInAABox2D(min, max, nodesIn);
 	}
 
 	boost::geometry::model::box<boostPoint2d> box(boostPoint2d(min[0], min[1]), boostPoint2d(max[0], max[1]));
 	Common::Vector3 vertices[3];
 	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
-
 		uint32 face = (*n)->getProperty();
 		getVertices(face, vertices[0], vertices[1], vertices[2]);
-		boostPoint2d v_1(vertices[0][0], vertices[0][1]);
-		boostPoint2d v_2(vertices[1][0], vertices[1][1]);
-		boostPoint2d v_3(vertices[2][0], vertices[2][1]);
 		boost::geometry::model::polygon<boostPoint2d> boostFace;
-		boost::geometry::append(boostFace.outer(), v_1);
-		boost::geometry::append(boostFace.outer(), v_2);
-		boost::geometry::append(boostFace.outer(), v_3);
+		for (uint32 v = 0; v < 3; ++v) {
+			boostPoint2d vert(vertices[v][0], vertices[v][1]);
+			boost::geometry::append(boostFace.outer(), vert);
+		}
 
 		if (!boost::geometry::intersects(box, boostFace))
+			continue;
+
+		if (!walkable(face))
+			return false;
+	}
+	return true;
+}
+
+bool Pathfinding::walkablePolygon(Common::Vector3 vertices[], uint32 vertexCount) {
+	std::vector<Common::AABBNode *> nodesIn;
+
+	for (std::vector<Common::AABBNode *>::iterator n = _AABBTrees.begin(); n != _AABBTrees.end(); ++n) {
+		if (*n)
+			(*n)->getNodesInPolygon(vertices, vertexCount, nodesIn);
+	}
+
+	boost::geometry::model::polygon<boostPoint2d> polygon;
+	for (uint32 v = 0; v < vertexCount; ++v) {
+		boostPoint2d vert(vertices[v][0], vertices[v][1]);
+		boost::geometry::append(polygon.outer(), vert);
+	}
+
+	Common::Vector3 vertFace[3];
+	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
+		uint32 face = (*n)->getProperty();
+		getVertices(face, vertFace[0], vertFace[1], vertFace[2]);
+		boost::geometry::model::polygon<boostPoint2d> boostFace;
+		for (uint32 v = 0; v < 3; ++v) {
+			boostPoint2d vert(vertFace[v][0], vertFace[v][1]);
+			boost::geometry::append(boostFace.outer(), vert);
+		}
+
+		if (!boost::geometry::intersects(polygon, boostFace))
 			continue;
 
 		if (!walkable(face))
@@ -971,11 +1011,11 @@ void Pathfinding::drawWalkmesh() {
 		glBegin(GL_TRIANGLES);
 		glColor3f(0.5, 0.5, 0.5);
 		uint32 vI_1 = _faces[f * 3 + 0];
-		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2]);
+		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.01);
 		uint32 vI_2 = _faces[f * 3 + 1];
-		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2]);
+		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.01);
 		uint32 vI_3 = _faces[f * 3 + 2];
-		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2]);
+		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.01);
 		glEnd();
 	}
 	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
@@ -987,11 +1027,11 @@ void Pathfinding::drawWalkmesh() {
 			glColor4f(0.1, 0.5, 0.5, 0.4);
 
 		uint32 vI_1 = _faces[f * 3 + 0];
-		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2]);
+		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.04);
 		uint32 vI_2 = _faces[f * 3 + 1];
-		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2]);
+		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.04);
 		uint32 vI_3 = _faces[f * 3 + 2];
-		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2]);
+		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.04);
 		glEnd();
 	}
 
@@ -1001,11 +1041,11 @@ void Pathfinding::drawWalkmesh() {
 		glColor4f(0.5, 0.2, 0.5, 0.4);
 
 		uint32 vI_1 = _faces[_facesToDraw[f] * 3 + 0];
-		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2]);
+		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.04);
 		uint32 vI_2 = _faces[_facesToDraw[f] * 3 + 1];
-		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2]);
+		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.04);
 		uint32 vI_3 = _faces[_facesToDraw[f] * 3 + 2];
-		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2]);
+		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.04);
 		glEnd();
 	}
 
@@ -1062,14 +1102,15 @@ bool Pathfinding::walkable(uint32 faceIndex) const {
 	if (faceIndex == UINT32_MAX)
 		return false;
 
+	// Hardcoded values.
 	return _faceProperty[faceIndex] != 2 && _faceProperty[faceIndex] != 7
 	&& _faceProperty[faceIndex] != 0 && _faceProperty[faceIndex] != 8;
 }
 
 bool Pathfinding::walkable(Common::Vector3 point) {
 	uint32 face = findFace(point[0], point[1]);
-    if (face == UINT32_MAX)
-        warning("face not found");
+	if (face == UINT32_MAX)
+		warning("face not found");
 
 	return walkable(face);
 }
@@ -1160,11 +1201,11 @@ uint32 Pathfinding::findFace(float x1, float y1, float z1, float x2, float y2, f
 			_facesToDraw.clear();
 			_facesToDraw.push_back(face);
 // 			warning("face found : %u", face);
-			if (_adjFaces[face * 3] != UINT32_MAX)
+			if (_adjFaces[face * _polygonEdges] != UINT32_MAX)
 				_facesToDraw.push_back(_adjFaces[face * 3]);
-			if (_adjFaces[face * 3 + 1] != UINT32_MAX)
+			if (_adjFaces[face * _polygonEdges + 1] != UINT32_MAX)
 				_facesToDraw.push_back(_adjFaces[face * 3 + 1]);
-			if (_adjFaces[face * 3 + 2] != UINT32_MAX)
+			if (_adjFaces[face * _polygonEdges + 2] != UINT32_MAX)
 				_facesToDraw.push_back(_adjFaces[face * 3 + 2]);
 			return face;
 		}
@@ -1215,9 +1256,9 @@ void Pathfinding::getAdjacentNodes(Node &node, std::vector<uint32> &adjNodes) {
 	adjNodes.clear();
 
 	// Get adjacent faces
-	for (uint8 f = 0; f < 3; ++f) {
+	for (uint8 f = 0; f < _polygonEdges; ++f) {
 		// Get adjacent face.
-		uint32 face = _adjFaces[node.face * 3 + f];
+		uint32 face = _adjFaces[node.face * _polygonEdges + f];
 
 		// Check if it is a border
 		if (face == UINT32_MAX)
@@ -1231,12 +1272,12 @@ void Pathfinding::getAdjacentNodes(Node &node, std::vector<uint32> &adjNodes) {
 
 float Pathfinding::getDistance(Node &fromNode, uint32 toFace, float &toX, float &toY, float &toZ) const {
 	// Get vertices from the closest edge to the face we are looking at.
-	for (uint8 f = 0; f < 3; ++f) {
-		if (_adjFaces[fromNode.face * 3 + f] != toFace)
+	for (uint8 f = 0; f < _polygonEdges; ++f) {
+		if (_adjFaces[fromNode.face * _polygonEdges + f] != toFace)
 			continue;
 
-		uint32 vert1 = _faces[fromNode.face * 3 + f];
-		uint32 vert2 = _faces[fromNode.face * 3 + (f + 1) % 3];
+		uint32 vert1 = _faces[fromNode.face * _polygonEdges + f];
+		uint32 vert2 = _faces[fromNode.face * _polygonEdges + (f + 1) % _polygonEdges];
 
 		// Compute the center of the edge.
 		toX = (_vertices[vert1 * 3] + _vertices[vert2 * 3]) / 2;
@@ -1279,10 +1320,10 @@ bool Pathfinding::inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vecto
 }
 
 bool Pathfinding::hasVertex(uint32 face, Common::Vector3 vertex) const {
-	Common::Vector3 vert[3];
+	Common::Vector3 vert[_polygonEdges];
 	getVertices(face, vert[0], vert[1], vert[2]);
 
-	for (uint8 i = 0; i < 3; ++i) {
+	for (uint8 i = 0; i < _polygonEdges; ++i) {
 		if (vert[i] == vertex)
 			return true;
 	}
@@ -1297,8 +1338,8 @@ bool Pathfinding::getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 
 // 	warning("face1: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f)", v[0]._x, v[0]._y, v[0]._z, v[1]._x, v[1]._y, v[1]._z, v[2]._x, v[2]._y, v[2]._z);
 	getVertices(face2, v[0], v[1], v[2]);
 // 	warning("face2: (%f, %f, %f), (%f, %f, %f), (%f, %f, %f)", v[0]._x, v[0]._y, v[0]._z, v[1]._x, v[1]._y, v[1]._z, v[2]._x, v[2]._y, v[2]._z);
-	for (uint8 i = 0; i < 3; ++i) {
-		if (_adjFaces[face1 * 3 + i] == face2) {
+	for (uint8 i = 0; i < _polygonEdges; ++i) {
+		if (_adjFaces[face1 * _polygonEdges + i] == face2) {
 			Common::Vector3 vertices[3];
 			getVertices(face1, vertices[0], vertices[1], vertices[2]);
 			vert1 = vertices[i];
