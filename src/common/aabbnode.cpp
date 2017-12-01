@@ -283,47 +283,4 @@ void AABBNode::getNodesInSegment(Common::Vector3 start, Common::Vector3 end, std
 	return;
 }
 
-// bool AABBNode::isIn(float x1, float y1, float x2, float y2) const {
-// 	if (_empty)
-// 		return false;
-//
-// 	float minX, minY, minZ;
-// 	getMin(minX, minY, minZ);
-//
-// 	float maxX, maxY, maxZ;
-// 	getMax(maxX, maxY, maxZ);
-//
-// 	if ((x2 < minX) && (x1 < minX)) return false;
-// 	if ((x2 > maxX) && (x1 > maxX)) return false;
-// 	if ((y2 < minY) && (y1 < minY)) return false;
-// 	if ((y2 > maxY) && (y1 > maxY)) return false;
-//
-// 	if ((x1 > minX) && (x1 < maxX) &&
-// 		(y1 > minY) && (y1 < maxY))
-// 		return true;
-//
-// 	float x, y, z;
-//
-// 	if (getIntersection(x1 - minX, x2 - minX, x1, y1, z1, x2, y2, z2, x, y, z) &&
-// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 1))
-// 		return true;
-// 	if (getIntersection(y1 - minY, y2 - minY, x1, y1, z1, x2, y2, z2, x, y, z) &&
-// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 2))
-// 		return true;
-// 	if (getIntersection(z1 - minZ, z2 - minZ, x1, y1, z1, x2, y2, z2, x, y, z) &&
-// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 3))
-// 		return true;
-// 	if (getIntersection(x1 - maxX, x2 - maxX, x1, y1, z1, x2, y2, z2, x, y, z) &&
-// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 1))
-// 		return true;
-// 	if (getIntersection(y1 - maxY, y2 - maxY, x1, y1, z1, x2, y2, z2, x, y, z) &&
-// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 2))
-// 		return true;
-// 	if (getIntersection(z1 - maxZ, z2 - maxZ, x1, y1, z1, x2, y2, z2, x, y, z) &&
-// 		inBox(x, y, z, minX, minY, minZ, maxX, maxY, maxZ, 3))
-// 		return true;
-//
-// 	return false;
-// }
-
 } // End of namespace Common

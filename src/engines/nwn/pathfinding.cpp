@@ -82,10 +82,18 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 
 		if (line[0] == "position") {
 			readFloats(line, localPosition, 3, 1);
+// 			warning("Position: (%f, %f, %f)", position[0], position[1], position[2]);
+		} else if (line[0] == "orientation") {
+			float ori[4];
+			readFloats(line, ori, 4, 1);
+// 			warning("Ori: (%f, %f, %f, %f)", ori[0], ori[1], ori[2], ori[3]);
+			orientation += (int8) roundf((2 * M_PI) / ori[3]) + 4;
+			orientation %= 4;
+
+			// Update position orientation
 			changeOrientation(orientation, localPosition);
 			for (uint8 i = 0; i < 3; ++i)
 				position[i] += localPosition[i];
-// 			warning("Position: (%f, %f, %f)", position[0], position[1], position[2]);
 		} else if (line[0] == "verts") {
 			size_t vertsCount;
 			Common::parseString(line[1], vertsCount);
@@ -122,8 +130,8 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 	}
 
 	// Find Adjacent tiles
-	warning("Finding adjacents tiles...");
-	warning("Current position (%f, %f, %f)", position[0], position[1], position[2]);
+// 	warning("Finding adjacents tiles...");
+// 	warning("Current position (%f, %f, %f)", position[0], position[1], position[2]);
 	float epsilon = 0.001;
 	Common::Vector3 leftMax(position[0] - 5.f, position[1] + 5.f, 0.f);
 	Common::Vector3 topMin(leftMax);
@@ -135,12 +143,12 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 		_AABBTrees[n]->getMax(x, y, z);
 // 		warning("Tile max (%f, %f, %f)", x, y, z);
 		if (fabs(x - leftMax._x) < epsilon && fabs(y - leftMax._y) < epsilon) {
-			warning("left tile found");
+// 			warning("left tile found");
 			connectTiles(n, _AABBTrees.size() - 1, false, x);
 			continue;
 		}
 		if (fabs(x - bottomMax._x) < epsilon && fabs(y - bottomMax._y) < epsilon) {
-			warning("bottom tile found");
+// 			warning("bottom tile found");
 			connectTiles(n, _AABBTrees.size() - 1, true, y);
 			continue;
 		}
@@ -194,18 +202,30 @@ void Pathfinding::finalize() {
 	for (uint32 t = 0; t < _tiles.size(); ++t)
 		connectInnerFaces(t);
 
+// 	warning("Describing tiles");
+// 	for (uint32 t = 0; t < _tiles.size(); ++t) {
+// 		warning("looking at tile %u that contains %zu", t, _tiles[t].faces.size());
+// 		for (uint32 it = 0; it < _tiles[t].faces.size(); ++it) {
+// 			warning("Adjacency for face %u (%u, %u, %u)", it, _tiles[t].adjFaces[it * 3 + 0], _tiles[t].adjFaces[it * 3 + 1], _tiles[t].adjFaces[it * 3 + 2]);
+// 		}
+// 	}
+
 	// Adjust face indices.
 	for (uint32 t = 0; t < _tiles.size(); ++t) {
 		startIndex.push_back(_faceProperty.size());
 		uint32 prevFacesCount = startIndex.back();
+// 		warning("prevfacecount (tile %u): %u", prevFacesCount, t);
 
 		// Append faces from the tiles.
 		_faces.insert(_faces.end(), _tiles[t].faces.begin(), _tiles[t].faces.end());
 
 		// Append adjacency. Adjust face index.
 		_adjFaces.resize(_faces.size());
-		for (uint32 aF = 0; aF < _tiles[t].adjFaces.size(); ++aF)
-			_adjFaces[prevFacesCount * 3 + aF] = prevFacesCount + _tiles[t].adjFaces[aF];
+		for (uint32 aF = 0; aF < _tiles[t].adjFaces.size(); ++aF) {
+			uint32 adjFaceTile = _tiles[t].adjFaces[aF];
+			if (adjFaceTile != UINT32_MAX)
+				_adjFaces[prevFacesCount * 3 + aF] = prevFacesCount + adjFaceTile;
+		}
 
 		// Append face property.
 		_faceProperty.insert(_faceProperty.end(), _tiles[t].facesProperty.begin(), _tiles[t].facesProperty.end());
@@ -374,6 +394,9 @@ void Pathfinding::connectInnerFaces(uint32 tile) {
 				} else if ((edges[0] == 0 && edges[1] == 2) || (edges[1] == 0 && edges[0] == 2) ) {
 					_tiles[tile].adjFaces[f * 3 + 2] = i;
 				}
+
+// 				if (tile == 15 || tile == 16)
+// 					warning("In connectInnerFaces, tile(%u) face(%u) adjacency (%u, %u, %u)", tile, f, _tiles[tile].adjFaces[f * 3], _tiles[tile].adjFaces[f * 3 + 1], _tiles[tile].adjFaces[f * 3 + 2]);
 			}
 
 		}
@@ -381,9 +404,9 @@ void Pathfinding::connectInnerFaces(uint32 tile) {
 }
 
 void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axisPosition) {
-	warning("Connecting tiles (%u, %u), yAxis: %i, axisPosition: %f", tileA, tileB,yAxis, axisPosition);
+// 	warning("Connecting tiles (%u, %u), yAxis: %i, axisPosition: %f", tileA, tileB,yAxis, axisPosition);
 	// First, collect faces on the border of the new tile (tileB) and the other tile (tileA).
-	// Second, match to the (almost) exact faces of the other tile (which should already have collect border faces).
+	// Second, match them to the (almost) exact faces of the other tile (which should already have collect border faces).
 	// Finally, split faces as needed.
 
 	// Collect faces on the border.
@@ -396,22 +419,23 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 	getBorderface(borderA, tileA, yAxis, axisPosition, epsilon);
 	getBorderface(borderB, tileB, yAxis, axisPosition, epsilon);
 
-	warning("Border size, A(%zu), B(%zu)", borderA.size(), borderB.size());
+// 	warning("Border size, A(%zu), B(%zu)", borderA.size(), borderB.size());
 
 	// Sort faces along the axis.
 	std::sort(borderA.begin(), borderA.end());
 	std::sort(borderB.begin(), borderB.end());
 
-	if (borderA.size() != borderB.size())
-		warning("Faces from tileA: %zu, faces from tileB: %zu", borderA.size(), borderB.size());
+// 	if (borderA.size() != borderB.size())
+// 		warning("Faces from tileA: %zu, faces from tileB: %zu", borderA.size(), borderB.size());
 
 	uint32 posA = 0;
 	uint32 posB = 0;
 	while (posA < borderA.size() && posB < borderB.size()) {
 		// Ensure both faces start (the min) at the same point.
-		if (fabs(borderA[posA].min - borderB[posB].min) > epsilon) {
-			error("The left vertex (min) from both faces should be the same");
-		} else if (posA == 0 && posB == 0) {
+		if (posA == 0 && posB == 0) {
+			if (fabs(borderA[posA].min - borderB[posB].min) > epsilon) {
+				warning("The left vertex (min) from both faces should be the same");
+			}
 			// Adjust the vertex.
 			uint32 vertexToMove = _tiles[tileB].faces[borderB[posB].faceId * 3 + borderB[posB].minVert];
 			for (uint32 v = 0; v < 3; ++v)
@@ -476,7 +500,7 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 			faceToCut.adjacentTile = isBToCut ? tileA : tileB;
 			faceToCut.adjacentFace = faceGood.faceId;
 
-			warning("faceToCutID %u", faceToCut.faceId);
+// 			warning("faceToCutID %u", faceToCut.faceId);
 			// Create two new AABB nodes.
 			float min[3], max[3];
 			getMinMaxFromFace(faceToCut, min, max);
@@ -489,7 +513,7 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 			_AABBTrees[isBToCut ? tileB : tileA]->getNodes(center.x(), center.y(), nodes);
 			Common::AABBNode *parentNode = 0;
 			for (std::vector<Common::AABBNode *>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
-				warning("node %i, faceID %u", (*it)->getProperty(), faceToCut.faceId);
+// 				warning("node %i, faceID %u", (*it)->getProperty(), faceToCut.faceId);
 				if ((uint32) (*it)->getProperty() == faceToCut.faceId) {
 					parentNode = *it;
 					break;
@@ -512,6 +536,9 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 			++posA; ++posB;
 		}
 	}
+// 	if ((tileA == 15 && tileB == 16 ) || (tileA == 16 && tileB == 15)) {
+// 		warning("coucou");
+// 	}
 }
 
 void Pathfinding::Face::computeMinOnAxis() {
@@ -560,7 +587,7 @@ uint32 Pathfinding::getAdjPosition(uint32 vertA, uint32 vertB) const {
 }
 
 void Pathfinding::getBorderface(std::vector<Face> &border, uint32 tile, bool yAxis, float axisPosition, float epsilon) {
-	warning("Getting border faces on tile %u", tile);
+// 	warning("Getting border faces on tile %u", tile);
 	Common::Vector3 vert[3];
 	for (uint32 f = 0; f < _tiles[tile].facesProperty.size(); ++f) {
 		// Avoid unwalkable face.
@@ -582,7 +609,7 @@ void Pathfinding::getBorderface(std::vector<Face> &border, uint32 tile, bool yAx
 
 				border.push_back(face);
 
-				warning("good face %u", f);
+// 				warning("good face %u", f);
 				break;
 			}
 		}

@@ -50,4 +50,4 @@ void getOrthoVecTest();
 
 } // End of namespace Common
 
-#endif // COMMON_STRUTIL_H
+#endif // COMMON_VEC3UTIL_H

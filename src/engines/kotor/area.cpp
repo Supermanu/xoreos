@@ -407,38 +407,6 @@ void Area::processEventQueue() {
 // 				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, Common::Vector3());
 // 				warning("face %u found", face);
 			}
-
-			if (e->key.keysym.sym == SDLK_LALT) {
-// 				float start[3] = { 18.5, 17.f, -1.27 };
-// 				float end[3]   = {11.5f, 25.f, -1.27};
-// 				float start[3] = { 13.f, 30.2f, -1.27 };
-// 				float end[3]   = { 28.828587, 20.333252, -1.27 };
-				float start[3] = { 15.730813, 18.152279, -1.275000 };
-				float end[3] = { 15.943871, 19.221325, -1.275001 };
-
-
-				std::vector<uint32> path;
-				clock_t startFindPath = std::clock();
-				bool out = _pathfinding->findPath(start[0], start[1], start[2], end[0], end[1], end[2], path, 1.2f, _iter);
-				clock_t endFindPath = std::clock();
-				++_iter;
-				warning("Out is %i", out);
-				clock_t startSmooth = std::clock();
-				if (out) {
-					Common::Vector3 sP(start[0], start[1], start[2]);
-					Common::Vector3 eP(end[0], end[1], end[2]);
-					std::vector<Common::Vector3> smoothPath;
-					_pathfinding->SSFA(sP, eP, path, smoothPath, 1.2f);
-// 					for (std::vector<Common::Vector3>::iterator it = smoothPath.begin(); it != smoothPath.end(); ++it)
-// 						warning("Point: (%f, %f, %f)", (*it)._x, (*it)._y, (*it)._z);
-				}
-				clock_t endSmooth = std::clock();
-				double findPath = double(endFindPath - startFindPath);
-				double smoothing = double(endSmooth - startSmooth);
-				warning("Time spent find path: %f ms", findPath / CLOCKS_PER_SEC * 1000);
-				warning("Time spent smoothing: %f ms", smoothing / CLOCKS_PER_SEC * 1000);
-				warning("Total time: %f ms", (findPath + smoothing) / CLOCKS_PER_SEC * 1000);
-			}
 		}
 
 		if        (e->type == Events::kEventMouseMove) { // Moving the mouse

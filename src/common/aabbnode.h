@@ -54,7 +54,6 @@ public:
 	void getNodesInAABox2D(Common::Vector3 min, Common::Vector3 max, std::vector<AABBNode *> &nodes);
 	void getNodesInPolygon(Common::Vector3 vertices[], uint32 vertexCount, std::vector<AABBNode *> &nodes);
 	void getNodesInSegment(Common::Vector3 start, Common::Vector3 end, std::vector<AABBNode *> &nodes);
-
 	int32 getProperty() const;
 	void adjustChildrenProperty(int32 adjust);
 

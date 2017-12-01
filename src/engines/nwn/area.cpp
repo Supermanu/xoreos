@@ -59,7 +59,7 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_activeObject(0), _highlightAll(false) {
 
 	_pathfinding = new Pathfinding();
-	_iter = 1000;
+	_iter = 100000;
 	try {
 		load();
 	} catch (...) {
@@ -554,33 +554,6 @@ void Area::processEventQueue() {
 	     e != _eventQueue.end(); ++e) {
 
 		float width = 1.f;
-		if (e->type == Events::kEventKeyDown) {
-			if (e->key.keysym.sym == SDLK_F10) {
-				if (_startEndPoints.size() == 2) {
-					std::vector<uint32> path;
-					clock_t startFindPath = std::clock();
-					bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y, _startEndPoints[0]._z,
-													  _startEndPoints[1]._x, _startEndPoints[1]._y, _startEndPoints[1]._z, path, width, _iter);
-					clock_t endFindPath = std::clock();
-					++_iter;
-					warning("Out is %i", out);
-					clock_t startSmooth = std::clock();
-					if (out) {
-						std::vector<Common::Vector3> smoothPath;
-						_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
-						_iter = 0;
-						_startEndPoints.clear();
-					}
-					clock_t endSmooth = std::clock();
-					double findPath = double(endFindPath - startFindPath);
-					double smoothing = double(endSmooth - startSmooth);
-					warning("Time spent find path: %f ms", findPath / CLOCKS_PER_SEC * 1000);
-					warning("Time spent smoothing: %f ms", smoothing / CLOCKS_PER_SEC * 1000);
-					warning("Total time: %f ms", (findPath + smoothing) / CLOCKS_PER_SEC * 1000);
-				}
-			}
-		}
-
 		if        (e->type == Events::kEventMouseMove) { // Moving the mouse
 			hasMove = true;
 		} else if (e->type == Events::kEventMouseDown) { // Clicking
@@ -617,7 +590,7 @@ void Area::processEventQueue() {
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
 							_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
-							_iter = 1000;
+							_iter = 1000000;
 							_startEndPoints.clear();
 						}
 						clock_t endSmooth = std::clock();

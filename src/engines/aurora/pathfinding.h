@@ -41,7 +41,6 @@ public:
 
 	bool findPath(float startX, float startY, float startZ, float endX, float endY, float endZ, std::vector<uint32> &facePath, float width = 0.01, uint32 nbrIt = 100000);
 	void smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width = 0.01);
-	void SSFA(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width);
 	uint32 findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect);
 	void drawWalkmesh();
 
@@ -87,26 +86,25 @@ protected:
 	float getHeuristic(Node &node, Node &endNode) const;
 	void getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) const;
 	void getVertex(uint32 vertexID, Common::Vector3 &vertex) const;
-	bool walkableCircle(Common::Vector3 center, float radius);
 	bool walkableAASquare(Common::Vector3 center, float halfWidth);
 	bool walkablePolygon(Common::Vector3 vertices[], uint32 vertexCount);
+	bool walkableSegment(Common::Vector3 start, Common::Vector3 end);
 
 private:
 	bool inFace(uint32 faceID, Common::Vector3 point) const;
 	bool inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd, Common::Vector3 &intersect);
 	bool hasVertex(uint32 face, Common::Vector3 vertex) const;
 	bool getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 &vert1, Common::Vector3 &vert2) const;
-	bool segmentInFace(uint32 faceID, Common::Vector3 segStart, Common::Vector3 segEnd);
 	bool goThrough(uint32 fromFace, uint32 toFace, float width);
 	void reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path);
-	void getIntersections(Common::Vector3 &start, Common::Vector3 &end, uint32 face, std::vector<Common::Vector3> &intersects);
-	void getClosestIntersection(Common::Vector3 &start, Common::Vector3 &end, uint32 face, Common::Vector3 &intersect);
-	Common::Vector3 getCreatureSizePoint(Common::Vector3 &from, Common::Vector3 &left, Common::Vector3 &right, float halfWidth, bool alongLeft);
+	void minimizePath(std::vector<Common::Vector3> &path, float halfWidth);
 	Common::Vector3 getOrthonormalVec(Common::Vector3 segment, bool clockwise = true) const;
 	void manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &ignoredPoints,
 	                        std::vector<Common::Vector3> &finalPath);
 	bool isToTheLeft(Common::Vector3 startSegment, Common::Vector3 endSegment, Common::Vector3 Point) const;
 	void getVerticesTunnel(std::vector<uint32> &facePath, std::vector<Common::Vector3> &tunnel, std::vector<bool> &tunnelLeftRight);
+	float xyLength(Common::Vector3 &vec) const;
+	float xyLength(Common::Vector3 &vecA, Common::Vector3 &vecB) const;
 
 	std::vector<uint32> _facesToDraw;
 	std::vector<Common::Vector3> _linesToDraw;
