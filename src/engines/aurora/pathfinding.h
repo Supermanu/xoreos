@@ -42,6 +42,8 @@ public:
 	bool findPath(float startX, float startY, float startZ, float endX, float endY, float endZ, std::vector<uint32> &facePath, float width = 0.01, uint32 nbrIt = 100000);
 	void smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width = 0.01);
 	uint32 findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect);
+	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
+	uint32 findFace(float x, float y, bool onlyWalkable = true);
 	void drawWalkmesh();
 
 	bool walkable(uint32 faceIndex) const;
