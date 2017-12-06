@@ -129,7 +129,7 @@ bool Pathfinding::findPath(float startX, float startY, float startZ,
 		closedList.push_back(current);
 
 		std::vector<uint32> adjNodes;
-		getAdjacentNodes(current, adjNodes);
+		getAdjacentFaces(current.face, adjNodes);
 // 		warning("adjNodes size %zu", adjNodes.size());
 		for (std::vector<uint32>::iterator a = adjNodes.begin(); a != adjNodes.end(); ++a) {
 // 			warning("adj node %u", *a);
@@ -213,7 +213,7 @@ void Pathfinding::minimizePath(std::vector<Common::Vector3> &path, float halfWid
 		return;
 	}
 
-	warning("Minimize: Some steps have been removed %u", path.size() - newPath.size());
+	warning("Minimize: Some steps have been removed %lu", path.size() - newPath.size());
 	path.clear();
 	path.assign(newPath.begin(), newPath.end());
 }
@@ -776,53 +776,53 @@ bool Pathfinding::walkable(Common::Vector3 point) {
 }
 
 uint32 Pathfinding::findFace(float x, float y, float z, bool onlyWalkable) {
-	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
-		if (*it == 0)
-			continue;
-
-		if (!(*it)->isIn(x, y, z))
-			continue;
-
-		std::vector<Common::AABBNode *> nodes;
-		(*it)->getNodes(x, y, nodes);
-		for (uint n = 0; n < nodes.size(); ++n) {
-			uint32 face = nodes[n]->getProperty();
-			// Check walkability
-			if (onlyWalkable && !walkable(face))
-				continue;
-
-			if (!inFace(face, Common::Vector3(x, y, z)))
-				continue;
-
-			return face;
-		}
-	}
-
+// 	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+// 		if (*it == 0)
+// 			continue;
+//
+// 		if (!(*it)->isIn(x, y, z))
+// 			continue;
+//
+// 		std::vector<Common::AABBNode *> nodes;
+// 		(*it)->getNodes(x, y, nodes);
+// 		for (uint n = 0; n < nodes.size(); ++n) {
+// 			uint32 face = nodes[n]->getProperty();
+// 			// Check walkability
+// 			if (onlyWalkable && !walkable(face))
+// 				continue;
+//
+// 			if (!inFace(face, Common::Vector3(x, y, z)))
+// 				continue;
+//
+// 			return face;
+// 		}
+// 	}
+//
 	return UINT32_MAX;
 }
 
 uint32 Pathfinding::findFace(float x, float y, bool onlyWalkable) {
-    for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
-        if (*it == 0)
-            continue;
-
-        if (!(*it)->isIn(x, y))
-            continue;
-
-        std::vector<Common::AABBNode *> nodes;
-        (*it)->getNodes(x, y, nodes);
-        for (uint n = 0; n < nodes.size(); ++n) {
-            uint32 face = nodes[n]->getProperty();
-            // Check walkability
-            if (onlyWalkable && !walkable(face))
-                continue;
-
-            if (!inFace(face, Common::Vector3(x, y, 0.f)))
-                continue;
-
-            return face;
-        }
-    }
+//     for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+//         if (*it == 0)
+//             continue;
+//
+//         if (!(*it)->isIn(x, y))
+//             continue;
+//
+//         std::vector<Common::AABBNode *> nodes;
+//         (*it)->getNodes(x, y, nodes);
+//         for (uint n = 0; n < nodes.size(); ++n) {
+//             uint32 face = nodes[n]->getProperty();
+//             // Check walkability
+//             if (onlyWalkable && !walkable(face))
+//                 continue;
+//
+//             if (!inFace(face, Common::Vector3(x, y, 0.f)))
+//                 continue;
+//
+//             return face;
+//         }
+//     }
 
     return UINT32_MAX;
 }
@@ -912,22 +912,43 @@ bool Pathfinding::goThrough(uint32 fromFace, uint32 toFace, float width) {
 	return false;
 }
 
-void Pathfinding::getAdjacentNodes(Node &node, std::vector<uint32> &adjNodes) {
-	adjNodes.clear();
+void Pathfinding::getAdjacentFaces(uint32 face, std::vector<uint32> &adjFaces) {
+	adjFaces.clear();
 
 	// Get adjacent faces
 	for (uint8 f = 0; f < _polygonEdges; ++f) {
 		// Get adjacent face.
-		uint32 face = _adjFaces[node.face * _polygonEdges + f];
+		uint32 adjFace = _adjFaces[face * _polygonEdges + f];
 
 		// Check if it is a border
-		if (face == UINT32_MAX)
+		if (adjFace == UINT32_MAX)
 			continue;
 
-		// Check if it is the parent node.
-		if (face != node.parent)
-			adjNodes.push_back(face);
+		adjFaces.push_back(adjFace);
 	}
+}
+
+void Pathfinding::getAdjacencyCenter(uint32 faceA, uint32 faceB, float &x, float &y) const {
+	bool adjacent = false;
+	// Get vertices from the closest edge to the face we are looking at.
+	for (uint8 f = 0; f < _polygonEdges; ++f) {
+		if (_adjFaces[faceA * _polygonEdges + f] != faceB)
+			continue;
+
+		adjacent = true;
+		uint32 vert1 = _faces[faceA * _polygonEdges + f];
+		uint32 vert2 = _faces[faceA * _polygonEdges + (f + 1) % _polygonEdges];
+
+		// Compute the center of the edge.
+		x = (_vertices[vert1 * 3] + _vertices[vert2 * 3]) / 2;
+		y = (_vertices[vert1 * 3 + 1] + _vertices[vert2 * 3 + 1]) / 2;
+
+		break;
+	}
+
+	// Ensure the two faces are adjacent
+	if(!adjacent)
+		error("The two faces are not adjacent");
 }
 
 float Pathfinding::getDistance(Node &fromNode, uint32 toFace, float &toX, float &toY, float &toZ) const {

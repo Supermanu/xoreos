@@ -22,7 +22,10 @@
  *  A* algorithm is used to find paths as fast as possible and as short as possible.
  */
 
+#include <algorithm>
+
 #include "src/engines/aurora/pathfinding.h"
+
 #include "src/engines/aurora/astaralgorithm.h"
 
 namespace Engines {
@@ -32,6 +35,17 @@ AStar::AStar(Engines::Pathfinding* pathfinding, uint32 polygonEdgesCount) :
 }
 
 AStar::~AStar() {
+}
+
+AStar::Node::Node(): x(0.f), y(0.f) {
+}
+
+AStar::Node::Node(uint32 faceID, float pX, float pY, uint32 parentNode):
+face(faceID), x(pX), y(pY), parent(parentNode) {
+}
+
+bool AStar::Node::operator<(const Node &node) const {
+	return G + H < node.G + node.H;
 }
 
 bool AStar::findPath(float startX, float startY, float endX, float endY,
@@ -55,8 +69,8 @@ bool AStar::findPath(float startX, float startY, float endX, float endY,
 	}
 
 	// Init nodes and lists.
-	Node startNode = Node(startFace, startX, startY, startZ);
-	Node endNode   = Node(endFace, endX, endY, endZ);
+	Node startNode = Node(startFace, startX, startY);
+	Node endNode   = Node(endFace, endX, endY);
 
 	startNode.G = 0.f;
 	startNode.H = getHeuristic(startNode, endNode);
@@ -80,26 +94,30 @@ bool AStar::findPath(float startX, float startY, float endX, float endY,
 		openList.erase(openList.begin());
 		closedList.push_back(current);
 
-		std::vector<uint32> adjNodes;
-		getAdjacentNodes(current, adjNodes);
-		for (std::vector<uint32>::iterator a = adjNodes.begin(); a != adjNodes.end(); ++a) {
+		std::vector<uint32> adjFaces;
+		_pathfinding->getAdjacentFaces(current.face, adjFaces);
+		for (std::vector<uint32>::iterator a = adjFaces.begin(); a != adjFaces.end(); ++a) {
+			// Check if it is the parent node.
+			if (*a != current.parent)
+				continue;
+
 			// Check if it has been already evaluated.
 			if (hasNode(*a, closedList))
 				continue;
 
 			// Check if the creature can go through to the adjacent face.
-			if (!goThrough(current.face, *a, width))
+			if (width > 0.f && !_pathfinding->goThrough(current.face, *a, width))
 				continue;
 
 			// Distance from start point to this node.
-			float x, y, z;
-			float gScore = current.G + getDistance(current, *a, x, y, z);
+			float x, y;
+			float gScore = current.G + getGValue(current, *a, x, y);
 
 			// Check if it is a new node.
 			Node *adjNode = getNode(*a, openList);
 			bool isThere = adjNode != 0;
 			if (!isThere) {
-				adjNode = new Node(*a, x, y, z);
+				adjNode = new Node(*a, x, y);
 				adjNode->parent = current.face;
 			} else if (gScore >= adjNode->G) {
 				continue;
@@ -117,6 +135,60 @@ bool AStar::findPath(float startX, float startY, float endX, float endY,
 	}
 
 	return false;
+}
+
+float AStar::getGValue(Node &previousNode, uint32 face, float &x, float &y) const {
+	_pathfinding->getAdjacencyCenter(previousNode.face, face, x, y);
+	return getEuclideanDistance(previousNode.x,previousNode.y, x, y);
+}
+
+float AStar::getHeuristic(Node &node, Node &endNode) const {
+	// Naive estimation.
+	return getEuclideanDistance(node.x,node.y, endNode.x,endNode.y);
+}
+
+AStar::Node *AStar::getNode(uint32 face, std::vector<Node> &nodes) const {
+	for (std::vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+		if ((*n).face == face) {
+			return &(*n);
+		}
+	}
+
+	return 0;
+}
+
+bool AStar::hasNode(uint32 face, std::vector<Node> &nodes) const {
+	for (std::vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
+		if ((*n).face == face) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+float AStar::getEuclideanDistance(float xA, float yA, float xB, float yB) const {
+	return sqrt(pow(xA - xB, 2.f) + pow(yA - yB, 2.f));
+}
+
+void AStar::reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path) {
+	Node &cNode = endNode;
+	path.push_back(endNode.face);
+	path.push_back(endNode.parent);
+
+	while (cNode.parent != UINT32_MAX) {
+		for (std::vector<Node>::iterator n = closedList.begin(); n != closedList.end(); ++n) {
+			if (cNode.parent != (*n).face)
+				continue;
+
+			cNode = (*n);
+			if (cNode.parent != UINT32_MAX)
+				path.push_back(cNode.parent);
+
+			break;
+		}
+	}
+	std::reverse(path.begin(), path.end());
 }
 
 } // namespace Engines

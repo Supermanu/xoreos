@@ -34,6 +34,7 @@ src_engines_aurora_libaurora_la_SOURCES += \
     src/engines/aurora/loadprogress.h \
     src/engines/aurora/camera.h \
     src/engines/aurora/pathfinding.h \
+    src/engines/aurora/astaralgorithm.h \
     $(EMPTY)
 
 src_engines_aurora_libaurora_la_SOURCES += \
@@ -48,4 +49,5 @@ src_engines_aurora_libaurora_la_SOURCES += \
     src/engines/aurora/loadprogress.cpp \
     src/engines/aurora/camera.cpp \
     src/engines/aurora/pathfinding.cpp \
+    src/engines/aurora/astaralgorithm.cpp \
     $(EMPTY)

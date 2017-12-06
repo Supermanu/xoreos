@@ -56,28 +56,51 @@ public:
 protected:
 	/** A node in the walkmesh network and its relationship within the structure and the algorithm.
 	 *
-	 * Here the node is in fact the face. It could have been a vertex or a side of a face.
-	 * The edges of the network is, here, the adjacency between faces. They are weighted by the "distance"
-	 * between the faces: from the center of the adjacent side of the parent node and the center of
-	 * the side of the next node).
+	 * Here the node is the face. It could have been a vertex or a side of a face.
+	 * The edges of the network is, here, the adjacency between faces. How they are weighted depends
+	 * on the G cost is computed (see getGValue() ).
 	 */
 	struct Node {
 		uint32 face; ///< Actually the real node.
-		float x; ///< The x position of the side center.
-		float y; ///< The y position of the side center.
-		float z; ///< The z position of the side center.
+		float x; ///< The x position of the node.
+		float y; ///< The y position of the node.
 		uint32 parent; ///< Parent node, UINT32_MAX for no parent.
 
-		float G;
-		float H; ///< Heuristic value.
+		float G; //< Cost value (from the starting node to this node).
+		float H; ///< Heuristic value (estimation cost from this node to the ending point).
 
 		Node();
-		Node(uint32 faceID, float pX, float pY, float pZ, uint32 parent = UINT32_MAX);
+		Node(uint32 faceID, float pX, float pY, uint32 parentNode = UINT32_MAX);
 		/** Compare the distance between two nodes. */
 		bool operator<(const Node &node) const;
 	};
 
+	/** Get G cost. Basically the length from the starting point to another point.
+	 *
+	 *  There are many ways to compute the length between two faces. In this base
+	 *  class, the length is computed from adjacency edge center to adjacency edge
+	 *  center. But it could have been from centroid to centroid, it really depends
+	 *  on the shape of the polygons that make the walkmesh.
+	 */
+	float getGValue(Node &previousNode, uint32 face, float &x, float &y) const;
+	/** Get a heuristic (an estimation) of the distance between two nodes.
+	 *
+	 *  As this could be higly related on how the walkmesh is done. This base class
+	 *  give a simple and naive implementation, that is the euclidean distance.
+	 */
+	float getHeuristic(Node &node, Node &endNode) const;
+
+	/** Find a node in a vector of nodes. */
+	Node *getNode(uint32 face, std::vector<Node> &nodes) const;
+	/** Check if a vector of nodes contains a specific node. */
+	bool hasNode(uint32 face, std::vector<Node> &nodes) const;
+
 private:
+	/** Compute the euclidean distance (usual distance) between two points in th XY plan. */
+	float getEuclideanDistance(float xA, float yA, float xB, float yB) const;
+	/** Reconstruct the path of faces from the closed list and the end node. */
+	void reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path);
+
 	Pathfinding *_pathfinding;
 	uint32 _polygonEdgesCount;
 };

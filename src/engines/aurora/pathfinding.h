@@ -26,13 +26,15 @@
 #define ENGINES_PATHFINDING_H
 
 #include "src/common/ustring.h"
+#include "src/common/vector3.h"
 
 namespace Common {
-class Vector3;
 class AABBNode;
 }
 
 namespace Engines {
+
+class AStar;
 
 class Pathfinding {
 public:
@@ -76,13 +78,13 @@ protected:
 
 	std::vector<Common::AABBNode *> _AABBTrees;
 
-	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
-    uint32 findFace(float x, float y, bool onlyWalkable = true);
+// 	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
+//     uint32 findFace(float x, float y, bool onlyWalkable = true);
 	bool hasNode(uint32 face, std::vector<Node> &nodes) const;
 	bool hasNode(uint32 face, std::vector<Node> &nodes, Node &node) const;
 	Node *getNode(uint32 face, std::vector<Node> &nodes) const;
 
-	void getAdjacentNodes(Node &node, std::vector<uint32> &adjNodes);
+	void getAdjacentFaces(uint32 face, std::vector<uint32> &adjFaces);
 	float getDistance(Node &fromNode, uint32 toFace, float &toX, float &toY, float &toZ) const;
 	float getDistance(float fX, float fY, float fZ, float tX, float tY, float tZ) const;
 	float getHeuristic(Node &node, Node &endNode) const;
@@ -107,12 +109,15 @@ private:
 	void getVerticesTunnel(std::vector<uint32> &facePath, std::vector<Common::Vector3> &tunnel, std::vector<bool> &tunnelLeftRight);
 	float xyLength(Common::Vector3 &vec) const;
 	float xyLength(Common::Vector3 &vecA, Common::Vector3 &vecB) const;
+	void getAdjacencyCenter(uint32 faceA, uint32 faceB, float &x, float &y) const;
 
 	std::vector<uint32> _facesToDraw;
 	std::vector<Common::Vector3> _linesToDraw;
 	std::vector<Common::Vector3> _pointsToDraw;
 	Common::Vector3 _creaturePos;
 	float _creatureWidth;
+
+friend class AStar;
 };
 
 } // namespace Engines
