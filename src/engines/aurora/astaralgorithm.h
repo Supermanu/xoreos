@@ -35,7 +35,7 @@ class Pathfinding;
 
 class AStar {
 public:
-	AStar(Pathfinding *pathfinding, uint32 polygonEdgesCount = 3);
+	AStar(Pathfinding *pathfinding);
 	~AStar();
 	/** Find a path of faces in the walkmesh.
 	 *
@@ -101,8 +101,7 @@ private:
 	/** Reconstruct the path of faces from the closed list and the end node. */
 	void reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path);
 
-	Pathfinding *_pathfinding;
-	uint32 _polygonEdgesCount;
+	Pathfinding *_pathfinding; ///< Pathfinding object that contains the walkmesh.
 };
 
 } // namespace Engines

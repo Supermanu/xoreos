@@ -41,32 +41,19 @@ public:
 	Pathfinding(uint32 polygonEdges = 3);
 	~Pathfinding();
 
-	bool findPath(float startX, float startY, float startZ, float endX, float endY, float endZ, std::vector<uint32> &facePath, float width = 0.01, uint32 nbrIt = 100000);
+	bool findPath(float startX, float startY, float endX, float endY,
+                  std::vector<uint32> &facePath, float width = 0.f, uint32 nbrIt = 100000);
 	void smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width = 0.01);
 	uint32 findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect);
 	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
 	uint32 findFace(float x, float y, bool onlyWalkable = true);
+	void setAStarAlgorithm(AStar *aStarAlgorithm);
 	void drawWalkmesh();
 
 	bool walkable(uint32 faceIndex) const;
 	bool walkable(Common::Vector3 point);
 
 protected:
-	struct Node {
-		uint32 face;
-		float x;
-		float y;
-		float z;
-		uint32 parent; ///< Parent node, UINT32_MAX for no parent.
-
-		float G;
-		float H;
-
-		Node();
-		Node(uint32 faceID, float pX, float pY, float pZ, uint32 par = UINT32_MAX);
-		bool operator<(const Node &node) const;
-	};
-
 	uint32 _polygonEdges;
 	uint32 _verticesCount;
 	uint32 _facesCount;
@@ -77,17 +64,7 @@ protected:
 	std::vector<uint32> _faceProperty;
 
 	std::vector<Common::AABBNode *> _AABBTrees;
-
-// 	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
-//     uint32 findFace(float x, float y, bool onlyWalkable = true);
-	bool hasNode(uint32 face, std::vector<Node> &nodes) const;
-	bool hasNode(uint32 face, std::vector<Node> &nodes, Node &node) const;
-	Node *getNode(uint32 face, std::vector<Node> &nodes) const;
-
 	void getAdjacentFaces(uint32 face, std::vector<uint32> &adjFaces);
-	float getDistance(Node &fromNode, uint32 toFace, float &toX, float &toY, float &toZ) const;
-	float getDistance(float fX, float fY, float fZ, float tX, float tY, float tZ) const;
-	float getHeuristic(Node &node, Node &endNode) const;
 	void getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) const;
 	void getVertex(uint32 vertexID, Common::Vector3 &vertex) const;
 	bool walkableAASquare(Common::Vector3 center, float halfWidth);
@@ -100,7 +77,6 @@ private:
 	bool hasVertex(uint32 face, Common::Vector3 vertex) const;
 	bool getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 &vert1, Common::Vector3 &vert2) const;
 	bool goThrough(uint32 fromFace, uint32 toFace, float width);
-	void reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path);
 	void minimizePath(std::vector<Common::Vector3> &path, float halfWidth);
 	Common::Vector3 getOrthonormalVec(Common::Vector3 segment, bool clockwise = true) const;
 	void manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &ignoredPoints,
@@ -116,6 +92,8 @@ private:
 	std::vector<Common::Vector3> _pointsToDraw;
 	Common::Vector3 _creaturePos;
 	float _creatureWidth;
+
+	AStar *_aStarAlgorithm;
 
 friend class AStar;
 };

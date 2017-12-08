@@ -38,6 +38,7 @@
 
 #include "src/aurora/resman.h"
 
+#include "src/engines/aurora/astaralgorithm.h"
 #include "src/engines/nwn/pathfinding.h"
 
 typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
@@ -47,6 +48,8 @@ namespace Engines {
 namespace NWN {
 
 Pathfinding::Pathfinding() : Engines::Pathfinding() {
+	AStar * aStarAlgorithm = new AStar(this);
+	setAStarAlgorithm(aStarAlgorithm);
 }
 
 Pathfinding::~Pathfinding() {

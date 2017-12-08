@@ -24,14 +24,15 @@
 
 #include <algorithm>
 
+#include "src/common/util.h"
+
 #include "src/engines/aurora/pathfinding.h"
 
 #include "src/engines/aurora/astaralgorithm.h"
 
 namespace Engines {
 
-AStar::AStar(Engines::Pathfinding* pathfinding, uint32 polygonEdgesCount) :
-	_pathfinding(pathfinding), _polygonEdgesCount(polygonEdgesCount) {
+AStar::AStar(Engines::Pathfinding* pathfinding) : _pathfinding(pathfinding) {
 }
 
 AStar::~AStar() {
@@ -84,6 +85,7 @@ bool AStar::findPath(float startX, float startY, float endX, float endY,
 		if (openList.empty())
 			break;
 
+
 		Node current = openList.front();
 
 		if (current.face == endNode.face) {
@@ -98,7 +100,7 @@ bool AStar::findPath(float startX, float startY, float endX, float endY,
 		_pathfinding->getAdjacentFaces(current.face, adjFaces);
 		for (std::vector<uint32>::iterator a = adjFaces.begin(); a != adjFaces.end(); ++a) {
 			// Check if it is the parent node.
-			if (*a != current.parent)
+			if (*a == current.parent)
 				continue;
 
 			// Check if it has been already evaluated.

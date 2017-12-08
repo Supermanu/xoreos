@@ -38,6 +38,7 @@
 
 #include "src/graphics/graphics.h"
 
+#include "src/engines/aurora/astaralgorithm.h"
 #include "src/engines/aurora/pathfinding.h"
 
 typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
@@ -48,124 +49,25 @@ bool sortByLenght(Common::Vector3 vec1, Common::Vector3 vec2) {
 	return vec1.length() < vec2.length();
 }
 
-Pathfinding::Pathfinding(uint32 polygonEdges) : _polygonEdges(polygonEdges), _verticesCount(0), _facesCount(0) {
+Pathfinding::Pathfinding(uint32 polygonEdges) : _polygonEdges(polygonEdges), _verticesCount(0),
+	_facesCount(0), _aStarAlgorithm(0) {
 	_creatureWidth = 0.f;
 	_creaturePos = Common::Vector3(0.f, 0.f, 0.f);
 }
 
 Pathfinding::~Pathfinding() {
+	delete _aStarAlgorithm;
 }
 
-Pathfinding::Node::Node() {
-}
+bool Pathfinding::findPath(float startX, float startY, float endX, float endY,
+	                       std::vector<uint32> &facePath, float width, uint32 nbrIt) {
+	if (!_aStarAlgorithm)
+		error("An AStar algorithm must be set");
 
-Pathfinding::Node::Node(uint32 faceID, float pX, float pY, float pZ, uint32 par)
-                        : face(faceID), x(pX), y(pY), z(pZ), parent(par) {
-}
-
-bool Pathfinding::Node::operator<(const Node &node) const {
-	return G + H < node.G + node.H;
-}
-
-bool Pathfinding::findPath(float startX, float startY, float startZ,
-						   float endX, float endY, float endZ, std::vector<uint32> &facePath, float width, uint32 nbrIt) {
-	// A* algorithm.
-
+	bool result = _aStarAlgorithm->findPath(startX, startY, endX, endY, facePath, width, nbrIt);
 	_facesToDraw.clear();
-	_creaturePos = Common::Vector3(startX, startY, startZ);
-	_creatureWidth = width;
-	warning("finding path... with iter %u", nbrIt);
-	facePath.clear();
-
-	// Find faces start and end points belong.
-	uint32 startFace = findFace(startX, startY);
-	uint32 endFace = findFace(endX, endY);
-
-	// Check if start and end points are in the walkmesh.
-	if (startFace == UINT32_MAX || endFace == UINT32_MAX) {
-		warning("One face is not on the walkmesh");
-		return false;
-	}
-
-	// Check if start and end points are in the same face.
-	if (startFace == endFace) {
-		warning("start face == end face");
-		facePath.push_back(startFace);
-		return true;
-	}
-
-	// Init nodes and lists.
-	Node startNode = Node(startFace, startX, startY, startZ);
-	Node endNode   = Node(endFace, endX, endY, endZ);
-
-	startNode.G = 0.f;
-	startNode.H = getHeuristic(startNode, endNode);
-
-	std::vector<Node> openList;
-	std::vector<Node> closedList;
-	openList.push_back(startNode);
-
-	warning("starting the loop");
-	// Searching...
-
-// 	while (!openList.empty()) {
-	for (uint32 it = 0; it < nbrIt; ++it) {
-// 		warning("openlist size %zu", openList.size());
-		if (openList.empty())
-			break;
-
-		Node current = openList.front();
-// 		warning("current face %u", current.face);
-		_facesToDraw.push_back(current.face);
-
-		if (current.face == endNode.face) {
-			reconstructPath(current, closedList, facePath);
-// 			_pointsToDraw.push_back(Common::Vector3(endX, endY, endZ));
-			_facesToDraw = facePath;
-			return true;
-		}
-
-		openList.erase(openList.begin());
-		closedList.push_back(current);
-
-		std::vector<uint32> adjNodes;
-		getAdjacentFaces(current.face, adjNodes);
-// 		warning("adjNodes size %zu", adjNodes.size());
-		for (std::vector<uint32>::iterator a = adjNodes.begin(); a != adjNodes.end(); ++a) {
-// 			warning("adj node %u", *a);
-			// Check if it has been already evaluated.
-			if (hasNode(*a, closedList))
-				continue;
-
-			if (!goThrough(current.face, *a, width))
-				continue;
-
-			// Distance from start point to this node.
-			float x, y, z;
-			float gScore = current.G + getDistance(current, *a, x, y, z);
-
-			// Check if it is a new node.
-			Node *adjNode = getNode(*a, openList);
-			bool isThere = adjNode != 0;
-			if (!isThere) {
-				adjNode = new Node(*a, x, y, z);
-				adjNode->parent = current.face;
-			} else if (gScore >= adjNode->G) {
-				continue;
-			}
-
-			// adjNode is the best node up to now, update/add.
-			adjNode->parent = current.face;
-			adjNode->G = gScore;
-			adjNode->H = getHeuristic(*adjNode, endNode);
-			if (!isThere)
-				openList.push_back(*adjNode);
-
-			std::sort(openList.begin(), openList.end());
-		}
-	}
-
-	return false;
+	_facesToDraw.assign(facePath.begin(), facePath.end());
+	return result;
 }
 
 bool Pathfinding::isToTheLeft(Common::Vector3 startSegment, Common::Vector3 endSegment, Common::Vector3 point) const {
@@ -599,62 +501,6 @@ bool Pathfinding::walkableSegment(Common::Vector3 start, Common::Vector3 end) {
 	return true;
 }
 
-bool Pathfinding::hasNode(uint32 face, std::vector<Node> &nodes) const {
-	Node dummy(0, 0.f, 0.f, 0.f);
-	return hasNode(face, nodes, dummy);
-}
-
-bool Pathfinding::hasNode(uint32 face, std::vector<Node> &nodes, Node &node) const {
-	for (std::vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
-		if ((*n).face == face) {
-			node = *n;
-			return true;
-		}
-	}
-
-	return false;
-}
-
-Pathfinding::Node *Pathfinding::getNode(uint32 face, std::vector<Node> &nodes) const {
-	for (std::vector<Node>::iterator n = nodes.begin(); n != nodes.end(); ++n) {
-		if ((*n).face == face) {
-			return &(*n);
-		}
-	}
-
-	return 0;
-}
-
-void Pathfinding::reconstructPath(Node &endNode, std::vector<Node> &closedList, std::vector<uint32> &path) {
-	Node &cNode = endNode;
-	path.push_back(endNode.face);
-	path.push_back(endNode.parent);
-
-// 	_pointsToDraw.clear();
-// 	_pointsToDraw.push_back(Common::Vector3(cNode.x, cNode.y, cNode.z));
-
-	while (cNode.parent != UINT32_MAX) {
-		for (std::vector<Node>::iterator n = closedList.begin(); n != closedList.end(); ++n) {
-			if (cNode.parent != (*n).face)
-				continue;
-
-			cNode = (*n);
-			_linesToDraw.push_back(Common::Vector3(cNode.x, cNode.y, cNode.z));
-			if (cNode.parent != UINT32_MAX)
-				path.push_back(cNode.parent);
-
-			break;
-		}
-	}
-
-	std::reverse(path.begin(), path.end());
-
-	std::reverse(_linesToDraw.begin(), _linesToDraw.end());
-	for (uint32 p = 0; p < _linesToDraw.size(); ++p) {
-// 		warning("path %u: (%f, %f, %f)", p, _pointsToDraw[p]._x, _pointsToDraw[p]._y, _pointsToDraw[p]._z);
-	}
-}
-
 void Pathfinding::drawWalkmesh() {
 	if (_faces.empty())
 		return;
@@ -776,53 +622,53 @@ bool Pathfinding::walkable(Common::Vector3 point) {
 }
 
 uint32 Pathfinding::findFace(float x, float y, float z, bool onlyWalkable) {
-// 	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
-// 		if (*it == 0)
-// 			continue;
-//
-// 		if (!(*it)->isIn(x, y, z))
-// 			continue;
-//
-// 		std::vector<Common::AABBNode *> nodes;
-// 		(*it)->getNodes(x, y, nodes);
-// 		for (uint n = 0; n < nodes.size(); ++n) {
-// 			uint32 face = nodes[n]->getProperty();
-// 			// Check walkability
-// 			if (onlyWalkable && !walkable(face))
-// 				continue;
-//
-// 			if (!inFace(face, Common::Vector3(x, y, z)))
-// 				continue;
-//
-// 			return face;
-// 		}
-// 	}
-//
+	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+		if (*it == 0)
+			continue;
+
+		if (!(*it)->isIn(x, y, z))
+			continue;
+
+		std::vector<Common::AABBNode *> nodes;
+		(*it)->getNodes(x, y, nodes);
+		for (uint n = 0; n < nodes.size(); ++n) {
+			uint32 face = nodes[n]->getProperty();
+			// Check walkability
+			if (onlyWalkable && !walkable(face))
+				continue;
+
+			if (!inFace(face, Common::Vector3(x, y, z)))
+				continue;
+
+			return face;
+		}
+	}
+
 	return UINT32_MAX;
 }
 
 uint32 Pathfinding::findFace(float x, float y, bool onlyWalkable) {
-//     for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
-//         if (*it == 0)
-//             continue;
-//
-//         if (!(*it)->isIn(x, y))
-//             continue;
-//
-//         std::vector<Common::AABBNode *> nodes;
-//         (*it)->getNodes(x, y, nodes);
-//         for (uint n = 0; n < nodes.size(); ++n) {
-//             uint32 face = nodes[n]->getProperty();
-//             // Check walkability
-//             if (onlyWalkable && !walkable(face))
-//                 continue;
-//
-//             if (!inFace(face, Common::Vector3(x, y, 0.f)))
-//                 continue;
-//
-//             return face;
-//         }
-//     }
+    for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+        if (*it == 0)
+            continue;
+
+        if (!(*it)->isIn(x, y))
+            continue;
+
+        std::vector<Common::AABBNode *> nodes;
+        (*it)->getNodes(x, y, nodes);
+        for (uint n = 0; n < nodes.size(); ++n) {
+            uint32 face = nodes[n]->getProperty();
+            // Check walkability
+            if (onlyWalkable && !walkable(face))
+                continue;
+
+            if (!inFace(face, Common::Vector3(x, y, 0.f)))
+                continue;
+
+            return face;
+        }
+    }
 
     return UINT32_MAX;
 }
@@ -951,41 +797,6 @@ void Pathfinding::getAdjacencyCenter(uint32 faceA, uint32 faceB, float &x, float
 		error("The two faces are not adjacent");
 }
 
-float Pathfinding::getDistance(Node &fromNode, uint32 toFace, float &toX, float &toY, float &toZ) const {
-	// Get vertices from the closest edge to the face we are looking at.
-	for (uint8 f = 0; f < _polygonEdges; ++f) {
-		if (_adjFaces[fromNode.face * _polygonEdges + f] != toFace)
-			continue;
-
-		uint32 vert1 = _faces[fromNode.face * _polygonEdges + f];
-		uint32 vert2 = _faces[fromNode.face * _polygonEdges + (f + 1) % _polygonEdges];
-
-		// Compute the center of the edge.
-		toX = (_vertices[vert1 * 3] + _vertices[vert2 * 3]) / 2;
-		toY = (_vertices[vert1 * 3 + 1] + _vertices[vert2 * 3 + 1]) / 2;
-		toZ = (_vertices[vert1 * 3 + 2] + _vertices[vert2 * 3 + 2]) / 2;
-
-		// Compute the distance.
-		return getDistance(fromNode.x, fromNode.y, fromNode.z, toX, toY, toZ);
-	}
-
-// 	warning("getDistance(): Face is not adjacent");
-	return -1.f;
-}
-
-float Pathfinding::getDistance(float fX, float fY, float fZ, float tX, float tY, float tZ) const {
-	// Compute the distance.
-	float dX = fX - tX;
-	float dY = fY - tY;
-	float dZ = fZ - tZ;
-
-	return sqrt(dX * dX + dY * dY + dZ * dZ);
-}
-
-float Pathfinding::getHeuristic(Node &node, Node &endNode) const {
-	return getDistance(node.x, node.y, node.z, endNode.x, endNode.y, endNode.z);
-}
-
 bool Pathfinding::inFace(uint32 faceID, Common::Vector3 point) const {
 	Common::Vector3 vA, vB, vC;
 	getVertices(faceID, vA, vB, vC);
@@ -1042,6 +853,10 @@ float Pathfinding::xyLength(Common::Vector3 &vec) const {
 float Pathfinding::xyLength(Common::Vector3 &vecA, Common::Vector3 &vecB) const {
 	Common::Vector3 vecDiff = vecB - vecA;
 	return xyLength(vecDiff);
+}
+
+void Pathfinding::setAStarAlgorithm(AStar *aStarAlgorithm) {
+	_aStarAlgorithm = aStarAlgorithm;
 }
 
 } // namespace Engines

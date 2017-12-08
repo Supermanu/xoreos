@@ -436,8 +436,8 @@ void Area::processEventQueue() {
 					if (_startEndPoints.size() == 2) {
 						std::vector<uint32> path;
 						clock_t startFindPath = std::clock();
-						bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y, _startEndPoints[0]._z,
-														  _startEndPoints[1]._x, _startEndPoints[1]._y, _startEndPoints[1]._z, path, width);
+						bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y,
+														  _startEndPoints[1]._x, _startEndPoints[1]._y, path, width);
 						clock_t endFindPath = std::clock();
 						++_iter;
 						warning("Out is %i", out);
