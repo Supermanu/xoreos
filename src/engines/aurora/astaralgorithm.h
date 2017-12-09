@@ -37,7 +37,7 @@ class AStar {
 public:
 	AStar(Pathfinding *pathfinding);
 	~AStar();
-	/** Find a path of faces in the walkmesh.
+	/** Find a path of faces between two points.
 	 *
 	 *  If the width is set, it will discard paths that are not large enough.
 	 *
@@ -47,7 +47,7 @@ public:
 	 *  @param endY         The y component of the ending point.
 	 *  @param facePath     The vector where the path will be stored.
 	 *  @param width        The creature's width. Default is no width.
-	 *  @param maxIteration The maximum number of iteration before the algorithm stop searching.
+	 *  @param maxIteration The maximum number of iteration before the algorithm stops searching.
 	 *  @return             Return true if a path is found. False otherwise.
 	 */
 	bool findPath(float startX, float startY, float endX, float endY,

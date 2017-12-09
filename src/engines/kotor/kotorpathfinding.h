@@ -40,7 +40,7 @@ namespace KotOR {
 
 class KotORPathfinding : public Pathfinding {
 public:
-	KotORPathfinding();
+	KotORPathfinding(std::vector<bool> walkableProperties);
 	~KotORPathfinding();
 
 	void addData(const Common::UString &wokFile);

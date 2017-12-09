@@ -47,7 +47,7 @@ namespace Engines {
 
 namespace NWN {
 
-Pathfinding::Pathfinding() : Engines::Pathfinding() {
+Pathfinding::Pathfinding(std::vector<bool> walkableProperties) : Engines::Pathfinding(walkableProperties) {
 	AStar * aStarAlgorithm = new AStar(this);
 	setAStarAlgorithm(aStarAlgorithm);
 }

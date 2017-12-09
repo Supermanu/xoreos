@@ -34,7 +34,7 @@ namespace Engines {
 
 namespace KotOR {
 
-KotORPathfinding::KotORPathfinding() : Pathfinding() {
+KotORPathfinding::KotORPathfinding(std::vector<bool> walkableProperties) : Pathfinding(walkableProperties) {
 }
 
 KotORPathfinding::~KotORPathfinding() {

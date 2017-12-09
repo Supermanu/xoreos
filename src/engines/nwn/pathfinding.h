@@ -41,7 +41,7 @@ namespace NWN {
 
 class Pathfinding : public Engines::Pathfinding {
 public:
-	Pathfinding();
+	Pathfinding(std::vector<bool> walkableProperties);
 	~Pathfinding();
 
 	void addData(const Common::UString &wokFile, uint8 orientation, float *position);

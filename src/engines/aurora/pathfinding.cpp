@@ -49,8 +49,8 @@ bool sortByLenght(Common::Vector3 vec1, Common::Vector3 vec2) {
 	return vec1.length() < vec2.length();
 }
 
-Pathfinding::Pathfinding(uint32 polygonEdges) : _polygonEdges(polygonEdges), _verticesCount(0),
-	_facesCount(0), _aStarAlgorithm(0) {
+Pathfinding::Pathfinding(std::vector<bool> walkableProperties, uint32 polygonEdges) : _polygonEdges(polygonEdges),
+                         _verticesCount(0), _facesCount(0), _walkableProperties(walkableProperties), _aStarAlgorithm(0) {
 	_creatureWidth = 0.f;
 	_creaturePos = Common::Vector3(0.f, 0.f, 0.f);
 }
@@ -120,59 +120,61 @@ void Pathfinding::minimizePath(std::vector<Common::Vector3> &path, float halfWid
 	path.assign(newPath.begin(), newPath.end());
 }
 
-void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width) {
-	warning("SmoothPath");
+void Pathfinding::smoothPath(float startX, float startY, float endX, float endY, std::vector<uint32> &facePath,
+                             std::vector<Common::Vector3> &path, float width, float stopLength) {
+	// Use Vector3 for simplicity and vectorial operations.
+	Common::Vector3 start(startX, startY, 0.f);
+	Common::Vector3 end(endX, endY, 0.f);
+
+	// Vector that will store positions of each vertex of the path of faces.
 	std::vector<Common::Vector3> tunnel;
-	std::vector<Common::Vector3> smoothedPath, finalPath;
-	std::vector<bool> tunnelLeftRight, tunnelFree;
+	// Indicate if the position is to the left or to the right.
+	std::vector<bool> tunnelLeftRight;
+	// Vector that will store if the path is next to a wall/object.
+	std::vector<bool> tunnelFree;
+
+	// Vector that will store the vertices that we will keep.
 	std::vector<uint32> funnelIdx;
 	float halfWidth = width / 2.f;
+	float currentLength = 0.f;
 
 	tunnel.push_back(start);
 	tunnelLeftRight.push_back(true);
 
+	// Fill the tunnel vector and the related left/right vector.
 	getVerticesTunnel(facePath, tunnel, tunnelLeftRight);
+	// Add the ending point.
 	tunnel.push_back(end);
 	tunnel.push_back(end);
+	// Consider the last point as a left position.
 	tunnelLeftRight.push_back(true);
 	tunnelLeftRight.push_back(false);
+
 	tunnelFree.resize(tunnel.size());
 
 	uint32 apex = 0;
-	// Ignore the start point
-	uint32 feeler[ 2 ] = { 0, 0 }; //ie left/right
-
-	Common::Vector3 feeler_v[ 2 ]; //We store the vector from the apex to the feelers,
-	//which is a simple optimization that stops us from having to recalculate
-	//them each step
+	uint32 feeler[2] = {0, 0};
+	Common::Vector3 feelerVector[2];
 
 	_pointsToDraw.clear();
 	for (uint32 c = 1; c < tunnel.size(); c++ ) {
-		Common::Vector3 v = tunnel[c] - tunnel [apex];
+		// Get the vector between the apex and the next vertex on the path of faces.
+		Common::Vector3 v = tunnel[c] - tunnel[apex];
 
-		bool wB = walkableAASquare(tunnel[c], halfWidth);
-// 		warning("Is left ? %i | walkable in box ? %i", (bool) tunnelLeftRight[c], wB);
+		// Check if we are next to a wall.
+		tunnelFree[c] = !walkableAASquare(tunnel[c], halfWidth);
 
-// 		warning("iteration %u", c);
-// 		bool isLeft = tunnelLeftRight[c];
-// 		warning("Is Left ? %u", isLeft);
-// 		warning("v before any treatment (%f, %f, %f)", v[0], v[1], v[2]);
-// 		warning("apex: %u", apex);
-// 		warning("feeler (%u, %u)", feeler[0], feeler[1]);
-// 		warning("feeler_v (%f, %f, %f) and (%f, %f, %f)", feeler_v[0][0], feeler_v[0][1], feeler_v[0][2], feeler_v[1][0], feeler_v[1][1], feeler_v[1][2]);
-
-		bool nextToWall = !wB; //!walkableCircle(tunnel[c], halfWidth);
-		tunnelFree[c] = !nextToWall;
-// 		warning("Next to wall %i", nextToWall);
-
-		if(xyLength(v) > halfWidth && nextToWall) { //if v.length is below halfwidth, then the vertices are too close together
-			//to form meaningful tangent calculations. This is not the case for vertices on the same side of funnel,
-			//but they get straight-line calculations anyway, and no two vertices on opposite sides of funnel should be this close
-			//because that would make path invalid (only start and end)
-
-			if (apex == 0) { //Apex is start point
-				if (c < tunnel.size() - 2) { //If not true, the current
-					//element is the end point, so we actually want straight line between the apex and it after all
+		// In order to take the creature's width into account, we modify the position of the vertex by
+		// taking the tangent of the circle (radius halfwidth) around the considered vertex.
+		// If the apex and the considered vertex is on the same side of the funnel, it makes no sense
+		// compute the tangent. If the distance between the apex and the considered vertex (the length of v)
+		// is below half of the width, it also makes no sense to compute the tangent as the two vertices are
+		// too close. This is again the case if we are not next to a wall.
+		if (halfWidth != 0.f && xyLength(v) > halfWidth && !tunnelFree[c] ) {
+			if (apex == 0) {
+				// Check if we are not considering the ending point. Otherwise, we just want a straight line.
+				if (c < tunnel.size() - 2) {
+					// Compute the tangent.
 					float len = xyLength(v);
 					float fsin = halfWidth / len * (tunnelLeftRight[c] ? -1.f : 1.0f);
 					float fcos = sqrt(len * len - halfWidth * halfWidth) / len;
@@ -181,7 +183,9 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 					v._x = vX;
 					v._y = vY;
 				}
-			} else if ( c >= tunnel.size() - 2 ) { //Current point is end point
+			// Check if the current point is the ending point.
+			} else if ( c >= tunnel.size() - 2 ) {
+				// Compute the tangent.
 				float len = xyLength(v);
 				float fsin = halfWidth / len * (tunnelLeftRight[apex] ? 1.0f : -1.f);
 				float fcos = sqrt(abs(len * len - halfWidth * halfWidth)) / len;
@@ -189,8 +193,9 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 				float vY = v._x * fsin + v._y * fcos;
 				v._x = vX;
 				v._y = vY;
-			} else if ( tunnelLeftRight[c] != tunnelLeftRight[apex]) { // Opposite sides of list
-// 				warning("Opposite sides of list");
+			// Check if the apex and the considered vertex are on the opposite side.
+			} else if ( tunnelLeftRight[c] != tunnelLeftRight[apex]) {
+				// Compute the tangent.
 				float len = xyLength(v) * 0.5f;
 				float fsin = halfWidth / len * (tunnelLeftRight[c] ? -1.f : 1.0f);
 				float fcos = sqrt(abs(len * len - halfWidth * halfWidth)) / len;
@@ -198,35 +203,31 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 				float vY = v._x * fsin + v._y * fcos;
 				v._x = vX;
 				v._y = vY;
-// 				warning("len %f, fsin %f, fcos %f", len, fsin, fcos);
 			}
 		}
-
-// 		warning("v after (%f, %f, %f)", v[0], v[1], v[2]);
 
 		_pointsToDraw.push_back(v + tunnel[apex]);
 		//Is in on the ‘outside’ of the corresponding feeler? (or is the first
 		//iteration after advancing the apex)?
-		if (apex == feeler[tunnelLeftRight[c]] || (v.cross(feeler_v[tunnelLeftRight[c]])._z < 0.0f ) != tunnelLeftRight[c]) {
+		if (apex == feeler[tunnelLeftRight[c]] || (v.cross( feelerVector[tunnelLeftRight[c]])._z < 0.0f ) != tunnelLeftRight[c]) {
 // 			warning("It's inside or is first iteration (%i)", apex == feeler[tunnelLeftRight[c]]);
 			feeler[tunnelLeftRight[c]] = c;
-			feeler_v[tunnelLeftRight[c]] = v;
+			feelerVector[tunnelLeftRight[c]] = v;
 
 			//Does it cross the opposite feeler?
 			//Here we must first establish that the opposite feeler is not the apex, else there will be no meaningful calculation
 			//Also, we need to account for our end position, which is the last two elements on the tunnel list
 			if (apex != feeler[!tunnelLeftRight[c]] && (tunnel[c] == tunnel[feeler[!tunnelLeftRight[c]]]
-			   || (v.cross(feeler_v[!tunnelLeftRight[ c ] ] )._z < 0.0f) != tunnelLeftRight[c])) {
+			   || (v.cross( feelerVector[!tunnelLeftRight[ c ] ] )._z < 0.0f) != tunnelLeftRight[c])) {
 // 				warning("It's crossing opposite feeler");
 				funnelIdx.push_back(apex);
 
 				apex = feeler[!tunnelLeftRight[c]];
 
-
 				//There is occasionaly an instance whereby the current vertex is actually closer
 				//than the one on the oposite left/right list
 				//If this is the case, SWAP them, because we want to move to apex to the closest one
-				if (xyLength(v) < xyLength(feeler_v[ !tunnelLeftRight[ c ] ])) {
+				if (xyLength(v) < xyLength( feelerVector[ !tunnelLeftRight[ c ] ])) {
 					Common::Vector3 tmpV = tunnel[c];
 					tunnel[c] = tunnel[feeler[!tunnelLeftRight[c]]];
 					tunnel[feeler[!tunnelLeftRight[c]]] = tmpV;
@@ -242,9 +243,9 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 		}
 	}
 
-	finalPath.push_back(start);
+	path.push_back(start);
 	if (funnelIdx.size() < 2) {
-		finalPath.push_back(end);
+		path.push_back(end);
 		_linesToDraw.clear();
 		_linesToDraw.push_back(start);
 		_linesToDraw.push_back(end);
@@ -265,13 +266,13 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 		uint32 pos = funnelIdx[point];
 		uint32 nextPos = funnelIdx[point + 1];
 		if (tunnelFree[pos]) {
-			finalPath.push_back(tunnel[pos]);
+			path.push_back(tunnel[pos]);
 			continue;
 		}
 
 
 		middlePoint = tunnel[pos];
-		segment = tunnel[nextPos] - finalPath.back();
+		segment = tunnel[nextPos] - path.back();
 
 		bool clockwise = tunnelLeftRight[pos];
 		orthoVec = getOrthonormalVec(segment, clockwise) * halfWidth;
@@ -288,10 +289,10 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 			continue;
 		}
 
-        finalPath.push_back(firstSquare);
+        path.push_back(firstSquare);
         // If the two position are too close, avoid "z" path (going backward) except for last point.
 		if (xyLength(tunnel[nextPos], tunnel[pos]) > width || (xyLength(tunnel[nextPos], tunnel[pos]) <= width && point + 2 == funnelIdx.size())) {
-            finalPath.push_back(secondSquare);
+            path.push_back(secondSquare);
 		} else {
 // 			warning("Don't add last square. FunnelIdx position %i", point);
 		}
@@ -299,14 +300,14 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 	}
 
 	// 	warning("point %lu (%f, %f, %f)", smoothedPath.size() - 1, smoothedPath[smoothedPath.size() - 1][0], smoothedPath[smoothedPath.size() - 1][1], smoothedPath[smoothedPath.size() - 1][2]);
-	finalPath.push_back(end);
+	path.push_back(end);
 
 	// Remove unnecessary step. This is very slow!
 // 	minimizePath(finalPath, halfWidth);
 
 	// Drawing part.
 	_linesToDraw.clear();
-	for (std::vector<Common::Vector3>::iterator f = finalPath.begin(); f != finalPath.end(); ++f)
+	for (std::vector<Common::Vector3>::iterator f = path.begin(); f != path.end(); ++f)
 		_linesToDraw.push_back(*f);
 
 // 	warning("size : %zu", funnelIdx.size());
@@ -317,11 +318,6 @@ void Pathfinding::smoothPath(Common::Vector3 start, Common::Vector3 end, std::ve
 		_pointsToDraw.push_back(tunnel[*f]);
 
 	_pointsToDraw.push_back(end);
-
-    for (uint32 p = 0; p < _pointsToDraw.size() - 1; ++p) {
-        float l = xyLength(_pointsToDraw[p + 1], _pointsToDraw[p]);
-//         warning("Length between %i and %i : %f", p, p+1, l);
-    }
 }
 
 void Pathfinding::getVerticesTunnel(std::vector<uint32> &facePath, std::vector<Common::Vector3> &tunnel, std::vector<bool> &tunnelLeftRight) {
@@ -621,31 +617,31 @@ bool Pathfinding::walkable(Common::Vector3 point) {
 	return walkable(face);
 }
 
-uint32 Pathfinding::findFace(float x, float y, float z, bool onlyWalkable) {
-	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
-		if (*it == 0)
-			continue;
-
-		if (!(*it)->isIn(x, y, z))
-			continue;
-
-		std::vector<Common::AABBNode *> nodes;
-		(*it)->getNodes(x, y, nodes);
-		for (uint n = 0; n < nodes.size(); ++n) {
-			uint32 face = nodes[n]->getProperty();
-			// Check walkability
-			if (onlyWalkable && !walkable(face))
-				continue;
-
-			if (!inFace(face, Common::Vector3(x, y, z)))
-				continue;
-
-			return face;
-		}
-	}
-
-	return UINT32_MAX;
-}
+// uint32 Pathfinding::findFace(float x, float y, float z, bool onlyWalkable) {
+// 	for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {
+// 		if (*it == 0)
+// 			continue;
+//
+// 		if (!(*it)->isIn(x, y, z))
+// 			continue;
+//
+// 		std::vector<Common::AABBNode *> nodes;
+// 		(*it)->getNodes(x, y, nodes);
+// 		for (uint n = 0; n < nodes.size(); ++n) {
+// 			uint32 face = nodes[n]->getProperty();
+// 			// Check walkability
+// 			if (onlyWalkable && !walkable(face))
+// 				continue;
+//
+// 			if (!inFace(face, Common::Vector3(x, y, z)))
+// 				continue;
+//
+// 			return face;
+// 		}
+// 	}
+//
+// 	return UINT32_MAX;
+// }
 
 uint32 Pathfinding::findFace(float x, float y, bool onlyWalkable) {
     for (std::vector<Common::AABBNode *>::iterator it = _AABBTrees.begin(); it != _AABBTrees.end(); ++it) {

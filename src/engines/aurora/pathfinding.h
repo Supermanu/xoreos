@@ -38,15 +38,34 @@ class AStar;
 
 class Pathfinding {
 public:
-	Pathfinding(uint32 polygonEdges = 3);
+	Pathfinding(std::vector<bool> walkableProperties, uint32 polygonEdges = 3);
 	~Pathfinding();
 
-	bool findPath(float startX, float startY, float endX, float endY,
-                  std::vector<uint32> &facePath, float width = 0.f, uint32 nbrIt = 100000);
-	void smoothPath(Common::Vector3 start, Common::Vector3 end, std::vector<uint32> &facePath, std::vector<Common::Vector3> &path, float width = 0.01);
+	/** Find a path of face between two points.
+	 *
+	 *  It will use an A* algorithm to find as fast and as best as possible a path.
+	 *  The algorithm used can be tuned from the bare class Engines::AStar and must be
+	 *  set in the constructor thanks to setAStarAlgorithm() method.
+	 */
+	bool findPath  (float startX, float startY, float endX, float endY,
+                    std::vector<uint32> &facePath, float width = 0.f, uint32 nbrIt = 100000);
+	/** Compute a smooth line from a path of face.
+	 *
+	 *  @param startX       The x component of the starting point.
+	 *  @param startY       The y component of the starting point.
+	 *  @param endX         The x component of the ending point.
+	 *  @param endY         The y component of the ending point.
+	 *  @param facePath     The path of face.
+	 *  @param width        The creature's width. Default is no width.
+	 *  @param stopLength   If set, will stop smoothing and taking width into account after the
+	 *                      specified length.
+	 */
+	void smoothPath(float startX, float startY, float endX, float endY, std::vector<uint32> &facePath,
+                    std::vector<Common::Vector3> &path, float width = 0.f, float stopLength = 0.f);
 	uint32 findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect);
-	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
+// 	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
 	uint32 findFace(float x, float y, bool onlyWalkable = true);
+
 	void setAStarAlgorithm(AStar *aStarAlgorithm);
 	void drawWalkmesh();
 
@@ -93,6 +112,7 @@ private:
 	Common::Vector3 _creaturePos;
 	float _creatureWidth;
 
+	std::vector<bool> _walkableProperties;
 	AStar *_aStarAlgorithm;
 
 friend class AStar;

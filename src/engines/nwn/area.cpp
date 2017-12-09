@@ -58,7 +58,10 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_module(&module), _resRef(resRef), _visible(false), _tileset(0),
 	_activeObject(0), _highlightAll(false) {
 
-	_pathfinding = new Pathfinding();
+	// TODO: Load surfacemat.2da.
+	std::vector<bool> walkableProp;
+	walkableProp.push_back(true);
+	_pathfinding = new Pathfinding(walkableProp);
 	_iter = 100000;
 	try {
 		load();
@@ -589,7 +592,8 @@ void Area::processEventQueue() {
 						clock_t startSmooth = std::clock();
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
-							_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
+							_pathfinding->smoothPath(_startEndPoints[0][0], _startEndPoints[0][1],
+							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width);
 							_iter = 1000000;
 							_startEndPoints.clear();
 						}

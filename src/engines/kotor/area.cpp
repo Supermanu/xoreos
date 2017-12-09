@@ -58,7 +58,9 @@ namespace KotOR {
 Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeArea),
 	_module(&module), _resRef(resRef), _visible(false), _activeObject(0), _highlightAll(false) {
 
-	_pathfinding = new KotORPathfinding();
+	std::vector<bool> walkableProp;
+	walkableProp.push_back(true);
+	_pathfinding = new KotORPathfinding(walkableProp);
 	_iter = 1;
 	GfxMan.setPathfinding(_pathfinding);
 
@@ -445,7 +447,8 @@ void Area::processEventQueue() {
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
 // 							_pathfinding->SSFA(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
-							_pathfinding->smoothPath(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
+							_pathfinding->smoothPath(_startEndPoints[0][0],_startEndPoints[0][1],
+							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width);
 						}
 						clock_t endSmooth = std::clock();
 						double findPath = double(endFindPath - startFindPath);
