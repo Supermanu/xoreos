@@ -23,10 +23,10 @@
  *  Pathfinding for NWN.
  */
 
-
 #include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
+#include <boost/geometry/geometries/register/point.hpp>
 #include <boost/geometry/algorithms/centroid.hpp>
 
 #include <algorithm>
@@ -41,11 +41,14 @@
 #include "src/engines/aurora/astaralgorithm.h"
 #include "src/engines/nwn/pathfinding.h"
 
-typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
+BOOST_GEOMETRY_REGISTER_POINT_2D(Common::Vector3, float, cs::cartesian, _x, _y);
 
 namespace Engines {
 
 namespace NWN {
+
+Pathfinding::Pathfinding::Face::Face(): adjacentTile(UINT32_MAX), adjacentFace(UINT32_MAX) {
+}
 
 Pathfinding::Pathfinding(std::vector<bool> walkableProperties) : Engines::Pathfinding(walkableProperties) {
 	AStar * aStarAlgorithm = new AStar(this);
@@ -57,7 +60,6 @@ Pathfinding::~Pathfinding() {
 
 void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, float *position) {
 	Common::SeekableReadStream *stream = ResMan.getResource(wokFile, ::Aurora::kFileTypeWOK);
-	warning("loading wok:  %s.wok", wokFile.c_str());
 	if (!stream)
 		throw Common::Exception("No such WOK \"%s\"", wokFile.c_str());
 
@@ -85,11 +87,9 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 
 		if (line[0] == "position") {
 			readFloats(line, localPosition, 3, 1);
-// 			warning("Position: (%f, %f, %f)", position[0], position[1], position[2]);
 		} else if (line[0] == "orientation") {
 			float ori[4];
 			readFloats(line, ori, 4, 1);
-// 			warning("Ori: (%f, %f, %f, %f)", ori[0], ori[1], ori[2], ori[3]);
 			orientation += (int8) roundf((2 * M_PI) / ori[3]) + 4;
 			orientation %= 4;
 
@@ -120,7 +120,6 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 			}
 
 			Common::AABBNode *rootNode = new Common::AABBNode(min, max);
-// 			warning("AABB root: min(%f, %f, %f), max(%f, %f, %f)", min[0], min[1], min[2], max[0], max[1], max[2]);
 
 			Common::AABBNode *leftChild = readAABB(position, orientation, stream, tokenize);
 			Common::AABBNode *rightChild = readAABB(position, orientation, stream, tokenize);
@@ -132,9 +131,7 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 		}
 	}
 
-	// Find Adjacent tiles
-// 	warning("Finding adjacents tiles...");
-// 	warning("Current position (%f, %f, %f)", position[0], position[1], position[2]);
+	// Find Adjacent tiles.
 	float epsilon = 0.001;
 	Common::Vector3 leftMax(position[0] - 5.f, position[1] + 5.f, 0.f);
 	Common::Vector3 topMin(leftMax);
@@ -144,20 +141,16 @@ void Pathfinding::addData(const Common::UString &wokFile, uint8 orientation, flo
 	for (uint32 n = 0; n < _AABBTrees.size(); ++n) {
 		float x, y, z;
 		_AABBTrees[n]->getMax(x, y, z);
-// 		warning("Tile max (%f, %f, %f)", x, y, z);
 		if (fabs(x - leftMax._x) < epsilon && fabs(y - leftMax._y) < epsilon) {
 // 			warning("left tile found");
 			connectTiles(n, _AABBTrees.size() - 1, false, x);
 			continue;
 		}
 		if (fabs(x - bottomMax._x) < epsilon && fabs(y - bottomMax._y) < epsilon) {
-// 			warning("bottom tile found");
 			connectTiles(n, _AABBTrees.size() - 1, true, y);
 			continue;
 		}
 	}
-
-// 	connectInnerFaces(_tiles.size() - 1);
 }
 
 Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
@@ -181,10 +174,6 @@ Common::AABBNode *Pathfinding::readAABB(float *position, uint8 orientation, Comm
 	// If it's a child node, record the related face.
 	int32 face;
 	Common::parseString(line[6], face);
-// 	if (face >= 0)
-// 		face += _startFace.back();
-
-// 	warning("AABB: min(%f, %f, %f), max(%f, %f, %f), face: %i", min[0], min[1], min[2], max[0], max[1], max[2], face);
 
 	Common::AABBNode *node = new Common::AABBNode(min, max, face);
 	if (face < 0) {
@@ -205,19 +194,10 @@ void Pathfinding::finalize() {
 	for (uint32 t = 0; t < _tiles.size(); ++t)
 		connectInnerFaces(t);
 
-// 	warning("Describing tiles");
-// 	for (uint32 t = 0; t < _tiles.size(); ++t) {
-// 		warning("looking at tile %u that contains %zu", t, _tiles[t].faces.size());
-// 		for (uint32 it = 0; it < _tiles[t].faces.size(); ++it) {
-// 			warning("Adjacency for face %u (%u, %u, %u)", it, _tiles[t].adjFaces[it * 3 + 0], _tiles[t].adjFaces[it * 3 + 1], _tiles[t].adjFaces[it * 3 + 2]);
-// 		}
-// 	}
-
 	// Adjust face indices.
 	for (uint32 t = 0; t < _tiles.size(); ++t) {
 		startIndex.push_back(_faceProperty.size());
 		uint32 prevFacesCount = startIndex.back();
-// 		warning("prevfacecount (tile %u): %u", prevFacesCount, t);
 
 		// Append faces from the tiles.
 		_faces.insert(_faces.end(), _tiles[t].faces.begin(), _tiles[t].faces.end());
@@ -275,7 +255,7 @@ void Pathfinding::finalize() {
 }
 
 void Pathfinding::readFloats(const std::vector<Common::UString> &strings,
-                                float *floats, uint32 n, uint32 start) {
+                            float *floats, uint32 n, uint32 start) {
 
 	if (strings.size() < (start + n))
 		throw Common::Exception("Missing tokens");
@@ -284,9 +264,8 @@ void Pathfinding::readFloats(const std::vector<Common::UString> &strings,
 		Common::parseString(strings[start + i], floats[i]);
 }
 
-
 void Pathfinding::readVerts(size_t n, float *position, Common::SeekableReadStream *stream,
-							   Common::StreamTokenizer *tokenize, uint8 orientation) {
+                           Common::StreamTokenizer *tokenize, uint8 orientation) {
 
 	_vertices.resize(3 * (_verticesCount + n));
 
@@ -311,8 +290,6 @@ void Pathfinding::readVerts(size_t n, float *position, Common::SeekableReadStrea
 		changeOrientation(orientation, &_vertices[3 * i]);
 		for (uint32 vi = 0; vi < 3; ++vi)
 			_vertices[3 * i + vi] += position[vi];
-
-// 		warning("v(%u): %f, %f, %f", i, _vertices[3 * i], _vertices[3 * i + 1], _vertices[3 * i + 2]);
 	}
 
 	// Update total vertices count.
@@ -320,14 +297,9 @@ void Pathfinding::readVerts(size_t n, float *position, Common::SeekableReadStrea
 }
 
 void Pathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Common::StreamTokenizer *tokenize) {
-// 	_faces.resize(3 * (_facesCount + n));
-// 	_adjFaces.resize(3 * (_facesCount + n));
-// 	_faceProperty.resize((_facesCount + n));
 	_tiles.back().faces.resize(n * 3);
 	_tiles.back().adjFaces.resize(n * 3);
 	_tiles.back().facesProperty.resize(n);
-
-// 	_startFace.push_back(_facesCount);
 
 	for (size_t i = 0; i < n; ++i) {
 		std::vector<Common::UString> line;
@@ -347,16 +319,14 @@ void Pathfinding::readFaces(size_t n, Common::SeekableReadStream *stream, Common
 			_tiles.back().adjFaces[3 * i + vi] = UINT32_MAX;
 		}
 
-		// Walktype
+		// Surface type
 		Common::parseString(line[7], _tiles.back().facesProperty[i]);
-
-// 		warning("f(%u): %i, %i, %i with mat: %i", i,  _faces[3 * i + 0], _faces[3 * i + 1], _faces[3 * i + 2], _faceProperty[i]);
 	}
 
 	_facesCount += n;
 }
 
-void Pathfinding::changeOrientation(uint8 orientation, float *position) {
+void Pathfinding::changeOrientation(uint8 orientation, float *position) const {
 	for (uint8 o = 0; o < orientation; ++o) {
 		float temp = position[0];
 		position[0] = - position[1];
@@ -371,7 +341,7 @@ void Pathfinding::connectInnerFaces(uint32 tile) {
 				continue;
 
 			// Avoid unwalkable face
-			if (!walkable(tile, f) || !walkable(tile, i))
+			if (!faceInTileWalkable(tile, f) || !faceInTileWalkable(tile, i))
 				continue;
 
 			uint8 count = 0;
@@ -397,9 +367,6 @@ void Pathfinding::connectInnerFaces(uint32 tile) {
 				} else if ((edges[0] == 0 && edges[1] == 2) || (edges[1] == 0 && edges[0] == 2) ) {
 					_tiles[tile].adjFaces[f * 3 + 2] = i;
 				}
-
-// 				if (tile == 15 || tile == 16)
-// 					warning("In connectInnerFaces, tile(%u) face(%u) adjacency (%u, %u, %u)", tile, f, _tiles[tile].adjFaces[f * 3], _tiles[tile].adjFaces[f * 3 + 1], _tiles[tile].adjFaces[f * 3 + 2]);
 			}
 
 		}
@@ -407,12 +374,12 @@ void Pathfinding::connectInnerFaces(uint32 tile) {
 }
 
 void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axisPosition) {
-// 	warning("Connecting tiles (%u, %u), yAxis: %i, axisPosition: %f", tileA, tileB,yAxis, axisPosition);
 	// First, collect faces on the border of the new tile (tileB) and the other tile (tileA).
 	// Second, match them to the (almost) exact faces of the other tile (which should already have collect border faces).
 	// Finally, split faces as needed.
 
 	// Collect faces on the border.
+
 	// How close two vertices should be to be stated as the same.
 	float epsilon = 0.2;
 	// If yAxis is true the border is bottom/top (tileB/tileA), left/right (tileB/tileA) otherwise.
@@ -422,14 +389,9 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 	getBorderface(borderA, tileA, yAxis, axisPosition, epsilon);
 	getBorderface(borderB, tileB, yAxis, axisPosition, epsilon);
 
-// 	warning("Border size, A(%zu), B(%zu)", borderA.size(), borderB.size());
-
 	// Sort faces along the axis.
 	std::sort(borderA.begin(), borderA.end());
 	std::sort(borderB.begin(), borderB.end());
-
-// 	if (borderA.size() != borderB.size())
-// 		warning("Faces from tileA: %zu, faces from tileB: %zu", borderA.size(), borderB.size());
 
 	uint32 posA = 0;
 	uint32 posB = 0;
@@ -467,15 +429,13 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 			Tile &tileGood = isBToCut ? _tiles[tileA] : _tiles[tileB];
 
 			// Get center of the face to be cut.
-			boostPoint2d v_1(faceToCut.vert[0][0], faceToCut.vert[0][1]);
-			boostPoint2d v_2(faceToCut.vert[1][0], faceToCut.vert[1][1]);
-			boostPoint2d v_3(faceToCut.vert[2][0], faceToCut.vert[2][1]);
-			boost::geometry::model::polygon<boostPoint2d> boostFace;
-			boost::geometry::append(boostFace.outer(), v_1);
-			boost::geometry::append(boostFace.outer(), v_2);
-			boost::geometry::append(boostFace.outer(), v_3);
-			boostPoint2d center(0.f, 0.f);
-			boost::geometry::centroid(boostFace, center);
+			boost::geometry::model::polygon<Common::Vector3> bFace;
+			for (uint32 v = 0; v < 3; ++v)
+				boost::geometry::append(bFace.outer(), faceToCut.vert[v]);
+
+			Common::Vector3 center(0.f, 0.f, 0.f);
+			boost::geometry::centroid(bFace, center);
+
 
 			// Create a new face.
 			Face newFace = faceToCut;
@@ -503,7 +463,6 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 			faceToCut.adjacentTile = isBToCut ? tileA : tileB;
 			faceToCut.adjacentFace = faceGood.faceId;
 
-// 			warning("faceToCutID %u", faceToCut.faceId);
 			// Create two new AABB nodes.
 			float min[3], max[3];
 			getMinMaxFromFace(faceToCut, min, max);
@@ -513,7 +472,7 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 
 			// Get AABB from cut face.
 			std::vector<Common::AABBNode *> nodes;
-			_AABBTrees[isBToCut ? tileB : tileA]->getNodes(center.x(), center.y(), nodes);
+			_AABBTrees[isBToCut ? tileB : tileA]->getNodes(center._x, center._y, nodes);
 			Common::AABBNode *parentNode = 0;
 			for (std::vector<Common::AABBNode *>::iterator it = nodes.begin(); it != nodes.end(); ++it) {
 // 				warning("node %i, faceID %u", (*it)->getProperty(), faceToCut.faceId);
@@ -539,9 +498,6 @@ void Pathfinding::connectTiles(uint32 tileA, uint32 tileB, bool yAxis, float axi
 			++posA; ++posB;
 		}
 	}
-// 	if ((tileA == 15 && tileB == 16 ) || (tileA == 16 && tileB == 15)) {
-// 		warning("coucou");
-// 	}
 }
 
 void Pathfinding::Face::computeMinOnAxis() {
@@ -589,12 +545,11 @@ uint32 Pathfinding::getAdjPosition(uint32 vertA, uint32 vertB) const {
 	return pos;
 }
 
-void Pathfinding::getBorderface(std::vector<Face> &border, uint32 tile, bool yAxis, float axisPosition, float epsilon) {
-// 	warning("Getting border faces on tile %u", tile);
+void Pathfinding::getBorderface(std::vector<Face> &border, uint32 tile, bool yAxis, float axisPosition, float epsilon) const {
 	Common::Vector3 vert[3];
 	for (uint32 f = 0; f < _tiles[tile].facesProperty.size(); ++f) {
 		// Avoid unwalkable face.
-		if (!walkable(tile, f))
+		if (!faceInTileWalkable(tile, f))
 			continue;
 
 		getVertex(_tiles[tile].faces[f * 3], vert[0]);
@@ -612,14 +567,13 @@ void Pathfinding::getBorderface(std::vector<Face> &border, uint32 tile, bool yAx
 
 				border.push_back(face);
 
-// 				warning("good face %u", f);
 				break;
 			}
 		}
 	}
 }
 
-void Pathfinding::getMinMaxFromFace(Face &face, float min[], float max[]) {
+void Pathfinding::getMinMaxFromFace(Face &face, float min[], float max[]) const {
 	min[0] = face.vert[0][0]; min[1] = face.vert[0][1]; min[2] = face.vert[0][2];
 	max[0] = face.vert[0][0]; max[1] = face.vert[0][1]; max[2] = face.vert[0][2];
 
@@ -634,15 +588,10 @@ void Pathfinding::getMinMaxFromFace(Face &face, float min[], float max[]) {
 	}
 }
 
-bool Pathfinding::walkable(uint32 tile, uint32 face) const {
+bool Pathfinding::faceInTileWalkable(uint32 tile, uint32 face) const {
 	const uint32 &property = _tiles[tile].facesProperty[face];
 	return property != 0 && property != 2 && property != 7 && property != 8;
 }
-
-bool Pathfinding::walkable(uint32 face) const {
-	return Engines::Pathfinding::faceWalkable(face);
-}
-
 
 } // namespace NWN
 

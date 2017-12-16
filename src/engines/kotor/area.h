@@ -53,7 +53,7 @@ namespace KotOR {
 
 class Module;
 class Room;
-class KotORPathfinding;
+class Pathfinding;
 
 /** An area in Star Wars: Knights of the Old Republic, holding all objects and
  *  rooms within, as well as general area properties like the current background
@@ -164,7 +164,7 @@ private:
 	Common::Mutex _mutex; ///< Mutex securing access to the area.
 
 	//Pathfinding
-	KotORPathfinding *_pathfinding;
+	Pathfinding *_pathfinding;
 	uint32 _iter;
 	std::vector<Common::Vector3> _startEndPoints;
 

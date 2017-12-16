@@ -49,7 +49,7 @@
 #include "src/engines/kotor/placeable.h"
 #include "src/engines/kotor/door.h"
 #include "src/engines/kotor/creature.h"
-#include "src/engines/kotor/kotorpathfinding.h"
+#include "src/engines/kotor/pathfinding.h"
 
 namespace Engines {
 
@@ -59,8 +59,12 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_module(&module), _resRef(resRef), _visible(false), _activeObject(0), _highlightAll(false) {
 
 	std::vector<bool> walkableProp;
-	walkableProp.push_back(true);
-	_pathfinding = new KotORPathfinding(walkableProp);
+	walkableProp.resize(30, true);
+	walkableProp[0] = false;
+	walkableProp[2] = false;
+	walkableProp[7] = false;
+	walkableProp[8] = false;
+	_pathfinding = new Pathfinding(walkableProp);
 	_iter = 1;
 	GfxMan.setPathfinding(_pathfinding);
 
@@ -438,7 +442,7 @@ void Area::processEventQueue() {
 							std::vector<Common::Vector3> smoothPath;
 // 							_pathfinding->SSFA(_startEndPoints[0], _startEndPoints[1], path, smoothPath, width);
 							_pathfinding->smoothPath(_startEndPoints[0][0],_startEndPoints[0][1],
-							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width);
+							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width, 20.f);
 						}
 						clock_t endSmooth = std::clock();
 						double findPath = double(endFindPath - startFindPath);

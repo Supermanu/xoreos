@@ -22,8 +22,8 @@
  *  
  */
 
-#ifndef ENGINES_KOTOR_KOTORPATHFINDING_H
-#define ENGINES_KOTOR_KOTORPATHFINDING_H
+#ifndef ENGINES_KOTOR_PATHFINDING_H
+#define ENGINES_KOTOR_PATHFINDING_H
 
 #include <vector>
 
@@ -38,24 +38,29 @@ namespace Engines {
 
 namespace KotOR {
 
-class KotORPathfinding : public Pathfinding {
+class Pathfinding : public Engines::Pathfinding {
 public:
-	KotORPathfinding(std::vector<bool> walkableProperties);
-	~KotORPathfinding();
+	/** Construct a pathfinding object for KotOR. */
+	Pathfinding(std::vector<bool> walkableProperties);
+	~Pathfinding();
 
+	/** Add a wok data for a room. */
 	void addData(const Common::UString &wokFile);
+	/** Set adjacencies between all faces of the walkmesh. */
 	void finalize();
 
 private:
+	/** Get face index from an adjacency position in the adjacency vector. */
 	uint32 getFaceFromEdge(uint32 edge, uint32 room) const;
+	/** Read AABB data from a stream (the wok file). */
 	Common::AABBNode *getAABB(Common::SeekableReadStream *stream, uint32 nodeOffset, uint32 AABBsOffset);
 
-	std::vector<std::map<uint32, uint32> > _adjRooms;
-	std::vector<uint32> _startFace;
+	std::vector<std::map<uint32, uint32> > _adjRooms; ///< Adjacency between rooms.
+	std::vector<uint32> _startFace;                   ///< Cumulative face count for rooms.
 };
 
 } // namespace KotOR
 
 } // namespace Engines
 
-#endif // ENGINES_KOTOR_KOTORPATHFINDING_H
+#endif // ENGINES_KOTOR_PATHFINDING_H
