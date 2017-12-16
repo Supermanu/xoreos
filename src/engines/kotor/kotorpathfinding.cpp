@@ -191,11 +191,10 @@ void KotORPathfinding::finalize() {
 				uint32 otherFace = getFaceFromEdge(oF->first, otherRoom);
 // 				warning("Face next to original face found: %u", otherFace);
 				// Check if at least two vertices are the same.
-				Common::Vector3 cVertA, cVertB, cVertC, oVertA, oVertB, oVertC;
-				Common::Vector3 currVerts[3] = { cVertA, cVertB, cVertC };
-				Common::Vector3 othVerts[3]  = { oVertA, oVertB, oVertC };
-				getVertices(currFace, currVerts[0], currVerts[1], currVerts[2]);
-				getVertices(otherFace, othVerts[0], othVerts[1], othVerts[2]);
+				std::vector<Common::Vector3> currVerts;
+				std::vector<Common::Vector3> othVerts;
+				getVertices(currFace, currVerts);
+				getVertices(otherFace, othVerts);
 
 				uint32 cEdge = ar->first % 3;
 				uint32 oEdge = oF->first % 3;

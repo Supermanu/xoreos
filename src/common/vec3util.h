@@ -29,24 +29,8 @@ namespace Common {
 
 class Vector3;
 
-/** Compute the squared area of the triangle formed by three vectors.
- *
- * Can also be used to know if the last vector is on the right or left side
- * relatively to the segment formed by the others vertices. If the result is
- * positive, it means the third vector is on the left and on the right side
- * if negative.
- */
-float triangleArea2(Common::Vector3 vertA, Common::Vector3 vertB, Common::Vector3 vertC);
-
-bool getIntersection(Common::Vector3 segStart1, Common::Vector3 segEnd1,
-                     Common::Vector3 segStart2, Common::Vector3 segEnd2, Common::Vector3 &intersect);
-bool inCircle(Common::Vector3 center, float radius, Common::Vector3 startSegment, Common::Vector3 endSegment);
-bool inCircle(Common::Vector3 center, float radius, Common::Vector3 point);
 bool inFace(Vector3 point, Vector3 vertA, Vector3 vertB, Vector3 vertC);
 bool inFace(Vector3 vA, Vector3 vB, Vector3 vC, Vector3 lineStart, Vector3 lineEnd, Vector3 &intersect);
-Vector3 getOrthoVec(Common::Vector3 segment, bool clockwise = true, bool normed = false);
-void inCircleTest();
-void getOrthoVecTest();
 
 } // End of namespace Common
 

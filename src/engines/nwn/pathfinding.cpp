@@ -640,7 +640,7 @@ bool Pathfinding::walkable(uint32 tile, uint32 face) const {
 }
 
 bool Pathfinding::walkable(uint32 face) const {
-	return Engines::Pathfinding::walkable(face);
+	return Engines::Pathfinding::faceWalkable(face);
 }
 
 

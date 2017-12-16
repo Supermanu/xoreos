@@ -62,48 +62,81 @@ public:
 	 */
 	void smoothPath(float startX, float startY, float endX, float endY, std::vector<uint32> &facePath,
                     std::vector<Common::Vector3> &path, float width = 0.f, float stopLength = 0.f);
-	uint32 findFace(float x1, float y1, float z1, float x2, float y2, float z2, Common::Vector3 &intersect);
-// 	uint32 findFace(float x, float y, float z, bool onlyWalkable = true);
-	uint32 findFace(float x, float y, bool onlyWalkable = true);
 
+	/** Get the intersection between a line and the walkmesh.
+	 *
+	 *  @param x1            The x component of the first point in the line.
+	 *  @param y1            The y component of the first point in the line.
+	 *  @param z1            The x component of the first point in the line.
+	 *  @param x2            The x component of the second point in the line.
+	 *  @param y2            The y component of the second point in the line.
+	 *  @param z2            The x component of the second point in the line.
+	 *  @param intersect     The returned intersection.
+	 *  @param onlyWalkable  Specify if the intersection must be with a walkable face.
+	 */
+	bool findIntersection(float x1, float y1, float z1, float x2, float y2, float z2,
+	                     Common::Vector3 &intersect, bool onlyWalkable = false);
+	/** Set the A* algorithm object. */
 	void setAStarAlgorithm(AStar *aStarAlgorithm);
+
 	void drawWalkmesh();
 
-	bool walkable(uint32 faceIndex) const;
+	/** State if the point, in the XY plane, is walkable. */
 	bool walkable(Common::Vector3 point);
 
 protected:
-	uint32 _polygonEdges;
-	uint32 _verticesCount;
-	uint32 _facesCount;
-
-	std::vector<float> _vertices;
-	std::vector<uint32> _faces;
-	std::vector<uint32> _adjFaces;
-	std::vector<uint32> _faceProperty;
-
-	std::vector<Common::AABBNode *> _AABBTrees;
+	/** Find a face according to a point in the XY plane. */
+	uint32 findFace(float x, float y, bool onlyWalkable = true);
+	/** Is the walkmesh face walkable? */
+	bool faceWalkable(uint32 faceID) const;
+	/** Get the adjacent faces of a specific face. */
 	void getAdjacentFaces(uint32 face, std::vector<uint32> &adjFaces);
-	void getVertices(uint32 faceID, Common::Vector3 &vA, Common::Vector3 &vB, Common::Vector3 &vC) const;
+	/** Get the vertices of a face. */
+	void getVertices(uint32 faceID, std::vector<Common::Vector3> &vertices) const;
+	/** The vertex position from the vertex id. */
 	void getVertex(uint32 vertexID, Common::Vector3 &vertex) const;
+	/** Check if a given align-axis square is walkable. */
 	bool walkableAASquare(Common::Vector3 center, float halfWidth);
+	/** Check if a given polygon is walkable. */
 	bool walkablePolygon(Common::Vector3 vertices[], uint32 vertexCount);
+	/** Check if a given segment is walkable. */
 	bool walkableSegment(Common::Vector3 start, Common::Vector3 end);
 
+	uint32 _polygonEdges;  ///< The number of edge a walkmesh face has.
+	uint32 _verticesCount; ///< The total number of vertices in the walkmesh.
+	uint32 _facesCount;    ///< The total number of faces in the walkmesh.
+
+	std::vector<float> _vertices;       ///< The vertices of the walkmesh. Each vertex has 3 components.
+	std::vector<uint32> _faces;        ///< The faces of the walkmesh.
+	std::vector<uint32> _adjFaces;     ///< The adjacent faces in the walkmesh.
+	std::vector<uint32> _faceProperty; ///< The property of each faces. Usually used to state the walkability.
+
+	std::vector<Common::AABBNode *> _AABBTrees; ///< The set of AABB trees in the walkmesh.
+
 private:
+	/** Is a point in a specific face? */
 	bool inFace(uint32 faceID, Common::Vector3 point) const;
-	bool inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd, Common::Vector3 &intersect);
-	bool hasVertex(uint32 face, Common::Vector3 vertex) const;
-	bool getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 &vert1, Common::Vector3 &vert2) const;
+	/** Is a line in a specific face? */
+	bool inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd,
+	            Common::Vector3 &intersect) const;
+	/** Get the vertices shared by two faces. */
+	bool getSharedVertices(uint32 face1, uint32 face2,
+	                       Common::Vector3 &vert1, Common::Vector3 &vert2) const;
+	/* Can a creature go from one face to an other one? */
 	bool goThrough(uint32 fromFace, uint32 toFace, float width);
+	/** Remove unecessary point in a path.
+	 *
+	 *  It's very slow and might be used carefully. It's currently not used.
+	 */
 	void minimizePath(std::vector<Common::Vector3> &path, float halfWidth);
+	/** Get the orthonornmal vector of a segment. */
 	Common::Vector3 getOrthonormalVec(Common::Vector3 segment, bool clockwise = true) const;
-	void manageCreatureSize(std::vector<Common::Vector3> &smoothedPath, float halfWidth, std::vector<Common::Vector3> &ignoredPoints,
-	                        std::vector<Common::Vector3> &finalPath);
+	/** Is a point to the left from a given segment? */
 	bool isToTheLeft(Common::Vector3 startSegment, Common::Vector3 endSegment, Common::Vector3 Point) const;
-	void getVerticesTunnel(std::vector<uint32> &facePath, std::vector<Common::Vector3> &tunnel, std::vector<bool> &tunnelLeftRight);
-	float xyLength(Common::Vector3 &vec) const;
-	float xyLength(Common::Vector3 &vecA, Common::Vector3 &vecB) const;
+	/** Get the vertices along a path of faces. */
+	void getVerticesTunnel(std::vector<uint32> &facePath, std::vector<Common::Vector3> &tunnel,
+	                       std::vector<bool> &tunnelLeftRight);
+	/** Get the center of the adjacency edge from two faces. */
 	void getAdjacencyCenter(uint32 faceA, uint32 faceB, float &x, float &y) const;
 
 	std::vector<uint32> _facesToDraw;
@@ -112,8 +145,8 @@ private:
 	Common::Vector3 _creaturePos;
 	float _creatureWidth;
 
-	std::vector<bool> _walkableProperties;
-	AStar *_aStarAlgorithm;
+	std::vector<bool> _walkableProperties; ///< Mapping between surface property and walkability.
+	AStar *_aStarAlgorithm; ///< A* algorithm used.
 
 friend class AStar;
 };

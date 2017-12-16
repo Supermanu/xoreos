@@ -50,7 +50,7 @@ bool AStar::Node::operator<(const Node &node) const {
 }
 
 bool AStar::findPath(float startX, float startY, float endX, float endY,
-                     std::vector<uint32> &facePath, float width, uint32 maxIteration) {
+                    std::vector<uint32> &facePath, float width, uint32 maxIteration) {
 
 	// Cleaning the futur path.
 	facePath.clear();

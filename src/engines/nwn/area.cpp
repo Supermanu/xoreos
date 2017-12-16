@@ -60,7 +60,11 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 
 	// TODO: Load surfacemat.2da.
 	std::vector<bool> walkableProp;
-	walkableProp.push_back(true);
+	walkableProp.resize(30, true);
+	walkableProp[0] = false;
+	walkableProp[2] = false;
+	walkableProp[7] = false;
+	walkableProp[8] = false;
 	_pathfinding = new Pathfinding(walkableProp);
 	_iter = 100000;
 	try {
@@ -569,11 +573,8 @@ void Area::processEventQueue() {
 				CursorMan.getPosition(x, y);
 				GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
 				Common::Vector3 intersect;
-				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, intersect);
-				warning("face found: %u", face);
 
-
-				if (face != UINT32_MAX && _pathfinding->walkable(face)) {
+				if (_pathfinding->findIntersection(x1, y1, z1, x2, y2, z2, intersect, true)) {
 					if (_startEndPoints.size() < 2) {
 						_startEndPoints.push_back(intersect);
 					} else {
@@ -593,7 +594,7 @@ void Area::processEventQueue() {
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
 							_pathfinding->smoothPath(_startEndPoints[0][0], _startEndPoints[0][1],
-							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width);
+							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width, 20.f);
 							_iter = 1000000;
 							_startEndPoints.clear();
 						}

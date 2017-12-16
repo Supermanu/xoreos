@@ -400,14 +400,6 @@ void Area::processEventQueue() {
 
 		if (e->type == Events::kEventKeyDown) {
 			if (e->key.keysym.sym == SDLK_F10) {
-// 				float x1, y1, z1, x2, y2, z2;
-// 				int x, y;
-// 				CursorMan.getPosition(x, y);
-// 				warning("cursor (%f, %f)", (float) x, (float) y);
-// 				GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
-// 				warning("line: (%f, %f, %f) (%f, %f, %f)", x1, y1, z1, x2, y2, z2);
-// 				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, Common::Vector3());
-// 				warning("face %u found", face);
 			}
 		}
 
@@ -423,11 +415,9 @@ void Area::processEventQueue() {
 				CursorMan.getPosition(x, y);
 				GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
 				Common::Vector3 intersect;
-				uint32 face = _pathfinding->findFace(x1, y1, z1, x2, y2, z2, intersect);
-				warning("intersect (%f, %f, %f)", intersect._x, intersect._y, intersect._z);
 
 				float width = 1.f;
-				if (face != UINT32_MAX && _pathfinding->walkable(face)) {
+				if (_pathfinding->findIntersection(x1, y1, z1, x2, y2, z2, intersect, true)) {
 					if (_startEndPoints.size() < 2) {
 						_startEndPoints.push_back(intersect);
 					} else {
