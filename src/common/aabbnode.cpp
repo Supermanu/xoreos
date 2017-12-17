@@ -34,7 +34,6 @@
 #include "src/common/util.h"
 #include "src/common/aabbnode.h"
 
-
 typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
 
 namespace Common {
@@ -108,34 +107,6 @@ void AABBNode::absolutize() {
 	_rightChild->absolutize();
 }
 
-AABBNode *AABBNode::getNode(float x, float y) {
-	if (!isIn(x, y))
-		return 0;
-
-	if (!hasChildren())
-		return this;
-
-	AABBNode *leftLeaf = _leftChild->getNode(x, y);
-	if (leftLeaf)
-		return leftLeaf;
-
-	return _rightChild->getNode(x, y);
-}
-
-AABBNode *AABBNode::getNode(float x1, float y1, float z1, float x2, float y2, float z2) {
-	if (!isIn(x1, y1, z1, x2, y2, z2))
-		return 0;
-
-	if (!hasChildren())
-		return this;
-
-	AABBNode *leftLeaf = _leftChild->getNode(x1, y1, z1, x2, y2, z2);
-	if (leftLeaf)
-		return leftLeaf;
-
-	return _rightChild->getNode(x1, y1, z1, x2, y2, z2);
-}
-
 void AABBNode::getNodes(float x1, float y1, float z1, float x2, float y2, float z2, std::vector<AABBNode *> &nodes) {
 	if (!isIn(x1, y1, z1, x2, y2, z2))
 		return;
@@ -174,19 +145,6 @@ void AABBNode::getNodes(float x, float y, std::vector<AABBNode *> &nodes) {
 
 	_leftChild->getNodes(x, y, nodes);
 	_rightChild->getNodes(x, y, nodes);
-}
-
-void AABBNode::getNodes(float x1, float y1, float x2, float y2, std::vector<AABBNode *> &nodes) {
-	if (!isIn(x1, y1, _min[2], x2, y2, _min[2]))
-		return;
-
-	if (!hasChildren()) {
-		nodes.push_back(this);
-		return;
-	}
-
-	_leftChild->getNodes(x1, y1, x2, y2, nodes);
-	_rightChild->getNodes(x1, y1, x2, y2, nodes);
 }
 
 void AABBNode::getNodesInAABox2D(Common::Vector3 min, Common::Vector3 max, std::vector<AABBNode *> &nodes) {

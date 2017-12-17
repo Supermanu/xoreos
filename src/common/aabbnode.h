@@ -34,33 +34,49 @@ namespace Common {
 
 class AABBNode : public BoundingBox {
 public:
+	/** Construct an axis-align bounding box.
+	 *
+	 *  @param min       Minimal values of the bounding box.
+	 *  @param max       Maximal values of the bounding box.
+	 *  @param property  An integer value assigned to AABB.
+	 */
+
 	AABBNode(float min[], float max[], int32 property = -1);
 	~AABBNode();
 
+	/** Has the AABB children? */
 	bool hasChildren() const;
+	/** Set left and right children to the AABB. */
 	void setChildren(AABBNode *leftChild, AABBNode *rightChild);
 
+	/** Rotate the AABB and its children. Must be a 90° multiple. */
 	void rotate(float angle, float x, float y, float z);
+	/** Change orientation around the z axis. */
 	void setOrientation(uint8 orientation);
+	/** Translate the AABB and its children. */
 	void translate(float x, float y, float z);
+	/** Apply the origin transformations directly to the coordinates and its children. */
 	void absolutize();
 
-	AABBNode *getNode(float x, float y);
-	AABBNode *getNode(float x1, float y1, float z1, float x2, float y2, float z2);
+	/** Get the nodes that go through a given segment. */
 	void getNodes(float x1, float y1, float z1, float x2, float y2, float z2, std::vector<AABBNode *> &nodes);
-	void getNodes(float x1, float y1, float x2, float y2, std::vector<AABBNode *> &nodes);
+	/** Get the nodes at a given point in the XY plane. */
 	void getNodes(float x, float y, std::vector<AABBNode *> &nodes);
+	/** Get the nodes that intersect a given axis-align box. */
 	void getNodesInAABox2D(Common::Vector3 min, Common::Vector3 max, std::vector<AABBNode *> &nodes);
+	/** Get the nodes that intersect a given polygon. */
 	void getNodesInPolygon(Common::Vector3 vertices[], uint32 vertexCount, std::vector<AABBNode *> &nodes);
+	/** Get the nodes that intersect a given segment in the XY plane. */
 	void getNodesInSegment(Common::Vector3 start, Common::Vector3 end, std::vector<AABBNode *> &nodes);
+	/** Get the property of the AABB. */
 	int32 getProperty() const;
+	/** Add a given value to the leaves nodes. */
 	void adjustChildrenProperty(int32 adjust);
 
 private:
-// 	bool isIn(float x1, float y1, float x2, float y2) const;
-	AABBNode *_leftChild;
-	AABBNode *_rightChild;
-	int32 _property;
+	AABBNode *_leftChild;  ///< Left child.
+	AABBNode *_rightChild; ///< Right child.
+	int32 _property;       ///< An arbitrary value of the AABB.
 };
 
 } // End of namespace Common
