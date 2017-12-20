@@ -24,17 +24,20 @@
  */
 
 #include <boost/geometry.hpp>
+#include <boost/geometry/algorithms/intersects.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/box.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
 #include <boost/geometry/geometries/segment.hpp>
-#include <boost/geometry/algorithms/intersects.hpp>
+#include <boost/geometry/geometries/register/point.hpp>
 
 #include "src/common/vec3util.h"
 #include "src/common/util.h"
 #include "src/common/aabbnode.h"
 
-typedef boost::geometry::model::d2::point_xy<float> boostPoint2d;
+BOOST_GEOMETRY_REGISTER_POINT_2D(Common::Vector3, float, cs::cartesian, _x, _y);
+
+typedef boost::geometry::model::box<Common::Vector3> boostBox;
 
 namespace Common {
 
@@ -148,8 +151,8 @@ void AABBNode::getNodes(float x, float y, std::vector<AABBNode *> &nodes) {
 }
 
 void AABBNode::getNodesInAABox2D(Common::Vector3 min, Common::Vector3 max, std::vector<AABBNode *> &nodes) {
-	boost::geometry::model::box<boostPoint2d> box(boostPoint2d(min[0], min[1]), boostPoint2d(max[0], max[1]));
-	boost::geometry::model::box<boostPoint2d> currentNode(boostPoint2d(_min[0], _min[1]), boostPoint2d(_max[0], _max[1]));
+	boostBox box(min, max);
+	boostBox currentNode(Common::Vector3(_min[0], _min[1], 0.f), Common::Vector3(_max[0], _max[1], 0.f));
 
 	if (!boost::geometry::intersects(box, currentNode))
 		return;
@@ -166,13 +169,12 @@ void AABBNode::getNodesInAABox2D(Common::Vector3 min, Common::Vector3 max, std::
 }
 
 void AABBNode::getNodesInPolygon(Common::Vector3 vertices[], uint32 vertexCount, std::vector<AABBNode *> &nodes) {
-	boost::geometry::model::polygon<boostPoint2d> polygon;
+	boost::geometry::model::polygon<Common::Vector3> polygon;
 	for (uint32 v = 0; v < vertexCount; ++v) {
-		boostPoint2d vert(vertices[v][0], vertices[v][1]);
-		boost::geometry::append(polygon.outer(), vert);
+		boost::geometry::append(polygon.outer(), vertices[v]);
 	}
 
-	boost::geometry::model::box<boostPoint2d> currentNode(boostPoint2d(_min[0], _min[1]), boostPoint2d(_max[0], _max[1]));
+	boostBox currentNode(Common::Vector3(_min[0], _min[1], 0.f), Common::Vector3(_max[0], _max[1], 0.f));
 
 	if (!boost::geometry::intersects(polygon, currentNode))
 		return;
@@ -189,8 +191,8 @@ void AABBNode::getNodesInPolygon(Common::Vector3 vertices[], uint32 vertexCount,
 }
 
 void AABBNode::getNodesInSegment(Common::Vector3 start, Common::Vector3 end, std::vector<AABBNode *> &nodes) {
-	boost::geometry::model::segment<boostPoint2d> line(boostPoint2d(start[0], start[1]), boostPoint2d(end[0], end[1]));
-	boost::geometry::model::box<boostPoint2d> currentNode(boostPoint2d(_min[0], _min[1]), boostPoint2d(_max[0], _max[1]));
+	boost::geometry::model::segment<Common::Vector3> line(Common::Vector3(start[0], start[1], 0.f), Common::Vector3(end[0], end[1], 0.f));
+	boostBox currentNode(Common::Vector3(_min[0], _min[1], 0.f), Common::Vector3(_max[0], _max[1], 0.f));
 
 	if (!boost::geometry::intersects(line, currentNode))
 		return;
