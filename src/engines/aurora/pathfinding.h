@@ -92,13 +92,13 @@ protected:
 	/** Get the adjacent faces of a specific face. */
 	void getAdjacentFaces(uint32 face, std::vector<uint32> &adjFaces);
 	/** Get the vertices of a face. */
-	void getVertices(uint32 faceID, std::vector<Common::Vector3> &vertices) const;
+	void getVertices(uint32 faceID, std::vector<Common::Vector3> &vertices, bool xyPlane = true) const;
 	/** The vertex position from the vertex id. */
-	void getVertex(uint32 vertexID, Common::Vector3 &vertex) const;
+	void getVertex(uint32 vertexID, Common::Vector3 &vertex, bool xyPlane = true) const;
 	/** Check if a given align-axis square is walkable. */
 	bool walkableAASquare(Common::Vector3 center, float halfWidth);
 	/** Check if a given polygon is walkable. */
-	bool walkablePolygon(Common::Vector3 vertices[], uint32 vertexCount);
+	bool walkablePolygon(std::vector<Common::Vector3> &vertices);
 	/** Check if a given segment is walkable. */
 	bool walkableSegment(Common::Vector3 start, Common::Vector3 end);
 

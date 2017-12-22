@@ -24,7 +24,6 @@
 
 #include <algorithm>
 
-#include <boost/geometry.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/box.hpp>
 #include <boost/geometry/geometries/polygon.hpp>
@@ -34,7 +33,6 @@
 #include "src/common/util.h"
 #include "src/common/maths.h"
 #include "src/common/vector3.h"
-#include "src/common/vec3util.h"
 #include "src/common/aabbnode.h"
 
 #include "src/graphics/graphics.h"
@@ -42,13 +40,12 @@
 #include "src/engines/aurora/astaralgorithm.h"
 #include "src/engines/aurora/pathfinding.h"
 
+namespace bg = boost::geometry;
+
 BOOST_GEOMETRY_REGISTER_POINT_2D(Common::Vector3, float, cs::cartesian, _x, _y);
+typedef bg::model::point<float, 3, bg::cs::cartesian> bPoint3D;
 
 namespace Engines {
-
-bool sortByLenght(Common::Vector3 vec1, Common::Vector3 vec2) {
-	return vec1.length() < vec2.length();
-}
 
 Pathfinding::Pathfinding(std::vector<bool> walkableProperties, uint32 polygonEdges) :
                        _polygonEdges(polygonEdges), _verticesCount(0), _facesCount(0),
@@ -95,13 +92,17 @@ void Pathfinding::minimizePath(std::vector<Common::Vector3> &path, float halfWid
 	for (uint32 step = 0; step < path.size() - 2; ++step) {
 		// Build a rectangle between step and step + 2 and check if it is walkable.
 		Common::Vector3 shift = getOrthonormalVec(path[step + 2] - path[step]);
+		std::vector<Common::Vector3> rectangle;
 		Common::Vector3 rightBottomCorner = path[step] + shift * halfWidth;
+		rectangle.push_back(rightBottomCorner);
 		Common::Vector3 leftBottomCorner = path[step] - shift * halfWidth;
-		Common::Vector3 rightTopCorner = path[step + 2] + shift * halfWidth;
+		rectangle.push_back(leftBottomCorner);
 		Common::Vector3 leftTopCorner = path[step + 2] - shift * halfWidth;
-		Common::Vector3 rectangle[4] = {rightBottomCorner, leftBottomCorner, leftTopCorner, rightTopCorner};
+		rectangle.push_back(leftTopCorner);
+		Common::Vector3 rightTopCorner = path[step + 2] + shift * halfWidth;
+		rectangle.push_back(rightTopCorner);
 
-		if (!walkablePolygon(rectangle, 4)) {
+		if (!walkablePolygon(rectangle)) {
 			newPath.push_back(path[step + 1]);
 			continue;
 		}
@@ -302,7 +303,7 @@ void Pathfinding::smoothPath(float startX, float startY, float endX, float endY,
 			path.push_back(firstSquare);
 			// If the two position are too close, avoid "z" path (going backward) except for last point.
 			if ((tunnel[nextPos] - tunnel[pos]).length() > width
-			    || ((tunnel[nextPos] - tunnel[pos]).length() <= width&& point + 2 == funnelIdx.size()))
+			    || point + 2 == funnelIdx.size())
 				path.push_back(secondSquare);
 		}
 	} else {
@@ -401,18 +402,21 @@ void Pathfinding::getVerticesTunnel(std::vector<uint32> &facePath, std::vector<C
 	}
 }
 
-void Pathfinding::getVertices(uint32 faceID, std::vector<Common::Vector3> &vertices) const {
+void Pathfinding::getVertices(uint32 faceID, std::vector<Common::Vector3> &vertices, bool xyPlane) const {
 	vertices.clear();
 	vertices.resize(_polygonEdges);
 
 	for (uint32 v = 0; v < _polygonEdges; ++v) {
-		getVertex(_faces[faceID * _polygonEdges + v], vertices[v]);
+		getVertex(_faces[faceID * _polygonEdges + v], vertices[v], xyPlane);
 	}
 }
 
-void Pathfinding::getVertex(uint32 vertexID, Common::Vector3 &vertex) const {
+
+void Pathfinding::getVertex(uint32 vertexID, Common::Vector3 &vertex, bool xyPlane) const {
 	// Don't take the z component into account.
-	vertex = Common::Vector3(_vertices[vertexID * _polygonEdges], _vertices[vertexID * _polygonEdges + 1], 0.f);
+	vertex = Common::Vector3(_vertices[vertexID * _polygonEdges],
+	                         _vertices[vertexID * _polygonEdges + 1],
+	                         xyPlane ? 0.f : _vertices[vertexID * _polygonEdges + 2]);
 }
 
 bool Pathfinding::walkableAASquare(Common::Vector3 center, float halfWidth) {
@@ -425,17 +429,15 @@ bool Pathfinding::walkableAASquare(Common::Vector3 center, float halfWidth) {
 			(*n)->getNodesInAABox2D(min, max, nodesIn);
 	}
 
-	boost::geometry::model::box<Common::Vector3> box(min, max);
+	bg::model::box<Common::Vector3> box(min, max);
 	std::vector<Common::Vector3> vertices;
 	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
 		uint32 face = (*n)->getProperty();
 		getVertices(face, vertices);
-		boost::geometry::model::polygon<Common::Vector3> boostFace;
-		for (uint32 v = 0; v < _polygonEdges; ++v) {
-			boost::geometry::append(boostFace.outer(), vertices[v]);
-		}
+		bg::model::polygon<Common::Vector3> boostFace;
+		bg::assign_points(boostFace, vertices);
 
-		if (!boost::geometry::intersects(box, boostFace))
+		if (!bg::intersects(box, boostFace))
 			continue;
 
 		if (!faceWalkable(face))
@@ -444,29 +446,25 @@ bool Pathfinding::walkableAASquare(Common::Vector3 center, float halfWidth) {
 	return true;
 }
 
-bool Pathfinding::walkablePolygon(Common::Vector3 vertices[], uint32 vertexCount) {
+bool Pathfinding::walkablePolygon(std::vector<Common::Vector3> &vertices) {
 	std::vector<Common::AABBNode *> nodesIn;
 
 	for (std::vector<Common::AABBNode *>::iterator n = _AABBTrees.begin(); n != _AABBTrees.end(); ++n) {
 		if (*n)
-			(*n)->getNodesInPolygon(vertices, vertexCount, nodesIn);
+			(*n)->getNodesInPolygon(vertices, nodesIn);
 	}
 
-	boost::geometry::model::polygon<Common::Vector3> polygon;
-	for (uint32 v = 0; v < vertexCount; ++v) {
-		boost::geometry::append(polygon.outer(), vertices[v]);
-	}
+	bg::model::polygon<Common::Vector3> polygon;
+	bg::assign_points(polygon, vertices);
 
 	std::vector<Common::Vector3> vertFace;
 	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
 		uint32 face = (*n)->getProperty();
 		getVertices(face, vertFace);
-		boost::geometry::model::polygon<Common::Vector3> testFace;
-		for (uint32 v = 0; v < _polygonEdges; ++v) {
-			boost::geometry::append(testFace.outer(), vertFace[v]);
-		}
+		bg::model::polygon<Common::Vector3> testFace;
+		bg::assign_points(testFace, vertices);
 
-		if (!boost::geometry::intersects(polygon, testFace))
+		if (!bg::intersects(polygon, testFace))
 			continue;
 
 		if (!faceWalkable(face))
@@ -483,17 +481,15 @@ bool Pathfinding::walkableSegment(Common::Vector3 start, Common::Vector3 end) {
 			(*n)->getNodesInSegment(start, end, nodesIn);
 	}
 
-	boost::geometry::model::segment<Common::Vector3> line(start, end);
+	bg::model::segment<Common::Vector3> line(start, end);
 	std::vector<Common::Vector3> vertFace;
 	for (std::vector<Common::AABBNode *>::iterator n = nodesIn.begin(); n != nodesIn.end(); ++n) {
 		uint32 face = (*n)->getProperty();
 		getVertices(face, vertFace);
-		boost::geometry::model::polygon<Common::Vector3> testFace;
-		for (uint32 v = 0; v < _polygonEdges; ++v) {
-			boost::geometry::append(testFace.outer(), vertFace[v]);
-		}
+		bg::model::polygon<Common::Vector3> testFace;
+		bg::assign_points(testFace, vertFace);
 
-		if (!boost::geometry::intersects(line, testFace))
+		if (!bg::intersects(line, testFace))
 			continue;
 
 		if (!faceWalkable(face))
@@ -506,41 +502,41 @@ void Pathfinding::drawWalkmesh() {
 	if (_faces.empty())
 		return;
 
-	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-	for (uint32 f = 0; f < _facesCount; ++f) {
-		if (!faceWalkable(f))
-			continue;
-		glBegin(GL_TRIANGLES);
-		glColor3f(0.5, 0.5, 0.5);
-		uint32 vI_1 = _faces[f * 3 + 0];
-		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.01);
-		uint32 vI_2 = _faces[f * 3 + 1];
-		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.01);
-		uint32 vI_3 = _faces[f * 3 + 2];
-		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.01);
-		glEnd();
-	}
-	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-	for (uint32 f = 0; f < _facesCount; ++f) {
-// 		if (!walkable(f))
-// 			continue;
-		glBegin(GL_TRIANGLES);
-		if (faceWalkable(f)) {
-			glColor4f(0.5, 0, 0.5, 0.4);
-		} else {
-			glEnd();
-			continue;
-// 			glColor4f(0.1, 0.5, 0.5, 0.4);
-		}
+//	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
+//	for (uint32 f = 0; f < _facesCount; ++f) {
+//		if (!faceWalkable(f))
+//			continue;
+//		glBegin(GL_TRIANGLES);
+//		glColor3f(0.5, 0.5, 0.5);
+//		uint32 vI_1 = _faces[f * 3 + 0];
+//		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.01);
+//		uint32 vI_2 = _faces[f * 3 + 1];
+//		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.01);
+//		uint32 vI_3 = _faces[f * 3 + 2];
+//		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.01);
+//		glEnd();
+//	}
+//	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+//	for (uint32 f = 0; f < _facesCount; ++f) {
+//// 		if (!walkable(f))
+//// 			continue;
+//		glBegin(GL_TRIANGLES);
+//		if (faceWalkable(f)) {
+//			glColor4f(0.5, 0, 0.5, 0.4);
+//		} else {
+//			glEnd();
+//			continue;
+//// 			glColor4f(0.1, 0.5, 0.5, 0.4);
+//		}
 
-		uint32 vI_1 = _faces[f * 3 + 0];
-		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.04);
-		uint32 vI_2 = _faces[f * 3 + 1];
-		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.04);
-		uint32 vI_3 = _faces[f * 3 + 2];
-		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.04);
-		glEnd();
-	}
+//		uint32 vI_1 = _faces[f * 3 + 0];
+//		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.04);
+//		uint32 vI_2 = _faces[f * 3 + 1];
+//		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.04);
+//		uint32 vI_3 = _faces[f * 3 + 2];
+//		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.04);
+//		glEnd();
+//	}
 
 	// Draw path.
 	for (uint32 f = 0; f < _facesToDraw.size(); ++f) {
@@ -744,23 +740,72 @@ bool Pathfinding::inFace(uint32 faceID, Common::Vector3 point) const {
 
 	std::vector<Common::Vector3> vertices;
 	getVertices(faceID, vertices);
+	// Close the polygon.
+	vertices.push_back(vertices.front());
 
-	// FIXME: The following code doesn't work. Ideally boost::geometry should be used wherever it
-	// makes sense and not an in-house code.
-	//	boost::geometry::model::polygon<Common::Vector3> polygon;
-	//	for (uint32 v = 0; v < _polygonEdges; ++v)
-	//		boost::geometry::append(polygon.outer(), vertices[v]);
-	//	return boost::geometry::within(point, polygon);
+	bg::model::polygon<Common::Vector3> polygon;
+	bg::assign_points(polygon, vertices);
 
-	return Common::inFace(point, vertices[0], vertices[1], vertices[2]);
+	return bg::intersects(point, polygon);
 }
 
 bool Pathfinding::inFace(uint32 faceID, Common::Vector3 lineStart, Common::Vector3 lineEnd, Common::Vector3 &intersect) const {
-	Common::Vector3 vA, vB, vC;
 	std::vector<Common::Vector3> vertices;
-	getVertices(faceID, vertices);
+	getVertices(faceID, vertices, false);
 
-	return Common::inFace(vertices[0], vertices[1], vertices[2], lineStart, lineEnd, intersect);
+	// Boost intersection algorithm in 3 dimensions doesn't seem reliable enough.
+	// This algorithm is taken from "Fast, minimum storage ray/triangle intersection" by Tomas Möller and Ben Trumbore.
+	float epsilon = 0.000001;
+
+	Common::Vector3 segment = lineEnd - lineStart;
+	Common::Vector3 edgeA, edgeB;
+	Common::Vector3 P, Q, T;
+	float determinant, invDeterminant, u, v;
+	float t;
+
+	// Find vectors for two edges sharing vA.
+	edgeA = vertices[1] - vertices[0];
+	edgeB = vertices[2] - vertices[0];
+
+	// Begin calculating determinant - also used to calculate u parameter.
+	P = segment.cross(edgeB);
+
+	// If determinant is near zero, ray lies in plane of triangle or ray is parallel to plane of triangle.
+	determinant = edgeA.dot(P);
+	// Not culling.
+	if (determinant > - epsilon && determinant < epsilon)
+		return false;
+
+	invDeterminant = 1.f / determinant;
+
+	// Calculate distance from vA to ray origin.
+	T = lineStart - vertices[0];
+
+	// Calculate u parameter and test bound.
+	u = T.dot(P) * invDeterminant;
+	// The intersection lies outside of the triangle.
+	if (u < 0.f || u > 1.f)
+		return false;
+
+	// Prepare to test v parameter.
+	Q = T.cross(edgeA);
+
+	// Calculate v parameter and test bound.
+	v = segment.dot(Q) * invDeterminant;
+	// The intersection lies outside of the triangle.
+	if (v < 0.f || u + v  > 1.f)
+		return false;
+
+	t = edgeB.dot(Q) * invDeterminant;
+
+	// Ray intersection.
+	if (t > epsilon) {
+		intersect = lineStart + segment * t;
+		return true;
+	}
+
+	// No hit, no win.
+	return false;
 }
 
 bool Pathfinding::getSharedVertices(uint32 face1, uint32 face2, Common::Vector3 &vert1, Common::Vector3 &vert2) const {

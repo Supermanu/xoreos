@@ -23,7 +23,6 @@
  *  An axis-aligned bounding box node.
  */
 
-#include <boost/geometry.hpp>
 #include <boost/geometry/algorithms/intersects.hpp>
 #include <boost/geometry/geometries/point_xy.hpp>
 #include <boost/geometry/geometries/box.hpp>
@@ -31,7 +30,6 @@
 #include <boost/geometry/geometries/segment.hpp>
 #include <boost/geometry/geometries/register/point.hpp>
 
-#include "src/common/vec3util.h"
 #include "src/common/util.h"
 #include "src/common/aabbnode.h"
 
@@ -168,11 +166,9 @@ void AABBNode::getNodesInAABox2D(Common::Vector3 min, Common::Vector3 max, std::
 	return;
 }
 
-void AABBNode::getNodesInPolygon(Common::Vector3 vertices[], uint32 vertexCount, std::vector<AABBNode *> &nodes) {
+void AABBNode::getNodesInPolygon(std::vector<Common::Vector3> &vertices, std::vector<AABBNode *> &nodes) {
 	boost::geometry::model::polygon<Common::Vector3> polygon;
-	for (uint32 v = 0; v < vertexCount; ++v) {
-		boost::geometry::append(polygon.outer(), vertices[v]);
-	}
+	boost::geometry::assign_points(polygon, vertices);
 
 	boostBox currentNode(Common::Vector3(_min[0], _min[1], 0.f), Common::Vector3(_max[0], _max[1], 0.f));
 
@@ -184,8 +180,8 @@ void AABBNode::getNodesInPolygon(Common::Vector3 vertices[], uint32 vertexCount,
 		return;
 	}
 
-	_leftChild->getNodesInPolygon(vertices, vertexCount, nodes);
-	_rightChild->getNodesInPolygon(vertices, vertexCount, nodes);
+	_leftChild->getNodesInPolygon(vertices, nodes);
+	_rightChild->getNodesInPolygon(vertices, nodes);
 
 	return;
 }

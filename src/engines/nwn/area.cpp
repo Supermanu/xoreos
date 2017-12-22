@@ -563,6 +563,18 @@ void Area::processEventQueue() {
 		float width = 1.f;
 		if        (e->type == Events::kEventMouseMove) { // Moving the mouse
 			hasMove = true;
+
+			float x1, y1, z1, x2, y2, z2;
+			int x, y;
+			CursorMan.getPosition(x, y);
+			GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
+			Common::Vector3 intersect;
+			bool isIntersecting = _pathfinding->findIntersection(x1, y1, z1, x2, y2, z2, intersect, true);
+			if (isIntersecting) {
+				CursorMan.set("walk");
+			} else {
+				CursorMan.set("nowalk");
+			}
 		} else if (e->type == Events::kEventMouseDown) { // Clicking
 			if (e->button.button == SDL_BUTTON_LMASK) {
 				checkActive(e->button.x, e->button.y);
@@ -594,7 +606,7 @@ void Area::processEventQueue() {
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
 							_pathfinding->smoothPath(_startEndPoints[0][0], _startEndPoints[0][1],
-							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width, 20.f);
+							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width, 50.f);
 							_iter = 1000000;
 							_startEndPoints.clear();
 						}

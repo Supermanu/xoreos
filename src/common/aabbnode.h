@@ -65,7 +65,7 @@ public:
 	/** Get the nodes that intersect a given axis-align box. */
 	void getNodesInAABox2D(Common::Vector3 min, Common::Vector3 max, std::vector<AABBNode *> &nodes);
 	/** Get the nodes that intersect a given polygon. */
-	void getNodesInPolygon(Common::Vector3 vertices[], uint32 vertexCount, std::vector<AABBNode *> &nodes);
+	void getNodesInPolygon(std::vector<Common::Vector3> &vertices, std::vector<AABBNode *> &nodes);
 	/** Get the nodes that intersect a given segment in the XY plane. */
 	void getNodesInSegment(Common::Vector3 start, Common::Vector3 end, std::vector<AABBNode *> &nodes);
 	/** Get the property of the AABB. */

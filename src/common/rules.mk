@@ -70,7 +70,6 @@ src_common_libcommon_la_SOURCES += \
     src/common/bitstream.h \
     src/common/huffman.h \
     src/common/vector3.h \
-    src/common/vec3util.h \
     src/common/matrix4x4.h \
     src/common/boundingbox.h \
     src/common/aabbnode.h \
@@ -121,7 +120,6 @@ src_common_libcommon_la_SOURCES += \
     src/common/filepath.cpp \
     src/common/filelist.cpp \
     src/common/huffman.cpp \
-    src/common/vec3util.cpp \
     src/common/matrix4x4.cpp \
     src/common/boundingbox.cpp \
     src/common/aabbnode.cpp \
