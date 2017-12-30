@@ -58,15 +58,6 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	_module(&module), _resRef(resRef), _visible(false), _tileset(0),
 	_activeObject(0), _highlightAll(false) {
 
-	// TODO: Load surfacemat.2da.
-	std::vector<bool> walkableProp;
-	walkableProp.resize(30, true);
-	walkableProp[0] = false;
-	walkableProp[2] = false;
-	walkableProp[7] = false;
-	walkableProp[8] = false;
-	_pathfinding = new Pathfinding(walkableProp);
-	_iter = 100000;
 	try {
 		load();
 	} catch (...) {
@@ -87,7 +78,6 @@ Area::~Area() {
 
 	clear();
 
-	GfxMan.setPathfinding(0);
 	delete _pathfinding;
 }
 
@@ -97,6 +87,10 @@ void Area::load() {
 
 	Aurora::GFF3File git(_resRef, Aurora::kFileTypeGIT, MKTAG('G', 'I', 'T', ' '), true);
 	loadGIT(git.getTopLevel());
+
+	std::vector<bool> walkableProp;
+	loadWalkableSurface(walkableProp);
+	_pathfinding = new Pathfinding(walkableProp);
 }
 
 void Area::clear() {
@@ -252,6 +246,9 @@ void Area::show() {
 	for (ObjectList::iterator o = _objects.begin(); o != _objects.end(); ++o)
 		(*o)->show();
 
+	_pathfinding->showPath(true);
+	_pathfinding->showWalkmesh(true);
+
 	GfxMan.unlockFrame();
 
 	// Play music and sound
@@ -278,6 +275,9 @@ void Area::hide() {
 	// Hide tiles
 	for (std::vector<Tile>::iterator t = _tiles.begin(); t != _tiles.end(); ++t)
 		t->model->hide();
+
+	_pathfinding->showPath(false);
+	_pathfinding->showWalkmesh(false);
 
 	GfxMan.unlockFrame();
 
@@ -490,8 +490,6 @@ void Area::loadTiles() {
 	}
 
 	_pathfinding->finalize();
-	// Attach pathfinding for debugging purpose.
-	GfxMan.setPathfinding(_pathfinding);
 }
 
 void Area::unloadTiles() {
@@ -507,9 +505,6 @@ void Area::unloadTiles() {
 			t.model = 0;
 		}
 	}
-
-	// Detach pathfinding instance.
-	GfxMan.setPathfinding(0);
 }
 
 void Area::loadObject(NWN::Object &object) {
@@ -551,6 +546,16 @@ void Area::loadCreatures(const Aurora::GFF3List &list) {
 	}
 }
 
+void Area::loadWalkableSurface(std::vector<bool> &walkability) {
+	walkability.clear();
+
+	const Aurora::TwoDAFile &surfacematTwoDA = TwoDAReg.get2DA("surfacemat");
+	for (uint32 s = 0; s < surfacematTwoDA.getRowCount(); ++s) {
+		const Aurora::TwoDARow &row = surfacematTwoDA.getRow(s);
+		walkability.push_back(static_cast<bool>(row.getInt("Walk")));
+	}
+}
+
 void Area::addEvent(const Events::Event &event) {
 	_eventQueue.push_back(event);
 }
@@ -564,21 +569,13 @@ void Area::processEventQueue() {
 		if        (e->type == Events::kEventMouseMove) { // Moving the mouse
 			hasMove = true;
 
-			float x1, y1, z1, x2, y2, z2;
-			int x, y;
-			CursorMan.getPosition(x, y);
-			GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
-			Common::Vector3 intersect;
-			bool isIntersecting = _pathfinding->findIntersection(x1, y1, z1, x2, y2, z2, intersect, true);
-			if (isIntersecting) {
-				CursorMan.set("walk");
-			} else {
-				CursorMan.set("nowalk");
-			}
 		} else if (e->type == Events::kEventMouseDown) { // Clicking
 			if (e->button.button == SDL_BUTTON_LMASK) {
 				checkActive(e->button.x, e->button.y);
 				click(e->button.x, e->button.y);
+
+				if (_activeObject)
+					continue;
 
 				float x1, y1, z1, x2, y2, z2;
 				int x, y;
@@ -598,16 +595,14 @@ void Area::processEventQueue() {
 						std::vector<uint32> path;
 						clock_t startFindPath = std::clock();
 						bool out = _pathfinding->findPath(_startEndPoints[0]._x, _startEndPoints[0]._y,
-														  _startEndPoints[1]._x, _startEndPoints[1]._y, path, width, _iter);
+														  _startEndPoints[1]._x, _startEndPoints[1]._y, path, width);
 						clock_t endFindPath = std::clock();
-						++_iter;
 						warning("Out is %i", out);
 						clock_t startSmooth = std::clock();
 						if (out) {
 							std::vector<Common::Vector3> smoothPath;
 							_pathfinding->smoothPath(_startEndPoints[0][0], _startEndPoints[0][1],
-							                         _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width, 50.f);
-							_iter = 1000000;
+							                        _startEndPoints[1][0], _startEndPoints[1][1], path, smoothPath, width, 500.f);
 							_startEndPoints.clear();
 						}
 						clock_t endSmooth = std::clock();
@@ -669,6 +664,18 @@ void Area::checkActive(int x, int y) {
 		CursorMan.getPosition(x, y);
 
 	setActive(getObjectAt(x, y));
+
+	if (!_activeObject) {
+		float x1, y1, z1, x2, y2, z2;
+		GfxMan.unproject((float) x, (float) y, x1, y1, z1, x2, y2, z2);
+		Common::Vector3 intersect;
+		bool isIntersecting = _pathfinding->findIntersection(x1, y1, z1, x2, y2, z2, intersect, true);
+		if (isIntersecting) {
+			CursorMan.set("walk");
+		} else {
+			CursorMan.set("nowalk");
+		}
+	}
 }
 
 void Area::click(int x, int y) {

@@ -65,8 +65,8 @@ Area::Area(Module &module, const Common::UString &resRef) : Object(kObjectTypeAr
 	walkableProp[7] = false;
 	walkableProp[8] = false;
 	_pathfinding = new Pathfinding(walkableProp);
+	_pathfinding->showPath(true);
 	_iter = 1;
-	GfxMan.setPathfinding(_pathfinding);
 
 	try {
 		load();
@@ -87,9 +87,6 @@ Area::~Area() {
 	removeFocus();
 
 	clear();
-
-	GfxMan.setPathfinding(0);
-	delete _pathfinding;
 }
 
 void Area::load() {

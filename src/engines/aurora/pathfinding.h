@@ -19,7 +19,7 @@
  */
 
 /** @file
- *  Base class for pathfinding
+ *  Base class for pathfinding.
  */
 
 #ifndef ENGINES_PATHFINDING_H
@@ -28,11 +28,53 @@
 #include "src/common/ustring.h"
 #include "src/common/vector3.h"
 
+#include "src/graphics/renderable.h"
+
 namespace Common {
 class AABBNode;
 }
 
 namespace Engines {
+
+class Pathfinding;
+
+class Walkmesh : Graphics::Renderable {
+public:
+	Walkmesh(Pathfinding *pathfinding);
+	~Walkmesh();
+
+	void setFaces(std::vector<uint32> &faces);
+
+	void show();
+	void hide();
+
+	// Renderable.
+	void calculateDistance();
+	void render(Graphics::RenderPass pass);
+
+private:
+	Pathfinding *_pathfinding;
+	std::vector<uint32> _highlightedFaces;
+};
+
+class Line : Graphics::Renderable {
+public:
+	Line();
+	~Line();
+
+	void setVertices(std::vector<Common::Vector3> &points);
+
+	void show();
+	void hide();
+
+	// Renderable.
+	void calculateDistance();
+	void render(Graphics::RenderPass pass);
+
+
+private:
+	std::vector<Common::Vector3> _points;
+};
 
 class AStar;
 
@@ -79,16 +121,22 @@ public:
 	/** Set the A* algorithm object. */
 	void setAStarAlgorithm(AStar *aStarAlgorithm);
 
-	void drawWalkmesh();
-
 	/** State if the point, in the XY plane, is walkable. */
 	bool walkable(Common::Vector3 point);
+	/** Get the height at a specific point (in the XY plane) in the walkmesh. */
+	float getHeight(float x, float y);
+
+	/** Show the computed path. */
+	void showPath(bool visible = true);
+	void showWalkmesh(bool visible = true);
 
 protected:
 	/** Find a face according to a point in the XY plane. */
 	uint32 findFace(float x, float y, bool onlyWalkable = true);
 	/** Is the walkmesh face walkable? */
 	bool faceWalkable(uint32 faceID) const;
+	/** Is the surface walkable? */
+	bool surfaceWalkable(uint32 surfaceID) const;
 	/** Get the adjacent faces of a specific face. */
 	void getAdjacentFaces(uint32 face, std::vector<uint32> &adjFaces);
 	/** Get the vertices of a face. */
@@ -139,16 +187,17 @@ private:
 	/** Get the center of the adjacency edge from two faces. */
 	void getAdjacencyCenter(uint32 faceA, uint32 faceB, float &x, float &y) const;
 
-	std::vector<uint32> _facesToDraw;
-	std::vector<Common::Vector3> _linesToDraw;
-	std::vector<Common::Vector3> _pointsToDraw;
 	Common::Vector3 _creaturePos;
 	float _creatureWidth;
+	bool _pathVisible;
+	Line *_pathDrawing;
+	Walkmesh *_walkmeshDrawing;
 
 	std::vector<bool> _walkableProperties; ///< Mapping between surface property and walkability.
 	AStar *_aStarAlgorithm; ///< A* algorithm used.
 
 friend class AStar;
+friend class Walkmesh;
 };
 
 } // namespace Engines

@@ -47,15 +47,164 @@ typedef bg::model::point<float, 3, bg::cs::cartesian> bPoint3D;
 
 namespace Engines {
 
+Walkmesh::Walkmesh(Pathfinding *pathfinding) : Graphics::Renderable(Graphics::kRenderableTypeObject),
+                                             _pathfinding(pathfinding) {
+}
+
+Walkmesh::~Walkmesh() {
+}
+
+void Walkmesh::setFaces(std::vector<uint32> &faces) {
+	_highlightedFaces = faces;
+}
+
+void Walkmesh::show() {
+	Renderable::show();
+}
+
+void Walkmesh::hide() {
+	Renderable::hide();
+}
+
+void Walkmesh::calculateDistance() {
+}
+
+void Walkmesh::render(Graphics::RenderPass pass) {
+	if (pass == Graphics::kRenderPassOpaque)
+		return;
+
+	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+	for (uint32 f = 0; f < _pathfinding->_facesCount; ++f) {
+		glBegin(GL_TRIANGLES);
+		if (_pathfinding->faceWalkable(f)) {
+			glColor4f(0.5, 0, 0.5, 0.4);
+		} else {
+			glColor4f(0.1, 0.5, 0.5, 0.4);
+		}
+
+		uint32 vI_1 = _pathfinding->_faces[f * 3 + 0];
+		glVertex3f(_pathfinding->_vertices[vI_1 * 3], _pathfinding->_vertices[vI_1 * 3 + 1], _pathfinding->_vertices[vI_1 * 3 + 2] + 0.04);
+		uint32 vI_2 = _pathfinding->_faces[f * 3 + 1];
+		glVertex3f(_pathfinding->_vertices[vI_2 * 3], _pathfinding->_vertices[vI_2 * 3 + 1], _pathfinding->_vertices[vI_2 * 3 + 2] + 0.04);
+		uint32 vI_3 = _pathfinding->_faces[f * 3 + 2];
+		glVertex3f(_pathfinding->_vertices[vI_3 * 3], _pathfinding->_vertices[vI_3 * 3 + 1], _pathfinding->_vertices[vI_3 * 3 + 2] + 0.04);
+		glEnd();
+	}
+
+	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+	for (uint32 f = 0; f < _pathfinding->_facesCount; ++f) {
+		glBegin(GL_TRIANGLES);
+		if (_pathfinding->faceWalkable(f)) {
+			glColor4f(0.5, 0, 0.5, 0.4);
+		} else {
+			glColor4f(0.1, 0.5, 0.5, 0.4);
+		}
+
+		uint32 vI_1 = _pathfinding->_faces[f * 3 + 0];
+		glVertex3f(_pathfinding->_vertices[vI_1 * 3], _pathfinding->_vertices[vI_1 * 3 + 1], _pathfinding->_vertices[vI_1 * 3 + 2] + 0.04);
+		uint32 vI_2 = _pathfinding->_faces[f * 3 + 1];
+		glVertex3f(_pathfinding->_vertices[vI_2 * 3], _pathfinding->_vertices[vI_2 * 3 + 1], _pathfinding->_vertices[vI_2 * 3 + 2] + 0.04);
+		uint32 vI_3 = _pathfinding->_faces[f * 3 + 2];
+		glVertex3f(_pathfinding->_vertices[vI_3 * 3], _pathfinding->_vertices[vI_3 * 3 + 1], _pathfinding->_vertices[vI_3 * 3 + 2] + 0.04);
+		glEnd();
+	}
+
+	for (size_t hF = 0; hF < _highlightedFaces.size(); ++hF) {
+		uint32 f = _highlightedFaces[hF];
+		glBegin(GL_TRIANGLES);
+		if (_pathfinding->faceWalkable(f)) {
+			glColor4f(0.5, 0, 0.5, 0.2);
+		} else {
+			glColor4f(0.1, 0.5, 0.5, 0.2);
+		}
+
+		uint32 vI_1 = _pathfinding->_faces[f * 3 + 0];
+		glVertex3f(_pathfinding->_vertices[vI_1 * 3], _pathfinding->_vertices[vI_1 * 3 + 1], _pathfinding->_vertices[vI_1 * 3 + 2] + 0.04);
+		uint32 vI_2 = _pathfinding->_faces[f * 3 + 1];
+		glVertex3f(_pathfinding->_vertices[vI_2 * 3], _pathfinding->_vertices[vI_2 * 3 + 1], _pathfinding->_vertices[vI_2 * 3 + 2] + 0.04);
+		uint32 vI_3 = _pathfinding->_faces[f * 3 + 2];
+		glVertex3f(_pathfinding->_vertices[vI_3 * 3], _pathfinding->_vertices[vI_3 * 3 + 1], _pathfinding->_vertices[vI_3 * 3 + 2] + 0.04);
+		glEnd();
+	}
+}
+
+Line::Line() : Graphics::Renderable(Graphics::kRenderableTypeObject) {
+}
+
+Line::~Line() {
+}
+
+void Line::setVertices(std::vector<Common::Vector3> &points) {
+	if (points.size() < 2)
+		return;
+
+	_points = points;
+}
+
+void Line::show() {
+	Renderable::show();
+}
+
+void Line::hide() {
+	Renderable::hide();
+}
+
+void Line::calculateDistance() {
+}
+
+void Line::render(Graphics::RenderPass pass) {
+	if (pass == Graphics::kRenderPassOpaque)
+		return;
+
+	if (_points.empty())
+		return;
+
+	glLineWidth(3.f);
+	glBegin(GL_LINES);
+	for (size_t p = 0; p < _points.size() - 1; ++p) {
+		glColor4f(1.f, 0.0, 1.0, 0.5);
+		glVertex3f(_points[p]._x, _points[p]._y, _points[p]._z + 0.05);
+		glVertex3f(_points[p + 1]._x, _points[p + 1]._y, _points[p + 1]._z + 0.05);
+	}
+	glEnd();
+	glLineWidth(1.f);
+	return;
+}
+
 Pathfinding::Pathfinding(std::vector<bool> walkableProperties, uint32 polygonEdges) :
                        _polygonEdges(polygonEdges), _verticesCount(0), _facesCount(0),
-                       _walkableProperties(walkableProperties), _aStarAlgorithm(0) {
+                       _pathVisible(false), _walkableProperties(walkableProperties),
+                       _aStarAlgorithm(0) {
 	_creatureWidth = 0.f;
 	_creaturePos = Common::Vector3(0.f, 0.f, 0.f);
+
+	_pathDrawing = new Line();
+	_walkmeshDrawing = new Walkmesh(this);
 }
 
 Pathfinding::~Pathfinding() {
+	delete _pathDrawing;
+	delete _walkmeshDrawing;
+
 	delete _aStarAlgorithm;
+}
+
+void Pathfinding::showPath(bool visible) {
+	_pathVisible = visible;
+
+	if (visible) {
+		_pathDrawing->show();
+	} else {
+		_pathDrawing->hide();
+	}
+}
+
+void Pathfinding::showWalkmesh(bool visible) {
+	if (visible) {
+		_walkmeshDrawing->show();
+	} else {
+		_walkmeshDrawing->hide();
+	}
 }
 
 bool Pathfinding::findPath(float startX, float startY, float endX, float endY,
@@ -64,8 +213,7 @@ bool Pathfinding::findPath(float startX, float startY, float endX, float endY,
 		error("An AStar algorithm must be set");
 
 	bool result = _aStarAlgorithm->findPath(startX, startY, endX, endY, facePath, width, nbrIt);
-	_facesToDraw.clear();
-	_facesToDraw.assign(facePath.begin(), facePath.end());
+	_walkmeshDrawing->setFaces(facePath);
 	return result;
 }
 
@@ -89,7 +237,7 @@ void Pathfinding::minimizePath(std::vector<Common::Vector3> &path, float halfWid
 	std::vector<Common::Vector3> newPath;
 	newPath.push_back(path.front());
 	// Check if we can bypass a step in the path.
-	for (uint32 step = 0; step < path.size() - 2; ++step) {
+	for (size_t step = 0; step < path.size() - 2; ++step) {
 		// Build a rectangle between step and step + 2 and check if it is walkable.
 		Common::Vector3 shift = getOrthonormalVec(path[step + 2] - path[step]);
 		std::vector<Common::Vector3> rectangle;
@@ -157,8 +305,7 @@ void Pathfinding::smoothPath(float startX, float startY, float endX, float endY,
 	uint32 feeler[2] = {0, 0};
 	Common::Vector3 feelerVector[2];
 
-	_pointsToDraw.clear();
-	for (uint32 c = 1; c < tunnel.size(); c++ ) {
+	for (size_t c = 1; c < tunnel.size(); c++ ) {
 		// Get the vector between the apex and the next vertex on the path of faces.
 		Common::Vector3 v = tunnel[c] - tunnel[apex];
 
@@ -207,7 +354,6 @@ void Pathfinding::smoothPath(float startX, float startY, float endX, float endY,
 			}
 		}
 
-		_pointsToDraw.push_back(v + tunnel[apex]);
 		// Are we outside of the feeler ? Or have we just move the apex to new vertex?
 		// The cross operation can state if the vector is on the left or right relatively.
 		if (apex == feeler[tunnelLeftRight[c]]
@@ -252,9 +398,14 @@ void Pathfinding::smoothPath(float startX, float startY, float endX, float endY,
 	path.push_back(start);
 	if (funnelIdx.size() < 2) {
 		path.push_back(end);
-		_linesToDraw.clear();
-		_linesToDraw.push_back(start);
-		_linesToDraw.push_back(end);
+
+		std::vector<Common::Vector3> pathToDraw;
+		pathToDraw.push_back(start);
+		pathToDraw.push_back(end);
+		for (std::vector<Common::Vector3>::iterator it = pathToDraw.begin(); it != pathToDraw.end(); ++it) {
+			it->_z = getHeight(it->_x, it->_y);
+		}
+		_pathDrawing->setVertices(pathToDraw);
 		return;
 	}
 
@@ -268,7 +419,7 @@ void Pathfinding::smoothPath(float startX, float startY, float endX, float endY,
 		Common::Vector3 middleSquare, firstSquare, secondSquare, orthoVec;
 
 		funnelIdx.push_back(tunnel.size() - 1);
-		for (uint32 point = 1; point < funnelIdx.size() - 1; ++point) {
+		for (size_t point = 1; point < funnelIdx.size() - 1; ++point) {
 			uint32 pos = funnelIdx[point];
 			uint32 nextPos = funnelIdx[point + 1];
 			// Check if curcumvention is still needed.
@@ -308,7 +459,7 @@ void Pathfinding::smoothPath(float startX, float startY, float endX, float endY,
 		}
 	} else {
 		// Build the path from the funnel.
-		for (uint32 point = 1; point < funnelIdx.size() - 1; ++point)
+		for (size_t point = 1; point < funnelIdx.size() - 1; ++point)
 			path.push_back(tunnel[funnelIdx[point]]);
 	}
 
@@ -318,16 +469,14 @@ void Pathfinding::smoothPath(float startX, float startY, float endX, float endY,
 	// 	minimizePath(finalPath, halfWidth);
 
 	// Drawing part.
-	_linesToDraw.clear();
+	std::vector<Common::Vector3> pathToDraw;
 	for (std::vector<Common::Vector3>::iterator f = path.begin(); f != path.end(); ++f)
-		_linesToDraw.push_back(*f);
+		pathToDraw.push_back(*f);
 
-	_pointsToDraw.clear();
-	_pointsToDraw.push_back(start);
-	for (std::vector<uint32>::iterator f = funnelIdx.begin(); f != funnelIdx.end(); ++f)
-		_pointsToDraw.push_back(tunnel[*f]);
-
-	_pointsToDraw.push_back(end);
+	for (std::vector<Common::Vector3>::iterator it = pathToDraw.begin(); it != pathToDraw.end(); ++it) {
+		it->_z = getHeight(it->_x, it->_y);
+	}
+	_pathDrawing->setVertices(pathToDraw);
 }
 
 void Pathfinding::getVerticesTunnel(std::vector<uint32> &facePath, std::vector<Common::Vector3> &tunnel,
@@ -337,7 +486,7 @@ void Pathfinding::getVerticesTunnel(std::vector<uint32> &facePath, std::vector<C
 
 	std::vector<Common::Vector3> cVerts, pVerts;
 
-	for (uint32 face = 1; face < facePath.size(); ++face) {
+	for (size_t face = 1; face < facePath.size(); ++face) {
 		getVertices(facePath[face], cVerts);
 		getVertices(facePath[face - 1], pVerts);
 
@@ -383,7 +532,7 @@ void Pathfinding::getVerticesTunnel(std::vector<uint32> &facePath, std::vector<C
 				if (equal) {
 					// Check if it is a new vertex or an already added vertex.
 					bool alreadyThere = false;
-					for (uint32 t = tunnel.size() - 1; t != UINT32_MAX;--t) {
+					for (size_t t = tunnel.size() - 1; t != SIZE_MAX;--t) {
 						if (cVerts[cV] == tunnel[t]) {
 							// The new vertex has to be the vertex from the previous face which we hadn't add last time.
 							// So if we know on which side the vertex we previously added, we can deduce the side of the new added vertex.
@@ -498,98 +647,6 @@ bool Pathfinding::walkableSegment(Common::Vector3 start, Common::Vector3 end) {
 	return true;
 }
 
-void Pathfinding::drawWalkmesh() {
-	if (_faces.empty())
-		return;
-
-//	glPolygonMode( GL_FRONT_AND_BACK, GL_LINE );
-//	for (uint32 f = 0; f < _facesCount; ++f) {
-//		if (!faceWalkable(f))
-//			continue;
-//		glBegin(GL_TRIANGLES);
-//		glColor3f(0.5, 0.5, 0.5);
-//		uint32 vI_1 = _faces[f * 3 + 0];
-//		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.01);
-//		uint32 vI_2 = _faces[f * 3 + 1];
-//		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.01);
-//		uint32 vI_3 = _faces[f * 3 + 2];
-//		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.01);
-//		glEnd();
-//	}
-//	glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
-//	for (uint32 f = 0; f < _facesCount; ++f) {
-//// 		if (!walkable(f))
-//// 			continue;
-//		glBegin(GL_TRIANGLES);
-//		if (faceWalkable(f)) {
-//			glColor4f(0.5, 0, 0.5, 0.4);
-//		} else {
-//			glEnd();
-//			continue;
-//// 			glColor4f(0.1, 0.5, 0.5, 0.4);
-//		}
-
-//		uint32 vI_1 = _faces[f * 3 + 0];
-//		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.04);
-//		uint32 vI_2 = _faces[f * 3 + 1];
-//		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.04);
-//		uint32 vI_3 = _faces[f * 3 + 2];
-//		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.04);
-//		glEnd();
-//	}
-
-	// Draw path.
-	for (uint32 f = 0; f < _facesToDraw.size(); ++f) {
-		glBegin(GL_TRIANGLES);
-		glColor4f(0.5, 0.2, 0.5, 0.4);
-
-		uint32 vI_1 = _faces[_facesToDraw[f] * 3 + 0];
-		glVertex3f(_vertices[vI_1 * 3], _vertices[vI_1 * 3 + 1], _vertices[vI_1 * 3 + 2] + 0.04);
-		uint32 vI_2 = _faces[_facesToDraw[f] * 3 + 1];
-		glVertex3f(_vertices[vI_2 * 3], _vertices[vI_2 * 3 + 1], _vertices[vI_2 * 3 + 2] + 0.04);
-		uint32 vI_3 = _faces[_facesToDraw[f] * 3 + 2];
-		glVertex3f(_vertices[vI_3 * 3], _vertices[vI_3 * 3 + 1], _vertices[vI_3 * 3 + 2] + 0.04);
-		glEnd();
-	}
-
-	if (_linesToDraw.size() < 1)
-		return;
-
-	for (uint32 p = 0; p < _linesToDraw.size() - 1; ++p) {
-		glLineWidth(3.f);
-		glBegin(GL_LINES);
-		glColor4f(1.f, 0.0, 1.0, 0.5);
-		glVertex3f(_linesToDraw[p]._x, _linesToDraw[p]._y, _linesToDraw[p]._z + 0.05);
-		glVertex3f(_linesToDraw[p + 1]._x, _linesToDraw[p + 1]._y, _linesToDraw[p + 1]._z + 0.05);
-		glEnd();
-		glLineWidth(1.f);
-
-	}
-
-	if (_creatureWidth > 0.f) {
-		glBegin(GL_LINES);
-		glColor4f(1.f, 0.3, 1.0, 0.8);
-		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glVertex3f(_creaturePos._x - 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y - 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glVertex3f(_creaturePos._x + 0.5f * _creatureWidth, _creaturePos._y + 0.5f * _creatureWidth, _creaturePos._z + 0.05);
-		glEnd();
-	}
-
-	if (_pointsToDraw.size() > 0) {
-		glColor3f(1.0f,1.0f,1.0f);
-		glPointSize(10.0f);
-		glBegin(GL_POINTS);
-		for (std::vector<Common::Vector3>::iterator p = _pointsToDraw.begin(); p != _pointsToDraw.end(); ++p)
-			glVertex3f((*p)._x, (*p)._y, (*p)._z + 0.05);
-		glEnd();
-	}
-}
-
 bool Pathfinding::walkable(Common::Vector3 point) {
 	uint32 face = findFace(point[0], point[1]);
 	if (face == UINT32_MAX) {
@@ -598,6 +655,15 @@ bool Pathfinding::walkable(Common::Vector3 point) {
 	}
 
 	return faceWalkable(face);
+}
+
+float Pathfinding::getHeight(float x, float y) {
+	Common::Vector3 intersection;
+	if (findIntersection(x, y, 100, x, y, -100, intersection)) {
+		return intersection[2];
+	} else {
+		return 0.f;
+	}
 }
 
 uint32 Pathfinding::findFace(float x, float y, bool onlyWalkable) {
@@ -829,7 +895,17 @@ void Pathfinding::setAStarAlgorithm(AStar *aStarAlgorithm) {
 }
 
 bool Pathfinding::faceWalkable(uint32 faceID) const {
-	return _walkableProperties[_faceProperty[faceID]];
+	if (faceID >= _faceProperty.size())
+		return false;
+
+	return surfaceWalkable(_faceProperty[faceID]);
+}
+
+bool Pathfinding::surfaceWalkable(uint32 surfaceID) const {
+	if (surfaceID >= _walkableProperties.size())
+		return false;
+
+	return _walkableProperties[surfaceID];
 }
 
 } // namespace Engines

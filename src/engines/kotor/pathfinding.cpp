@@ -156,7 +156,7 @@ void Pathfinding::addData(const Common::UString &wokFile) {
 }
 
 void Pathfinding::finalize() {
-	for (uint32 r = 0; r < _adjRooms.size(); ++r) {
+	for (size_t r = 0; r < _adjRooms.size(); ++r) {
 		for (std::map<uint32, uint32>::iterator ar = _adjRooms[r].begin(); ar != _adjRooms[r].end(); ++ar) {
 			if (ar->second == UINT32_MAX)
 				continue;

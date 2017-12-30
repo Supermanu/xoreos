@@ -205,7 +205,6 @@ private:
 
 	Pathfinding *_pathfinding;
 	std::vector<Common::Vector3> _startEndPoints;
-	uint32 _iter;
 
 	// Loading helpers
 
@@ -225,6 +224,8 @@ private:
 	void loadPlaceables(const Aurora::GFF3List &list);
 	void loadDoors     (const Aurora::GFF3List &list);
 	void loadCreatures (const Aurora::GFF3List &list);
+
+	void loadWalkableSurface(std::vector<bool> &walkability);
 
 	// Model loading/unloading helpers
 
